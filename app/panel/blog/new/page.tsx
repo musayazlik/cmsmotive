@@ -1,18 +1,25 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PostForm from "../_components/post-form";
+import type { CoverRef } from "../_lib";
 import type { SelectOption } from "@/app/panel/_components/ui/select";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewPostPage() {
-  const [categories, tags] = await Promise.all([
+  const [categories, tags, mediaAssets] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.mediaAsset.findMany({
+      where: { mimeType: { startsWith: "image" } },
+      orderBy: { createdAt: "desc" },
+      take: 36,
+      select: { id: true, url: true, fileName: true },
+    }),
   ]);
 
   const categoryOptions: SelectOption[] = categories.map((category) => ({ value: category.id, label: category.name }));
   const tagOptions: SelectOption[] = tags.map((tag) => ({ value: tag.id, label: tag.name }));
+  const media: CoverRef[] = mediaAssets.map((asset) => ({ assetId: asset.id, url: asset.url, name: asset.fileName }));
 
   return (
     <>
@@ -29,9 +36,6 @@ export default async function NewPostPage() {
             Add a cover image, a category and tags before publishing.
           </p>
         </div>
-        <Link className="wbtn wbtn-ghost" href="/panel/blog">
-          Back to posts
-        </Link>
       </div>
 
       <PostForm
@@ -49,6 +53,7 @@ export default async function NewPostPage() {
         }}
         categories={categoryOptions}
         tags={tagOptions}
+        media={media}
       />
     </>
   );

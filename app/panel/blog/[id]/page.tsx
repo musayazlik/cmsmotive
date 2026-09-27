@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import PostForm from "../_components/post-form";
-import type { PostFormInitial } from "../_lib";
+import type { CoverRef, PostFormInitial } from "../_lib";
 import type { SelectOption } from "@/app/panel/_components/ui/select";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [post, categories, tags] = await Promise.all([
+  const [post, categories, tags, mediaAssets] = await Promise.all([
     prisma.post.findUnique({
       where: { id },
       include: {
@@ -20,6 +19,12 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
     }),
     prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.mediaAsset.findMany({
+      where: { mimeType: { startsWith: "image" } },
+      orderBy: { createdAt: "desc" },
+      take: 36,
+      select: { id: true, url: true, fileName: true },
+    }),
   ]);
 
   if (!post) notFound();
@@ -40,6 +45,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
 
   const categoryOptions: SelectOption[] = categories.map((category) => ({ value: category.id, label: category.name }));
   const tagOptions: SelectOption[] = tags.map((tag) => ({ value: tag.id, label: tag.name }));
+  const media: CoverRef[] = mediaAssets.map((asset) => ({ assetId: asset.id, url: asset.url, name: asset.fileName }));
 
   return (
     <>
@@ -53,12 +59,9 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
           </h1>
           <p>Update the content, media, SEO fields or publish state. Changes apply immediately after saving.</p>
         </div>
-        <Link className="wbtn wbtn-ghost" href="/panel/blog">
-          Back to posts
-        </Link>
       </div>
 
-      <PostForm initial={initial} categories={categoryOptions} tags={tagOptions} />
+      <PostForm initial={initial} categories={categoryOptions} tags={tagOptions} media={media} />
     </>
   );
 }

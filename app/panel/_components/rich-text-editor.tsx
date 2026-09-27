@@ -1,6 +1,7 @@
 "use client";
 
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect } from "react";
@@ -26,7 +27,8 @@ const CONTROLS: { label: string; isActive: (editor: Editor) => boolean; run: (ed
 
 export default function RichTextEditor({ id, value, onChange, placeholder }: Props) {
   const editor = useEditor({
-    extensions: [StarterKit, Placeholder.configure({ placeholder: placeholder ?? "Write the description…" })],
+    // Image keeps AI-generated inline illustrations (markdown → <img>) alive in the editor.
+    extensions: [StarterKit, Image, Placeholder.configure({ placeholder: placeholder ?? "Write the description…" })],
     content: value,
     // Next.js renders on the server; deferring construction avoids a hydration mismatch.
     immediatelyRender: false,

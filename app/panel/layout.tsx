@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "../panel.css";
 import { prisma } from "@/lib/prisma";
 import { requirePanelUser } from "@/lib/panel-auth";
 import { getUploadSettings } from "@/lib/settings";

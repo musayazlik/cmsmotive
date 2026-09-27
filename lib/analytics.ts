@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  */
 
 /** UTC midnight of the given day — the bucket all counters key on. */
-function dayBucket(date = new Date()): Date {
+export function dayBucket(date = new Date()): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "./panel.css";
 
 export const metadata: Metadata = {
   title: "Workspace — CMSMotive",
@@ -8,6 +7,11 @@ export const metadata: Metadata = {
   icons: { icon: "/assets/icons/favicon.png" },
 };
 
+/**
+ * Deliberately bare: the panel pulls its stylesheet in app/panel/layout.tsx
+ * and public pages ship their own site.css, so the workspace stylesheet
+ * never leaks into public routes.
+ */
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en" className="js"><body>{children}</body></html>;
 }

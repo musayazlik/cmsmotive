@@ -2,6 +2,7 @@ import { statfs } from "node:fs/promises";
 import os from "node:os";
 import { prisma } from "@/lib/prisma";
 import { utapi } from "@/lib/utapi";
+import { dayBucket } from "@/lib/analytics";
 
 /**
  * Status snapshot for the panel overview: host resources, mail delivery
@@ -122,10 +123,9 @@ export async function getStorageStatus(): Promise<StorageStatus | null> {
 }
 
 export async function getDailyReads(days = 14): Promise<DailyReads> {
-  const today = new Date();
+  const today = dayBucket();
   const first = new Date(today);
   first.setUTCDate(first.getUTCDate() - (days - 1));
-  first.setUTCHours(0, 0, 0, 0);
 
   const [rows, allTime] = await Promise.all([
     prisma.pageViewDaily.findMany({
@@ -135,8 +135,9 @@ export async function getDailyReads(days = 14): Promise<DailyReads> {
     prisma.pageViewDaily.aggregate({ _sum: { views: true } }),
   ]);
 
-  // Bucket by day keeps the top slug per day; the loop below fills quiet
-  // days so the table always shows a continuous range.
+  // Bucket by day keeps the top slug per day; the loop below walks from
+  // today backwards so the table always shows a continuous, newest-first
+  // range even for quiet days.
   const byDay = new Map<string, { views: number; topSlug: string | null; topViews: number }>();
   for (const row of rows) {
     const key = row.date.toISOString().slice(0, 10);
@@ -150,7 +151,7 @@ export async function getDailyReads(days = 14): Promise<DailyReads> {
 
   const out: DailyReads["days"] = [];
   for (let offset = 0; offset < days; offset += 1) {
-    const day = new Date(first);
+    const day = new Date(today);
     day.setUTCDate(day.getUTCDate() - offset);
     const key = day.toISOString().slice(0, 10);
     const bucket = byDay.get(key);

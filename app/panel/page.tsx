@@ -8,9 +8,9 @@ import {
   type DailyReads,
   type MailStatus,
   type StorageStatus,
-  type SystemStatus,
 } from "@/lib/status";
 import { formatBytes } from "./media/_lib";
+import SystemCharts from "./_components/system-charts";
 
 export const dynamic = "force-dynamic";
 
@@ -43,82 +43,6 @@ function StatusBadge({ state }: { state: "ok" | "warn" | "off" }) {
     off: { cls: "wbadge wbadge-user", label: "Not configured" },
   } as const;
   return <span className={map[state].cls}>{map[state].label}</span>;
-}
-
-function SystemCard({ system }: { system: SystemStatus }) {
-  return (
-    <article className="status-card" aria-labelledby="status-system">
-      <header className="status-head">
-        <span className="status-title" id="status-system">
-          SYSTEM
-        </span>
-        <span className="status-note">{system.cores} cores</span>
-      </header>
-      <StatusRow label="CPU load" value={`${system.cpuPercent}%`} sub={`1 min avg`} meter={system.cpuPercent} />
-      <StatusRow
-        label="Memory"
-        value={formatBytes(system.ramUsed)}
-        sub={`of ${formatBytes(system.ramTotal)}`}
-        meter={(system.ramUsed / system.ramTotal) * 100}
-      />
-      <StatusRow
-        label="Disk"
-        value={formatBytes(system.diskUsed)}
-        sub={`of ${formatBytes(system.diskTotal)}`}
-        meter={system.diskTotal ? (system.diskUsed / system.diskTotal) * 100 : 0}
-      />
-    </article>
-  );
-}
-
-function MailCard({ mail }: { mail: MailStatus }) {
-  const state = !mail.plunkConfigured ? "off" : mail.plunkContacts === null ? "warn" : "ok";
-  return (
-    <article className="status-card" aria-labelledby="status-mail">
-      <header className="status-head">
-        <span className="status-title" id="status-mail">
-          MAIL / PLUNK
-        </span>
-        <StatusBadge state={state} />
-      </header>
-      <StatusRow
-        label="Inquiries"
-        value={String(mail.inquiriesTotal)}
-        sub={`${mail.inquiriesUnread} unread`}
-      />
-      <StatusRow label="Deliveries" value={`${mail.emailsSent} sent`} sub={`${mail.emailsFailed} pending`} />
-      <StatusRow label="Newsletter" value={`${mail.subscribers} subscribers`} />
-      <StatusRow label="Plunk contacts" value={mail.plunkContacts === null ? "—" : String(mail.plunkContacts)} />
-    </article>
-  );
-}
-
-function StorageCard({ storage }: { storage: StorageStatus | null }) {
-  return (
-    <article className="status-card" aria-labelledby="status-storage">
-      <header className="status-head">
-        <span className="status-title" id="status-storage">
-          STORAGE / UPLOADTHING
-        </span>
-        <a className="status-link" href="/panel/media">
-          Media ↗
-        </a>
-      </header>
-      {storage ? (
-        <>
-          <StatusRow label="Files" value={String(storage.filesUploaded)} />
-          <StatusRow
-            label="Used"
-            value={formatBytes(storage.totalBytes)}
-            sub={storage.limitBytes > 0 ? `of ${formatBytes(storage.limitBytes)} plan` : "plan limit unknown"}
-            meter={storage.limitBytes > 0 ? (storage.totalBytes / storage.limitBytes) * 100 : undefined}
-          />
-        </>
-      ) : (
-        <StatusRow label="UploadThing" value="—" sub="Stats are unavailable right now." />
-      )}
-    </article>
-  );
 }
 
 function DailyReadsTable({ reads }: { reads: DailyReads }) {
@@ -206,10 +130,47 @@ export default async function PanelOverviewPage() {
         <span className="workspace-index">01 / 05</span>
       </div>
 
-      <div className="status-grid" aria-label="Workspace status">
-        <SystemCard system={system} />
-        <MailCard mail={mail} />
-        <StorageCard storage={storage} />
+      <div className="status-grid" aria-label="System charts">
+        <SystemCharts initial={system} />
+      </div>
+
+      <div className="status-grid status-grid-duo" aria-label="Service status">
+        <article className="status-card" aria-labelledby="status-mail">
+          <header className="status-head">
+            <span className="status-title" id="status-mail">
+              MAIL / PLUNK
+            </span>
+            <StatusBadge state={!mail.plunkConfigured ? "off" : mail.plunkContacts === null ? "warn" : "ok"} />
+          </header>
+          <StatusRow label="Inquiries" value={String(mail.inquiriesTotal)} sub={`${mail.inquiriesUnread} unread`} />
+          <StatusRow label="Deliveries" value={`${mail.emailsSent} sent`} sub={`${mail.emailsFailed} pending`} />
+          <StatusRow label="Newsletter" value={`${mail.subscribers} subscribers`} />
+          <StatusRow label="Plunk contacts" value={mail.plunkContacts === null ? "—" : String(mail.plunkContacts)} />
+        </article>
+
+        <article className="status-card" aria-labelledby="status-storage">
+          <header className="status-head">
+            <span className="status-title" id="status-storage">
+              STORAGE / UPLOADTHING
+            </span>
+            <a className="status-link" href="/panel/media">
+              Media ↗
+            </a>
+          </header>
+          {storage ? (
+            <>
+              <StatusRow label="Files" value={String(storage.filesUploaded)} />
+              <StatusRow
+                label="Used"
+                value={formatBytes(storage.totalBytes)}
+                sub={storage.limitBytes > 0 ? `of ${formatBytes(storage.limitBytes)} plan` : "plan limit unknown"}
+                meter={storage.limitBytes > 0 ? (storage.totalBytes / storage.limitBytes) * 100 : undefined}
+              />
+            </>
+          ) : (
+            <StatusRow label="UploadThing" value="—" sub="Stats are unavailable right now." />
+          )}
+        </article>
       </div>
 
       <DailyReadsTable reads={reads} />

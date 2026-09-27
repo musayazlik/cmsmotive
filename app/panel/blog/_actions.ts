@@ -90,6 +90,9 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
   if (input.status === "scheduled" && (!scheduledAt || Number.isNaN(scheduledAt.getTime()))) {
     return { ok: false, error: "Pick a date and time to schedule this post." };
   }
+  if (scheduledAt && scheduledAt <= new Date()) {
+    return { ok: false, error: "Choose a future date and time to schedule this post." };
+  }
 
   const coverId = input.coverId;
   if (coverId) {
@@ -113,6 +116,8 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
 
   try {
     const finalSlug = await uniqueSlug("post", slug, input.id);
+    // Nested deleteMany is only valid on update — a fresh create has
+    // nothing to replace, so the tag writes are shaped per branch.
     const data = {
       title,
       slug: finalSlug,
@@ -124,12 +129,10 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
       featured: input.featured,
       readingTime: estimateReadingTime(input.content),
       categoryId: categoryId ?? null,
-      tags: {
-        deleteMany: {},
-        create: tagIds.map((tagId) => ({ tagId })),
-      },
     };
+    const tagLinks = tagIds.map((tagId) => ({ tagId }));
 
+    let savedId: string;
     if (input.id) {
       const existing = await prisma.post.findUnique({
         where: { id: input.id },
@@ -141,23 +144,28 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
         where: { id: input.id },
         data: {
           ...data,
+          tags: { deleteMany: {}, create: tagLinks },
           // Keep the original first-publish date; a draft reset clears it.
           publishedAt:
             input.status === "published" ? (existing.publishedAt ?? new Date()) : null,
         },
       });
+      savedId = input.id;
     } else {
-      await prisma.post.create({
+      const created = await prisma.post.create({
         data: {
           ...data,
+          tags: { create: tagLinks },
           authorId: session?.user.id ?? null,
           publishedAt: input.status === "published" ? new Date() : null,
         },
+        select: { id: true },
       });
+      savedId = created.id;
     }
 
     revalidateBlog();
-    return { ok: true };
+    return { ok: true, id: savedId };
   } catch (error) {
     if (isUniqueViolation(error)) {
       return { ok: false, error: "A post with this slug already exists." };

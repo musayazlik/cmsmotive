@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import CoverField from "./cover-field";
 import BlogEditor from "./blog-editor";
 import ColorField from "./color-field";
+import AiDialog, { type AiApplyPayload } from "./ai-dialog";
 import { deletePost, saveCategory, savePost, saveTag } from "../_actions";
 import {
   EXCERPT_MAX,
@@ -18,7 +19,7 @@ import {
 import MultiSelect from "@/app/panel/_components/ui/multi-select";
 import Select, { type SelectOption } from "@/app/panel/_components/ui/select";
 import CheckBox from "@/app/panel/_components/ui/checkbox";
-import DatePicker from "@/app/panel/_components/ui/date-picker";
+import DatePicker, { toISO } from "@/app/panel/_components/ui/date-picker";
 import TextArea from "@/app/panel/_components/ui/text-area";
 import TextField from "@/app/panel/_components/ui/text-field";
 import { slugify } from "@/lib/slug";
@@ -28,10 +29,31 @@ type Props = {
   initial: PostFormInitial;
   categories: SelectOption[];
   tags: SelectOption[];
+  /** Uploaded image assets for the cover picker dialog, newest first. */
+  media: CoverRef[];
 };
 
 const EMPTY_CATEGORY_FORM = { name: "", slug: "", description: "", color: "#4353e8" };
 const EMPTY_TAG_FORM = { name: "", slug: "" };
+const PUBLISH_OPTIONS: SelectOption[] = [
+  { value: "draft", label: "Save as draft" },
+  { value: "published", label: "Publish now" },
+  { value: "scheduled", label: "Schedule publication" },
+];
+const PUBLISH_HELP: Record<PostStatus, string> = {
+  draft: "Keep this post private while you work on it.",
+  published: "Make this post visible on the blog immediately.",
+  scheduled: "Choose when this post should go live.",
+};
+
+function initialSchedule(iso: string | null) {
+  if (!iso) return { date: "", time: "" };
+  const value = new Date(iso);
+  return {
+    date: toISO(value),
+    time: `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`,
+  };
+}
 
 function CharCounter({ value, max }: { value: number; max: number }) {
   const near = value > max * 0.9;
@@ -58,9 +80,11 @@ function SearchPreview({ title, slug, excerpt }: { title: string; slug: string; 
   );
 }
 
-export default function PostForm({ initial, categories, tags }: Props) {
+export default function PostForm({ initial, categories, tags, media }: Props) {
   const router = useRouter();
+  const originalSchedule = initialSchedule(initial.scheduledAt);
 
+  const [postId, setPostId] = useState(initial.id);
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(initial.slug));
@@ -68,8 +92,9 @@ export default function PostForm({ initial, categories, tags }: Props) {
   const [content, setContent] = useState(initial.content);
   const [cover, setCover] = useState<CoverRef | null>(initial.cover);
   const [status, setStatus] = useState<PostStatus>(initial.status);
-  const [scheduleDate, setScheduleDate] = useState(initial.scheduledAt ? initial.scheduledAt.slice(0, 10) : "");
-  const [scheduleTime, setScheduleTime] = useState(initial.scheduledAt ? initial.scheduledAt.slice(11, 16) : "");
+  const [savedStatus, setSavedStatus] = useState<PostStatus>(initial.status);
+  const [scheduleDate, setScheduleDate] = useState(originalSchedule.date);
+  const [scheduleTime, setScheduleTime] = useState(originalSchedule.time);
   const scheduledAt = scheduleDate && scheduleTime ? `${scheduleDate}T${scheduleTime}` : "";
   const [featured, setFeatured] = useState(initial.featured);
   const [categoryId, setCategoryId] = useState(initial.categoryId ?? "");
@@ -78,7 +103,9 @@ export default function PostForm({ initial, categories, tags }: Props) {
   const [tagOptions, setTagOptions] = useState(tags);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // create dialogs mirror the ones on the categories/tags pages
   const categoryDialogRef = useRef<HTMLDialogElement>(null);
@@ -171,40 +198,119 @@ export default function PostForm({ initial, categories, tags }: Props) {
     router.refresh();
   }
 
-  async function submit(nextStatus: PostStatus) {
-    if (nextStatus === "scheduled" && !scheduledAt) {
-      setError("Pick a date and time to schedule this post.");
-      return;
+  /** Apply the generated fields and persist the complete post as a draft. */
+  async function handleAiApply(payload: AiApplyPayload): Promise<void> {
+    const nextTitle = (payload.title ?? title).trim() || payload.fallbackTitle.slice(0, TITLE_MAX);
+    const nextSlug = !slugTouched ? slugify(nextTitle) : slug;
+    const nextExcerpt = payload.description ?? excerpt;
+    const nextContent = payload.contentHtml ?? content;
+    const nextCover = payload.cover !== undefined ? payload.cover : cover;
+    const nextCategoryId = payload.categoryId ?? categoryId;
+    const nextTagIds = payload.tagIds ? Array.from(new Set([...tagIds, ...payload.tagIds])) : tagIds;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    let result: ActionResult;
+    try {
+      result = await savePost({
+        id: postId,
+        title: nextTitle,
+        slug: nextSlug,
+        excerpt: nextExcerpt,
+        content: nextContent,
+        coverId: nextCover?.assetId || null,
+        status: "draft",
+        scheduledAt: null,
+        featured,
+        categoryId: nextCategoryId || null,
+        tagIds: nextTagIds,
+      });
+    } catch {
+      setError("The generated draft could not be saved. Try again.");
+      throw new Error("The generated draft could not be saved. Try again.");
+    } finally {
+      setBusy(false);
+    }
+    if (!result.ok) {
+      setError(result.error);
+      throw new Error(result.error);
+    }
+
+    setPostId(result.id);
+    setTitle(nextTitle);
+    setSlug(nextSlug);
+    setExcerpt(nextExcerpt);
+    setContent(nextContent);
+    setCover(nextCover);
+    setCategoryId(nextCategoryId);
+    setTagIds(nextTagIds);
+    setStatus("draft");
+    setSavedStatus("draft");
+    setScheduleDate("");
+    setScheduleTime("");
+    if (payload.newCategoryOption) {
+      const option = payload.newCategoryOption;
+      setCategoryOptions((prev) => (prev.some((existing) => existing.value === option.value) ? prev : [...prev, option]));
+    }
+    if (payload.newTagOptions && payload.newTagOptions.length > 0) {
+      setTagOptions((prev) => [
+        ...prev,
+        ...payload.newTagOptions!.filter((option) => !prev.some((existing) => existing.value === option.value)),
+      ]);
+    }
+    setNotice("AI content was saved automatically as a draft.");
+    setAiOpen(false);
+    if (!postId && result.id) router.replace(`/panel/blog/${result.id}`);
+    else router.refresh();
+  }
+
+  async function submit() {
+    let publishAt: Date | null = null;
+    if (status === "scheduled") {
+      publishAt = scheduledAt ? new Date(scheduledAt) : null;
+      if (!publishAt || Number.isNaN(publishAt.getTime()) || publishAt <= new Date()) {
+        setError("Choose a future date and time to schedule this post.");
+        return;
+      }
     }
     setBusy(true);
     setError("");
-    const result: ActionResult = await savePost({
-      id: initial.id,
-      title,
-      slug,
-      excerpt,
-      content,
-      coverId: cover?.assetId || null,
-      status: nextStatus,
-      scheduledAt: nextStatus === "scheduled" ? new Date(scheduledAt).toISOString() : null,
-      featured,
-      categoryId: categoryId || null,
-      tagIds,
-    });
-    setBusy(false);
+    setNotice("");
+    let result: ActionResult;
+    try {
+      result = await savePost({
+        id: postId,
+        title,
+        slug,
+        excerpt,
+        content,
+        coverId: cover?.assetId || null,
+        status,
+        scheduledAt: publishAt?.toISOString() ?? null,
+        featured,
+        categoryId: categoryId || null,
+        tagIds,
+      });
+    } catch {
+      setError("The post could not be saved. Try again.");
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setStatus(nextStatus);
+    setSavedStatus(status);
     router.push("/panel/blog");
     router.refresh();
   }
 
   async function handleDelete() {
-    if (!initial.id) return;
+    if (!postId) return;
     setBusy(true);
-    const result = await deletePost(initial.id);
+    const result = await deletePost(postId);
     setBusy(false);
     setConfirmDelete(false);
     if (!result.ok) {
@@ -215,17 +321,28 @@ export default function PostForm({ initial, categories, tags }: Props) {
     router.refresh();
   }
 
-  const publishLabel = initial.id
-    ? initial.status === "published"
-      ? "Update published post"
-      : "Publish"
-    : "Publish";
+  const publishLabel = status === "published" ? "Publish now" : status === "scheduled" ? "Schedule post" : "Save draft";
 
   return (
     <form
       className="wform-card"
       onSubmit={(event) => event.preventDefault()}
     >
+      <div className="wpost-toolbar">
+        <Link className="wbtn wbtn-ghost" href="/panel/blog">← Back to posts</Link>
+        <div className="wpost-toolbar-actions">
+          <button type="button" className="wbtn wbtn-primary" onClick={() => setAiOpen(true)} disabled={busy}>
+            <span aria-hidden="true">✦</span> Generate with AI
+          </button>
+          {postId ? (
+            <button type="button" className="wbtn wbtn-danger-ghost" onClick={() => setConfirmDelete(true)} disabled={busy}>
+              Delete post
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {error ? <p className="wdialog-error wpost-feedback" role="alert">{error}</p> : null}
+      {notice ? <p className="wpost-notice" role="status">{notice}</p> : null}
       <div className="wform-grid">
         <div className="wform-main">
           <div className="wfield-card">
@@ -266,61 +383,65 @@ export default function PostForm({ initial, categories, tags }: Props) {
         <div className="wform-side">
           <div className="wfield-card">
             <p className="wsection-label">Publishing</p>
-            <button type="button" className="wbtn wbtn-primary wbtn-block" onClick={() => submit("published")} disabled={busy}>
-              {busy ? "Working…" : publishLabel}
-            </button>
+            <Select
+              id="post-publish-status"
+              label="Publishing status"
+              value={status}
+              onChange={(next) => {
+                setStatus(next as PostStatus);
+                setError("");
+              }}
+              options={PUBLISH_OPTIONS}
+            />
+            <p className="wpub-description">{PUBLISH_HELP[status]}</p>
 
-            <div className="wpub-when">
-              <span className="wfield-label-like">Schedule</span>
-              <div className="wpub-when-row">
-                <DatePicker
-                  label="Schedule date"
-                  hideLabel
-                  value={scheduleDate}
-                  onChange={setScheduleDate}
-                  placeholder="YYYY-MM-DD"
-                />
-                <div className="wfield">
-                  <input
-                    type="time"
-                    aria-label="Schedule time"
-                    value={scheduleTime}
-                    onChange={(event) => setScheduleTime(event.target.value)}
+            {status === "scheduled" ? (
+              <div className="wpub-when">
+                <span className="wfield-label-like">Publish on</span>
+                <div className="wpub-when-row">
+                  <DatePicker
+                    id="post-schedule-date"
+                    label="Schedule date"
+                    hideLabel
+                    value={scheduleDate}
+                    onChange={(next) => { setScheduleDate(next); setError(""); }}
+                    placeholder="YYYY-MM-DD"
                   />
+                  <div className="wfield">
+                    <label className="visually-hidden" htmlFor="post-schedule-time">Schedule time</label>
+                    <input
+                      id="post-schedule-time"
+                      type="time"
+                      value={scheduleTime}
+                      onChange={(event) => { setScheduleTime(event.target.value); setError(""); }}
+                    />
+                  </div>
                 </div>
+                <p className="wpub-timezone">Time is shown in your local timezone.</p>
               </div>
-            </div>
+            ) : null}
 
             <div className="wpub-actions">
-              <button
-                type="button"
-                className="wbtn wbtn-ghost wbtn-block"
-                onClick={() => submit("scheduled")}
-                disabled={busy || !scheduledAt}
-                title={scheduledAt ? `Publish automatically on ${scheduledAt.replace("T", " ")}` : "Pick a date and time first"}
-              >
-                Schedule publish
-              </button>
-              <button type="button" className="wbtn wbtn-ghost wbtn-block" onClick={() => submit("draft")} disabled={busy}>
-                Save as draft
+              <button type="button" className="wbtn wbtn-primary wbtn-block" onClick={submit} disabled={busy}>
+                {busy ? "Saving…" : publishLabel}
               </button>
             </div>
 
             <dl className="wpub-status">
               <div>
                 <dt>Current status</dt>
-                <dd>{status === "published" ? "Published" : status === "scheduled" ? "Scheduled" : "Draft"}</dd>
+                <dd>{savedStatus === "published" ? "Published" : savedStatus === "scheduled" ? "Scheduled" : "Draft"}</dd>
               </div>
-              {scheduledAt ? (
+              {savedStatus === "scheduled" && initial.scheduledAt ? (
                 <div>
                   <dt>Scheduled for</dt>
-                  <dd>{scheduledAt.replace("T", " ")}</dd>
+                  <dd>{new Date(initial.scheduledAt).toLocaleString()}</dd>
                 </div>
               ) : null}
             </dl>
           </div>
 
-          <CoverField value={cover} onChange={setCover} />
+          <CoverField value={cover} onChange={setCover} library={media} />
 
           <div className="wfield-card">
             <p className="wsection-label">Organization</p>
@@ -383,22 +504,6 @@ export default function PostForm({ initial, categories, tags }: Props) {
             />
           </div>
         </div>
-      </div>
-
-      <div className="wform-foot">
-        {error ? (
-          <p className="wdialog-error" role="alert" style={{ marginRight: "auto" }}>
-            {error}
-          </p>
-        ) : null}
-        <Link className="wbtn wbtn-ghost" href="/panel/blog">
-          Back to posts
-        </Link>
-        {initial.id ? (
-          <button type="button" className="wbtn wbtn-danger-ghost" onClick={() => setConfirmDelete(true)} disabled={busy}>
-            Delete post
-          </button>
-        ) : null}
       </div>
 
       <dialog
@@ -567,6 +672,15 @@ export default function PostForm({ initial, categories, tags }: Props) {
         busy={busy}
         onConfirm={handleDelete}
         onClose={() => setConfirmDelete(false)}
+      />
+
+      <AiDialog
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        initialTopic={title}
+        categoryOptions={categoryOptions}
+        tagOptions={tagOptions}
+        onApply={handleAiApply}
       />
     </form>
   );

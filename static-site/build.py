@@ -21,8 +21,11 @@ def text_link(label, href):
 
 
 def logo(location):
-    src = "logo-dark.png" if location == "footer" else "logo.png"
-    return f'<a class="logo logo-{location}" href="index.html" aria-label="CMSMotive home"><img src="{IMG}{src}" alt="CMSMotive" width="120" height="40"></a>'
+    if location == "footer":
+        src, w, h = f"{IMG}logo-dark.png", 120, 40
+    else:
+        src, w, h = f"{ICON}favicon.png", 88, 88
+    return f'<a class="logo logo-{location}" href="index.html" aria-label="CMSMotive home"><img src="{src}" alt="CMSMotive" width="{w}" height="{h}"></a>'
 
 
 def browser(image="nordform-architecture.webp", detail=False):
@@ -246,7 +249,7 @@ def auth_page(filename, number, eyebrow, title, description, form, aside_title, 
     html = f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f8f5"><meta name="robots" content="noindex"><meta name="description" content="{description}"><title>{title} — CMSMotive</title><link rel="icon" type="image/png" href="../assets/icons/favicon.png"><link rel="stylesheet" href="../assets/css/site.css"><link rel="stylesheet" href="../assets/css/auth.css"></head>
 <body class="auth-body"><a class="skip-link" href="#main">Skip to content</a>
-<div class="auth-shell"><header class="auth-header"><a class="logo logo-header" href="../index.html" aria-label="CMSMotive home"><img src="../assets/images/logo.png" alt="CMSMotive" width="120" height="40"></a><a class="auth-back" href="../index.html"><span aria-hidden="true">←</span> Back to site</a></header>
+<div class="auth-shell"><header class="auth-header"><a class="logo logo-header" href="../index.html" aria-label="CMSMotive home"><img src="../assets/icons/favicon.png" alt="CMSMotive" width="34" height="34"></a><a class="auth-back" href="../index.html"><span aria-hidden="true">←</span> Back to site</a></header>
 <main id="main" class="auth-main"><aside class="auth-story" aria-label="About CMSMotive"><div class="auth-story-grid" aria-hidden="true"></div><div class="auth-story-top"><span class="auth-story-index">MOTIVE / ACCOUNT ACCESS</span><span class="auth-story-index">0{number} / 05</span></div><div class="auth-story-content"><span class="auth-story-kicker"><span></span> Built for what comes next</span><div class="auth-story-title">{aside_title}</div><p>{aside_description}</p><div class="auth-orbit" aria-hidden="true"><span class="auth-orbit-ring ring-one"></span><span class="auth-orbit-ring ring-two"></span><span class="auth-orbit-core"><img src="../assets/images/logo.png" alt="" width="96" height="32"></span><span class="auth-orbit-satellite satellite-one"></span><span class="auth-orbit-satellite satellite-two"></span></div></div><div class="auth-story-bottom"><span>THEMES <b>↗</b></span><span>EXTENSIONS <b>↗</b></span><span>HEADLESS <b>↗</b></span></div></aside>
 <section class="auth-panel" aria-labelledby="auth-title"><div class="auth-panel-inner"><div class="auth-panel-heading"><span class="auth-eyebrow">{eyebrow} <span>/ CMSMOTIVE</span></span><h1 id="auth-title">{title}</h1><p>{description}</p></div>{form}<p class="auth-switch">{switch_text} <a href="{switch_href}">{switch_label} <span aria-hidden="true">↗</span></a></p><div class="auth-preview-note"><span class="auth-preview-dot" aria-hidden="true"></span><p>Design preview. Account services are not connected yet. Do not enter a real password.</p></div></div></section></main>
 <footer class="auth-footer"><span>© 2026 CMSMotive. Independent product concept.</span><div><a href="../privacy.html">Privacy</a><a href="../terms.html">Terms</a><a href="../contact.html">Contact</a></div></footer></div><script src="../assets/js/auth.js" defer></script></body></html>'''

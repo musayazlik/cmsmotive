@@ -174,25 +174,41 @@
               </div>
               <div class="contact-form-row">
                 <div class="contact-field">
-                  <label for="contact-typo3-version">TYPO3 version</label
-                  ><select
-                    id="contact-typo3-version"
-                    name="typo3_version"
-                    required
+                  <label
+                    id="contact-typo3-version-label"
+                    for="contact-typo3-version"
+                    >TYPO3 version</label
+                  ><span class="contact-select select-wrap"
+                    ><select
+                      id="contact-typo3-version"
+                      name="typo3_version"
+                      aria-labelledby="contact-typo3-version-label"
+                      data-custom-select
+                      required
+                    >
+                      <option value="TYPO3 13 LTS">TYPO3 13 LTS</option>
+                      <option value="TYPO3 14 LTS">TYPO3 14 LTS</option>
+                      <option value="Not on TYPO3 yet">Not on TYPO3 yet</option>
+                      <option value="Not sure yet">Not sure yet</option>
+                    </select></span
                   >
-                    <option value="TYPO3 13 LTS">TYPO3 13 LTS</option>
-                    <option value="TYPO3 14 LTS">TYPO3 14 LTS</option>
-                    <option value="Not on TYPO3 yet">Not on TYPO3 yet</option>
-                    <option value="Not sure yet">Not sure yet</option>
-                  </select>
                 </div>
                 <div class="contact-field">
-                  <label for="contact-license">License interest</label
-                  ><select id="contact-license" name="license" required>
-                    <option value="Single site">Single site</option>
-                    <option value="Agency">Agency</option>
-                    <option value="Enterprise">Enterprise</option>
-                  </select>
+                  <label id="contact-license-label" for="contact-license"
+                    >License interest</label
+                  ><span class="contact-select select-wrap"
+                    ><select
+                      id="contact-license"
+                      name="license"
+                      aria-labelledby="contact-license-label"
+                      data-custom-select
+                      required
+                    >
+                      <option value="Single site">Single site</option>
+                      <option value="Agency">Agency</option>
+                      <option value="Enterprise">Enterprise</option>
+                    </select></span
+                  >
                 </div>
               </div>
               <div class="contact-field">

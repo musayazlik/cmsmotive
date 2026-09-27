@@ -84,88 +84,295 @@
       </nav>
     </header>
     <main id="main">
-      <section class="page-hero">
+      <section class="headless-hero" aria-labelledby="headless-title">
         <div class="container">
-          <div class="crumbs">
+          <div class="crumbs headless-crumbs">
             <a href="index.html">Home</a><span>/</span><span>Headless</span>
           </div>
-          <span class="eyebrow">TYPO3 beyond templates</span>
-          <h1>Content freedom.<br /><em>Engineering clarity.</em></h1>
-          <p>
-            Headless project patterns for teams pairing TYPO3 content with a
-            separate frontend. Designed around explicit contracts, editor needs
-            and maintainable delivery.
-          </p>
-          <a class="btn btn-primary" href="contact.html"
-            ><span class="btn-label">Talk about a headless project</span
-            ><span class="btn-icon" aria-hidden="true"
-              ><img
-                src="assets/icons/arrow-right.svg"
-                alt=""
-                width="16"
-                height="16" /></span
-          ></a>
+          <div class="headless-hero-grid">
+            <div class="headless-hero-copy" data-reveal>
+              <span class="eyebrow">Headless / a clearer way to build</span>
+              <h1 id="headless-title">
+                One content core.<br /><em>Every experience.</em>
+              </h1>
+              <p>
+                Make TYPO3 the content engine behind a frontend built for your
+                audience. Thoughtful models, clear contracts and room to create
+                beyond a single template.
+              </p>
+              <div class="button-row headless-hero-actions">
+                <a class="btn btn-primary" href="contact.html"
+                  ><span class="btn-label">Discuss your project</span
+                  ><span class="btn-icon" aria-hidden="true"
+                    ><img
+                      src="assets/icons/arrow-right.svg"
+                      alt=""
+                      width="16"
+                      height="16" /></span
+                ></a>
+                <a class="headless-inline-link" href="#headless-approach"
+                  >Explore the approach <span aria-hidden="true">↘</span></a
+                >
+              </div>
+              <div class="headless-hero-foot">
+                <span>STRUCTURED CONTENT</span><span>EXPLICIT CONTRACTS</span
+                ><span>EDITOR-FIRST</span>
+              </div>
+            </div>
+            <div
+              class="headless-board"
+              data-reveal="delay"
+              aria-label="Reference flow from TYPO3 content to a custom frontend"
+            >
+              <div class="headless-board-grid" aria-hidden="true"></div>
+              <div class="headless-board-top">
+                <span>CMSMOTIVE / HEADLESS SYSTEM</span
+                ><span><i aria-hidden="true"></i> REFERENCE FLOW</span>
+              </div>
+              <div class="headless-board-flow">
+                <div class="headless-source-card">
+                  <span class="headless-card-index">01 / CONTENT ENGINE</span>
+                  <div class="headless-source-brand">
+                    <span class="headless-source-mark" aria-hidden="true"
+                      >T<span>3</span></span
+                    ><strong>TYPO3</strong>
+                  </div>
+                  <p>One place to shape and manage content.</p>
+                  <div class="headless-field-list" aria-hidden="true">
+                    <span><b>01</b> Projects</span><span><b>02</b> Stories</span
+                    ><span><b>03</b> Media</span>
+                  </div>
+                </div>
+                <div class="headless-flow-link" aria-hidden="true">
+                  <span>CONTENT<br />CONTRACT</span><i></i>
+                </div>
+                <div class="headless-front-card">
+                  <div class="headless-front-bar">
+                    <span class="headless-front-dots" aria-hidden="true"
+                      ><i></i><i></i><i></i></span
+                    ><span>your-frontend.example</span>
+                  </div>
+                  <div class="headless-front-image">
+                    <img
+                      src="assets/images/nordform-architecture.webp"
+                      width="1536"
+                      height="1024"
+                      alt="Modern architecture shown in a sample website preview"
+                    /><span>Designed for<br />the experience.</span>
+                  </div>
+                  <div class="headless-front-bottom">
+                    <span>02 / FRONTEND</span><span>WEB · APP · MORE ↗</span>
+                  </div>
+                </div>
+              </div>
+              <div class="headless-board-bottom">
+                <span>CONTENT → DELIVERY → EXPERIENCE</span><span>01 / 03</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-      <section class="section">
-        <div class="container two-col">
-          <div>
-            <span class="eyebrow">A considered approach</span>
-            <h2>Start with the content model.</h2>
-            <p class="lead lead-mt-20">
-              A good headless build begins with what editors need to create and
-              what the frontend needs to render. The API is the bridge, not the
-              whole strategy.
+
+      <section
+        class="headless-approach section"
+        id="headless-approach"
+        aria-labelledby="headless-approach-title"
+      >
+        <div class="container">
+          <div class="headless-section-heading" data-reveal>
+            <div>
+              <span class="eyebrow">The approach</span>
+              <h2 id="headless-approach-title">
+                Start with the content.<br /><em>Then choose the canvas.</em>
+              </h2>
+            </div>
+            <p>
+              Headless works best when editorial structure, delivery and
+              presentation are designed together. Each decision has a clear
+              owner and a reason to exist.
             </p>
           </div>
-          <div class="statement-list">
-            <div class="statement">
-              <span class="index">01</span>
-              <div>
-                <h3>Content contract</h3>
-                <p>
-                  Define types, fields and naming before components multiply.
-                </p>
+          <div class="headless-step-grid">
+            <article class="headless-step" data-reveal>
+              <span class="headless-step-number">01 <i></i></span>
+              <div class="headless-step-icon" aria-hidden="true">
+                <span></span><span></span><span></span>
               </div>
+              <h3>Model what matters.</h3>
+              <p>
+                Define content types, relationships and fields around real
+                editorial work before pages and components multiply.
+              </p>
+              <span class="headless-step-tag">TYPO3 / CONTENT</span>
+            </article>
+            <article class="headless-step" data-reveal>
+              <span class="headless-step-number">02 <i></i></span>
+              <div
+                class="headless-step-icon headless-step-icon-contract"
+                aria-hidden="true"
+              >
+                <span></span><span></span><span></span>
+              </div>
+              <h3>Make the handoff clear.</h3>
+              <p>
+                Agree on naming, shapes and preview needs so the frontend
+                receives content it can use with confidence.
+              </p>
+              <span class="headless-step-tag">CONTRACT / DELIVERY</span>
+            </article>
+            <article class="headless-step" data-reveal>
+              <span class="headless-step-number">03 <i></i></span>
+              <div
+                class="headless-step-icon headless-step-icon-screen"
+                aria-hidden="true"
+              >
+                <span></span><span></span><span></span>
+              </div>
+              <h3>Design for the channel.</h3>
+              <p>
+                Build the web, app or campaign experience around its audience
+                while editors keep one coherent workflow.
+              </p>
+              <span class="headless-step-tag">FRONTEND / EXPERIENCE</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="headless-contract-section"
+        aria-labelledby="headless-contract-title"
+      >
+        <div class="container headless-contract-grid">
+          <div class="headless-contract-copy" data-reveal>
+            <span class="eyebrow light">A visible agreement</span>
+            <h2 id="headless-contract-title">
+              Give every layer<br />a clear role.
+            </h2>
+            <p>
+              The content model should be readable to editors and predictable
+              for developers. An explicit contract helps the two sides change
+              without guessing what the other expects.
+            </p>
+            <ul>
+              <li>Fields named for meaning, not layout</li>
+              <li>Media and relationships with clear intent</li>
+              <li>Preview and publishing planned from the start</li>
+            </ul>
+            <a class="btn btn-lime" href="contact.html"
+              ><span class="btn-label">Plan a headless build</span
+              ><span class="btn-icon" aria-hidden="true"
+                ><img
+                  src="assets/icons/arrow-right.svg"
+                  alt=""
+                  width="16"
+                  height="16" /></span
+            ></a>
+          </div>
+          <div class="headless-contract-visual" data-reveal="delay">
+            <div class="headless-code-top">
+              <span><i></i><i></i><i></i> content-model.yaml</span
+              ><span>ILLUSTRATIVE EXAMPLE</span>
             </div>
-            <div class="statement">
-              <span class="index">02</span>
-              <div>
-                <h3>Frontend freedom</h3>
-                <p>
-                  Plan React or Next.js rendering around actual content needs.
-                </p>
-              </div>
-            </div>
-            <div class="statement">
-              <span class="index">03</span>
-              <div>
-                <h3>Editor experience</h3>
-                <p>
-                  Keep preview, relationships and publishing understandable.
-                </p>
-              </div>
+            <pre
+              class="headless-code"
+              aria-label="Illustrative content model"
+            >content_type: <b>project</b>
+fields:
+  title:        <em>text</em>
+  summary:      <em>rich_text</em>
+  cover_image:  <em>media</em>
+  category:     <em>relation</em>
+delivery:
+  channels:     <strong>[web, app]</strong>
+  preview:      <strong>planned</strong></pre>
+            <div class="headless-code-bottom">
+              <span>MODEL ONCE</span><span>SHAPE FOR EACH CHANNEL ↗</span>
             </div>
           </div>
         </div>
       </section>
-      <section class="section-sm dark-section">
+
+      <section
+        class="headless-fit section"
+        aria-labelledby="headless-fit-title"
+      >
         <div class="container">
-          <span class="eyebrow">Reference architecture</span>
-          <h2>Separate concerns.<br />Keep the connection legible.</h2>
-          <div class="proof-grid proof-grid-mt-35">
-            <div class="proof-panel">
-              <span class="badge dark">01 / TYPO3</span>
-              <h3 class="proof-panel-title-sm">Structured content</h3>
+          <div class="headless-section-heading" data-reveal>
+            <div>
+              <span class="eyebrow">Where it fits</span>
+              <h2 id="headless-fit-title">
+                One foundation.<br /><em>More ways forward.</em>
+              </h2>
+            </div>
+            <p>
+              Different channels can share the same content foundation while
+              each experience gets the interface it needs.
+            </p>
+          </div>
+          <div class="headless-fit-grid">
+            <article class="headless-fit-card" data-reveal>
+              <span>01 / AGENCY WEBSITES</span>
+              <h3>Custom brand experiences.</h3>
               <p>
-                Editorial models and workflows that reflect the organization.
+                Use TYPO3 editorial workflows with a frontend shaped around the
+                project rather than a fixed page system.
+              </p>
+              <div class="headless-fit-art art-web" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </div>
+            </article>
+            <article class="headless-fit-card" data-reveal>
+              <span>02 / MULTI-CHANNEL</span>
+              <h3>Content with more than one destination.</h3>
+              <p>
+                Plan reusable content for a website, app or other touchpoint
+                without duplicating the editorial work.
+              </p>
+              <div class="headless-fit-art art-channel" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </div>
+            </article>
+            <article class="headless-fit-card" data-reveal>
+              <span>03 / PRODUCT TEAMS</span>
+              <h3>Space for complex interfaces.</h3>
+              <p>
+                Keep the frontend free to solve product needs while content
+                structure and governance stay understandable.
+              </p>
+              <div class="headless-fit-art art-product" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="headless-cta-section section-sm"
+        aria-labelledby="headless-cta-title"
+      >
+        <div class="container">
+          <div class="headless-cta">
+            <div>
+              <span class="eyebrow light">Your next build</span>
+              <h2 id="headless-cta-title">
+                Have a project that needs<br />more room to move?
+              </h2>
+              <p>
+                Tell us what content you manage, who needs to publish it and
+                where it should appear.
               </p>
             </div>
-            <div class="proof-panel">
-              <span class="badge dark">02 / Frontend</span>
-              <h3 class="proof-panel-title-sm">Purpose-built experience</h3>
-              <p>A frontend shaped to the site, app or channel it serves.</p>
-            </div>
+            <a class="btn btn-lime" href="contact.html"
+              ><span class="btn-label">Talk about your project</span
+              ><span class="btn-icon" aria-hidden="true"
+                ><img
+                  src="assets/icons/arrow-right.svg"
+                  alt=""
+                  width="16"
+                  height="16" /></span
+            ></a>
           </div>
         </div>
       </section>

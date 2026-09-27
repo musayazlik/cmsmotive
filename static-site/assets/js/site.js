@@ -3,14 +3,17 @@ document.documentElement.classList.add('js');
 const menuButton = document.querySelector('.menu-toggle');
 const mobileNav = document.querySelector('.mobile-nav');
 if (menuButton && mobileNav) {
+  mobileNav.inert = true;
   const closeMenu = () => {
     mobileNav.classList.remove('open');
+    mobileNav.inert = true;
     menuButton.setAttribute('aria-expanded', 'false');
     menuButton.setAttribute('aria-label', 'Open menu');
     document.body.classList.remove('menu-open');
   };
   menuButton.addEventListener('click', () => {
     const open = menuButton.getAttribute('aria-expanded') !== 'true';
+    mobileNav.inert = !open;
     mobileNav.classList.toggle('open', open);
     menuButton.setAttribute('aria-expanded', String(open));
     menuButton.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
@@ -18,7 +21,7 @@ if (menuButton && mobileNav) {
   });
   mobileNav.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
       closeMenu();
       menuButton.focus();
     }

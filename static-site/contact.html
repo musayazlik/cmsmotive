@@ -386,18 +386,23 @@
       type="button"
       aria-label="Back to top"
     >
-      <span class="back-to-top-triangle" aria-hidden="true"
-        ><svg
-          viewBox="0 0 24 24"
+      <svg class="back-to-top-shape" viewBox="0 0 64 58" aria-hidden="true">
+        <path
+          class="back-to-top-bg"
+          d="M11.9 41.5L25.9 16.8Q32 6 38.1 16.8L52.1 41.5Q58 52 46 52L18 52Q6 52 11.9 41.5Z"
+        />
+        <g
+          class="back-to-top-arrow"
           fill="none"
           stroke="currentColor"
           stroke-width="1.8"
           stroke-linecap="round"
           stroke-linejoin="round"
         >
-          <path d="M12 19V5" />
-          <path d="m5 12 7-7 7 7" /></svg
-      ></span>
+          <path d="M32 42V27" />
+          <path d="m26 33 6-6 6 6" />
+        </g>
+      </svg>
     </button>
     <script src="assets/js/site.js" defer></script>
   </body>

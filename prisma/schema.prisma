@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String       @id
+  name          String
+  email         String       @unique
+  emailVerified Boolean      @default(false)
+  image         String?
+  /// "admin" grants panel administration; "user" is the default account level.
+  /// Additional levels (editor, reviewer) can be added without a schema change.
+  role          String       @default("user")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  uploads       MediaAsset[]
+  posts         Post[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model ContactInquiry {
+  id           String   @id @default(cuid())
+  name         String
+  email        String
+  agency       String
+  typo3Version String
+  license      String
+  message      String
+  emailSent    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Uploads handled by UploadThing; the row is written by onUploadComplete.
+model MediaAsset {
+  id               String             @id @default(cuid())
+  key              String             @unique
+  url              String
+  fileName         String
+  fileSize         Int
+  mimeType         String
+  alt              String?
+  width            Int?
+  height           Int?
+  uploadedById     String?
+  uploadedBy       User?              @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  themeCovers      Theme[]            @relation("ThemeCover")
+  extensionCovers  Extension[]        @relation("ExtensionCover")
+  postCovers       Post[]             @relation("PostCover")
+  themeGallery     ThemeGallery[]
+  extensionGallery ExtensionGallery[]
+  createdAt        DateTime           @default(now())
+
+  @@index([createdAt])
+  @@map("MediaAsset")
+}
+
+model Theme {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String
+  summary       String
+  /// Tiptap HTML output.
+  description   String
+  status        String         @default("concept")
+  industry      String
+  versionTarget String
+  coverId       String?
+  cover         MediaAsset?    @relation("ThemeCover", fields: [coverId], references: [id], onDelete: SetNull)
+  gallery       ThemeGallery[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status])
+  @@map("Theme")
+}
+
+model ThemeGallery {
+  id       String     @id @default(cuid())
+  themeId  String
+  theme    Theme      @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  assetId  String
+  asset    MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  position Int        @default(0)
+
+  @@unique([themeId, assetId])
+  @@index([themeId, position])
+  @@map("ThemeGallery")
+}
+
+model Extension {
+  id          String             @id @default(cuid())
+  slug        String             @unique
+  name        String
+  summary     String
+  /// Tiptap HTML output.
+  description String
+  status      String             @default("concept")
+  coverId     String?
+  cover       MediaAsset?        @relation("ExtensionCover", fields: [coverId], references: [id], onDelete: SetNull)
+  gallery     ExtensionGallery[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status])
+  @@map("Extension")
+}
+
+model ExtensionGallery {
+  id          String     @id @default(cuid())
+  extensionId String
+  extension   Extension  @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  position    Int        @default(0)
+
+  @@unique([extensionId, assetId])
+  @@index([extensionId, position])
+  @@map("ExtensionGallery")
+}
+
+/// Blog post written in the panel. `excerpt` doubles as the SEO meta
+/// description (max 160 chars) and the list teaser.
+model Post {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  excerpt     String    @default("")
+  /// Tiptap HTML output.
+  content     String    @default("")
+  coverId     String?
+  cover       MediaAsset? @relation("PostCover", fields: [coverId], references: [id], onDelete: SetNull)
+  /// draft | scheduled | published
+  status      String    @default("draft")
+  scheduledAt DateTime?
+  featured    Boolean   @default(false)
+  readingTime Int       @default(1)
+  publishedAt DateTime?
+  authorId    String?
+  author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags        PostTag[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@map("Post")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String   @default("#4353e8")
+  posts       Post[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("Category")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  posts     PostTag[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Tag")
+}
+
+model PostTag {
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("PostTag")
+}

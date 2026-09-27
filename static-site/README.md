@@ -5,6 +5,7 @@ An English-language, product-first website concept for CMSMotive. It uses semant
 ## Open and edit
 
 - Open `index.html` in a browser, or serve this folder with any static file server.
+- The contact form now submits to the Next.js `/api/contact` endpoint and requires the root application to be running.
 - Edit page content in `build.py` (the Headless page body lives in `partials/headless.html`), then run `python3 build.py` from this folder to regenerate the HTML files.
 - Edit styling in `assets/css/site.css` and interactions in `assets/js/site.js`.
 - All internal navigation uses relative URLs, so the folder can be deployed under a subpath.

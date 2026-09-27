@@ -1,1 +1,11 @@
 .vercel
+node_modules
+.next
+.env
+.env.local
+.env.*.local
+!.env.example
+generated
+*.tsbuildinfo
+__pycache__
+.pnpm-store

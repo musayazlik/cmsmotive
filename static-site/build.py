@@ -97,7 +97,7 @@ def filter_controls():
 def final_cta():
     return f'''<section class="section-sm final-cta-section" aria-labelledby="final-cta-title"><div class="container"><div class="final-cta" data-reveal>
       <div class="final-cta-copy"><span class="eyebrow light">Your next build starts here</span><h2 id="final-cta-title">Make the next TYPO3 project feel like progress.</h2><p>Explore a considered theme direction, or tell us what your team needs from a product built for real delivery.</p><div class="button-row">{btn('Explore themes','themes.html','lime')}{btn('Talk about your project','contact.html','cta-outline',True)}</div><div class="cta-proof"><span>TYPO3 13 / 14 target</span><span>Composer first</span><span>Built for agencies</span></div></div>
-      <div class="final-cta-art" aria-hidden="true"><span class="cta-grid"></span><img src="{IMG}logo-concept-v2.png" width="1536" height="1024" alt="" loading="lazy"><span class="cta-art-label">MOTIVE / 01<br>CREATE WITH INTENT</span></div>
+      <div class="final-cta-art" aria-hidden="true"><span class="cta-grid"></span><img src="{ICON}favicon.png" width="1254" height="1254" alt="" loading="lazy"><span class="cta-art-label">MOTIVE / 01<br>CREATE WITH INTENT</span></div>
     </div></div></section>'''
 
 

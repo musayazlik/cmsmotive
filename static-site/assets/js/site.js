@@ -464,3 +464,23 @@ document.querySelectorAll('[data-comments]').forEach(section => {
   });
   render();
 });
+
+document.querySelectorAll('[data-contact-form]').forEach(form => {
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const fields = new FormData(form);
+    const name = String(fields.get('name') || '').trim();
+    const email = String(fields.get('email') || '').trim();
+    const topic = String(fields.get('topic') || 'Website enquiry');
+    const message = String(fields.get('message') || '').trim();
+    const status = form.querySelector('[data-contact-status]');
+    if (status) {
+      status.textContent = form.dataset.message;
+      status.hidden = false;
+    }
+    const subject = encodeURIComponent(`${topic} — ${name} via cmsmotive.com`);
+    const body = encodeURIComponent(`${message}\n\n— ${name}\n${email}`);
+    window.location.href = `mailto:hello@cmsmotive.com?subject=${subject}&body=${body}`;
+  });
+});

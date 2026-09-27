@@ -206,10 +206,10 @@
 /* Header and footer logo lockup */
 .header-inner{gap:25px}
 .logo{gap:8px;line-height:1;letter-spacing:-.075em}
-.logo img{width:auto;height:88px;flex:none}
+.logo img{width:auto;height:64px;flex:none}
 .logo-footer img{width:auto;height:46px}
-@media(max-width:1100px){.logo-header img{width:auto;height:76px}}
-@media(max-width:620px){.logo-header img{width:auto;height:68px}}
+@media(max-width:1100px){.logo-header img{width:auto;height:56px}}
+@media(max-width:620px){.logo-header img{width:auto;height:48px}}
 
 /* Branded dropdown surfaces; native selects remain the no-script fallback */
 .filter-bar{position:relative;z-index:2}

@@ -24,7 +24,7 @@ def logo(location):
     if location == "footer":
         src, w, h = f"{IMG}logo-dark.png", 120, 40
     else:
-        src, w, h = f"{ICON}favicon.png", 88, 88
+        src, w, h = f"{ICON}favicon.png", 64, 64
     return f'<a class="logo logo-{location}" href="index.html" aria-label="CMSMotive home"><img src="{src}" alt="CMSMotive" width="{w}" height="{h}"></a>'
 
 

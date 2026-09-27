@@ -21,7 +21,8 @@ def text_link(label, href):
 
 
 def logo(location):
-    return f'<a class="logo logo-{location}" href="index.html" aria-label="CMSMotive home"><img src="{IMG}logo.png" alt="CMSMotive" width="120" height="40"></a>'
+    src = "logo-dark.png" if location == "footer" else "logo.png"
+    return f'<a class="logo logo-{location}" href="index.html" aria-label="CMSMotive home"><img src="{IMG}{src}" alt="CMSMotive" width="120" height="40"></a>'
 
 
 def browser(image="nordform-architecture.webp", detail=False):

@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title">
-  <title id="title">CMSMotive folded M mark</title>
-  <path d="M8 86V14h17L50 33v23L28 41v45H8Z" fill="#4353E8"/>
-  <path d="M92 86V14H75L50 33v23l22-15v45h20Z" fill="#4353E8"/>
-  <path d="m50 33 15 11-15 12V33Z" fill="#C6F36A"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" aria-labelledby="title" role="img" viewBox="0 0 100 100"><title id="title">CMSMotive folded M mark</title><path fill="#4353E8" d="M8 86V14h17L50 33v23L28 41v45H8Z"/><path fill="#4353E8" d="M92 86V14H75L50 33v23l22-15v45h20Z"/><path fill="#C6F36A" d="m50 33 15 11-15 12V33Z"/></svg>

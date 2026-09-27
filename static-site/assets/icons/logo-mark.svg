@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
-  <title id="title">CMSMotive</title>
-  <rect width="48" height="48" rx="11" fill="#4353e8"/>
-  <path d="M10 34V14h5.5L24 25.8 32.5 14H38v20h-6V23.7L24 34l-8-10.3V34z" fill="#fff"/>
-  <circle cx="38" cy="10" r="3" fill="#c6f36a"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" aria-labelledby="title" role="img" viewBox="0 0 48 48"><title id="title">CMSMotive</title><rect width="48" height="48" fill="#4353e8" rx="11"/><path fill="#fff" d="M10 34V14h5.5L24 25.8 32.5 14H38v20h-6V23.7L24 34l-8-10.3V34z"/><circle cx="38" cy="10" r="3" fill="#c6f36a"/></svg>

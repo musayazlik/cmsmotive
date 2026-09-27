@@ -480,17 +480,22 @@ document.querySelectorAll('[data-contact-form]').forEach(form => {
     event.preventDefault();
     if (!form.reportValidity()) return;
     const fields = new FormData(form);
-    const name = String(fields.get('name') || '').trim();
-    const email = String(fields.get('email') || '').trim();
-    const topic = String(fields.get('topic') || 'Website enquiry');
-    const message = String(fields.get('message') || '').trim();
+    const value = key => String(fields.get(key) || '').trim();
+    const name = value('name');
+    const email = value('email');
+    const agency = value('agency');
+    const version = value('typo3_version') || 'Not specified';
+    const license = value('license') || 'Not specified';
+    const message = value('message');
     const status = form.querySelector('[data-contact-status]');
     if (status) {
       status.textContent = form.dataset.message;
       status.hidden = false;
     }
-    const subject = encodeURIComponent(`${topic} — ${name} via cmsmotive.com`);
-    const body = encodeURIComponent(`${message}\n\n— ${name}\n${email}`);
-    window.location.href = `mailto:hello@cmsmotive.com?subject=${subject}&body=${body}`;
+    const subject = encodeURIComponent(`Nordform early access — ${agency || name} via cmsmotive.de`);
+    const body = encodeURIComponent(
+      `${message}\n\n— ${name}\n${agency}\n${email}\nTYPO3: ${version}\nLicence: ${license}`
+    );
+    window.location.href = `mailto:hello@cmsmotive.de?subject=${subject}&body=${body}`;
   });
 });

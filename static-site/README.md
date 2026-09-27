@@ -22,7 +22,7 @@ The theme catalogue has working client-side search, filters and a reset action. 
 ## Before publication
 
 - Confirm the legal entity, registered address, jurisdiction and contact email. The legal pages are marked as drafts and contain visible placeholders.
-- Replace `hello@cmsmotive.com` if it is not the approved contact mailbox.
+- The contact mailbox is `hello@cmsmotive.de`.
 - Verify product availability, package names, compatibility, final features, accessibility claims, pricing, licence grants and policies before enabling purchases. This concept does not take payment.
 - Choose whether to self-host Manrope and DM Mono. The current CSS loads them from Google Fonts, and the draft privacy page calls this out.
 - Replace concept imagery with verified product screenshots when packages are ready. The current architecture photographs are original generated editorial assets and are labelled as concept visuals.

@@ -32,10 +32,10 @@
           href="index.html"
           aria-label="CMSMotive home"
           ><img
-            src="assets/icons/favicon.png"
+            src="assets/images/logo.png"
             alt="CMSMotive"
-            width="64"
-            height="64"
+            width="144"
+            height="48"
         /></a>
         <nav class="desktop-nav" aria-label="Primary navigation">
           <a class="nav-link" href="themes.html">Themes</a
@@ -43,11 +43,13 @@
           ><a class="nav-link" href="headless.html">Headless</a
           ><a class="nav-link" href="docs.html">Docs</a
           ><a class="nav-link" href="pricing.html">Pricing</a
-          ><a class="nav-link" href="blog.html">Blog</a>
+          ><a class="nav-link" href="blog.html">Blog</a
+          ><a class="nav-link" href="contact.html" aria-current="page"
+            >Contact</a
+          >
         </nav>
         <div class="header-actions">
-          <a class="nav-link" href="auth/login.html">Sign in</a
-          ><a class="btn btn-primary" href="themes.html"
+          <a class="btn btn-primary" href="themes.html"
             ><span class="btn-label">Explore themes</span
             ><span class="btn-icon" aria-hidden="true"
               ><img
@@ -70,7 +72,7 @@
         <a href="themes.html">Themes</a><a href="extensions.html">Extensions</a
         ><a href="headless.html">Headless</a><a href="docs.html">Docs</a
         ><a href="pricing.html">Pricing</a><a href="blog.html">Blog</a
-        ><a href="auth/login.html">Sign in</a
+        ><a href="contact.html" aria-current="page">Contact</a
         ><a class="btn btn-primary" href="themes.html"
           ><span class="btn-label">Explore themes</span
           ><span class="btn-icon" aria-hidden="true"
@@ -99,22 +101,14 @@
       <section class="section-sm">
         <div class="container">
           <div class="contact-methods" data-reveal>
-            <a class="contact-method" href="mailto:hello@cmsmotive.com"
+            <a class="contact-method" href="mailto:hello@cmsmotive.de"
               ><span class="contact-method-label">Email</span
-              ><span class="contact-method-value">hello@cmsmotive.com</span
+              ><span class="contact-method-value">hello@cmsmotive.de</span
               ><span class="contact-method-note"
                 >Product, licensing and project questions — the fastest way to
                 reach us.</span
               ></a
             >
-            <div class="contact-method">
-              <span class="contact-method-label">Phone</span
-              ><span class="contact-method-value"
-                ><span class="placeholder">Number to be confirmed</span></span
-              ><span class="contact-method-note"
-                >Weekdays, 9:00 – 17:00 CET.</span
-              >
-            </div>
             <div class="contact-method">
               <span class="contact-method-label">Reply time</span
               ><span class="contact-method-value">Within one business day</span
@@ -137,7 +131,7 @@
             <form
               class="contact-form"
               data-contact-form
-              data-message="Your email app should open with the message prefilled. If nothing happens, write to hello@cmsmotive.com."
+              data-message="Your email app should open with the message prefilled. If nothing happens, write to hello@cmsmotive.de."
             >
               <div class="contact-form-row">
                 <div class="contact-field">
@@ -166,16 +160,40 @@
                 </div>
               </div>
               <div class="contact-field">
-                <label for="contact-topic">Topic</label
-                ><select id="contact-topic" name="topic" required>
-                  <option value="Product question">Product question</option>
-                  <option value="Agency licensing">Agency licensing</option>
-                  <option value="Headless project">Headless project</option>
-                  <option value="TYPO3 implementation">
-                    TYPO3 implementation
-                  </option>
-                  <option value="Something else">Something else</option>
-                </select>
+                <label for="contact-agency">Agency / Company</label
+                ><input
+                  id="contact-agency"
+                  name="agency"
+                  type="text"
+                  autocomplete="organization"
+                  required
+                  minlength="2"
+                  maxlength="120"
+                  placeholder="Your agency or company"
+                />
+              </div>
+              <div class="contact-form-row">
+                <div class="contact-field">
+                  <label for="contact-typo3-version">TYPO3 version</label
+                  ><select
+                    id="contact-typo3-version"
+                    name="typo3_version"
+                    required
+                  >
+                    <option value="TYPO3 13 LTS">TYPO3 13 LTS</option>
+                    <option value="TYPO3 14 LTS">TYPO3 14 LTS</option>
+                    <option value="Not on TYPO3 yet">Not on TYPO3 yet</option>
+                    <option value="Not sure yet">Not sure yet</option>
+                  </select>
+                </div>
+                <div class="contact-field">
+                  <label for="contact-license">License interest</label
+                  ><select id="contact-license" name="license" required>
+                    <option value="Single site">Single site</option>
+                    <option value="Agency">Agency</option>
+                    <option value="Enterprise">Enterprise</option>
+                  </select>
+                </div>
               </div>
               <div class="contact-field">
                 <label for="contact-message">Message</label
@@ -186,7 +204,7 @@
                   required
                   minlength="10"
                   maxlength="2000"
-                  placeholder="Your project, TYPO3 version, timeline and the decision you need help with."
+                  placeholder="Tell us about your project and what you would like to build with CMSMotive."
                 ></textarea>
               </div>
               <div class="contact-form-bottom">
@@ -221,24 +239,20 @@
               </p>
               <a
                 class="contact-option"
-                href="mailto:hello@cmsmotive.com?subject=CMSMotive%20product%20question"
-                >Ask about a product
-                <span>Nordform, Foundation, Campus or extensions</span></a
+                href="mailto:hello@cmsmotive.de?subject=Nordform%20early%20access%20request"
+                >Request Nordform early access
+                <span>Tell us about your project and TYPO3 version</span></a
               ><a
                 class="contact-option"
-                href="mailto:hello@cmsmotive.com?subject=CMSMotive%20agency%20licensing"
+                href="mailto:hello@cmsmotive.de?subject=CMSMotive%20agency%20licensing"
                 >Discuss agency licensing
                 <span>Share the kind of work your team delivers</span></a
               ><a
                 class="contact-option"
-                href="mailto:hello@cmsmotive.com?subject=CMSMotive%20headless%20project"
-                >Discuss a headless project
-                <span>Tell us about content and frontend requirements</span></a
+                href="mailto:hello@cmsmotive.de?subject=CMSMotive%20product%20question"
+                >Ask about a product
+                <span>Foundation, Campus, extensions or headless</span></a
               >
-              <p class="micro contact-micro">
-                Contact address is provisional until the brand owner confirms
-                it.
-              </p>
             </div>
           </aside>
         </div>
@@ -279,21 +293,11 @@
       <section class="section">
         <div class="container contact-office" data-reveal>
           <div class="contact-office-copy">
-            <span class="eyebrow">Office and support</span>
-            <h2>Where to find us.</h2>
+            <span class="eyebrow">Support</span>
+            <h2>How to reach us.</h2>
             <p>
-              CMSMotive works remotely with agencies across Europe. Postal and
-              legal details are confirmed with the brand owner before launch.
-            </p>
-            <address class="contact-office-address">
-              <span class="placeholder">Registered legal name</span><br /><span
-                class="placeholder"
-                >Street and number</span
-              ><br /><span class="placeholder">Postal code, city, country</span>
-            </address>
-            <p class="micro contact-office-note">
-              Provisional address — see the
-              <a href="imprint.html">imprint</a> for legal details.
+              CMSMotive works remotely with agencies across Europe. Email is the
+              fastest way to reach the team.
             </p>
           </div>
           <div class="contact-office-card">
@@ -307,12 +311,8 @@
               <div class="contact-detail">
                 <dt>Email</dt>
                 <dd>
-                  <a href="mailto:hello@cmsmotive.com">hello@cmsmotive.com</a>
+                  <a href="mailto:hello@cmsmotive.de">hello@cmsmotive.de</a>
                 </dd>
-              </div>
-              <div class="contact-detail">
-                <dt>Telephone</dt>
-                <dd><span class="placeholder">To be confirmed</span></dd>
               </div>
               <div class="contact-detail">
                 <dt>Languages</dt>
@@ -341,8 +341,8 @@
               ><img
                 src="assets/images/logo-dark.png"
                 alt="CMSMotive"
-                width="120"
-                height="40"
+                width="180"
+                height="60"
             /></a>
             <p>
               Thoughtful TYPO3 products for teams building real websites.

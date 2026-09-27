@@ -256,7 +256,7 @@ export default function MediaList({
                 <th>Status</th>
                 <th>Used in</th>
                 <th>Uploaded</th>
-                <th className="wtable-actions-col">Actions</th>
+                <th scope="col" className="wtable-actions-col"><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody>

@@ -1,4 +1,5 @@
 import { htmlResponse, readLegacyPage } from "@/lib/legacy";
+import { trackPageView } from "@/lib/analytics";
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,9 @@ export async function GET(_request: Request, context: { params: Promise<{ legacy
   }
   const slug = segments[0] ?? "index";
   try {
-    return htmlResponse(await readLegacyPage(`${slug}.html`));
+    const html = await readLegacyPage(`${slug}.html`);
+    trackPageView(slug);
+    return htmlResponse(html);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return new Response("Not found", { status: 404 });

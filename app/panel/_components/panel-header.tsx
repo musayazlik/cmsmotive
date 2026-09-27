@@ -11,6 +11,8 @@ type Notification = {
   detail: string;
   href: string;
   count: number;
+  /** Counts toward the bell badge; informational items stay menu-only. */
+  actionable: boolean;
 };
 
 type OpenMenu = "notifications" | "account" | null;
@@ -46,7 +48,7 @@ export default function PanelHeader({
 }) {
   const [open, setOpen] = useState<OpenMenu>(null);
   const [items, setItems] = useState<Notification[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const pathname = usePathname();
 
@@ -54,36 +56,39 @@ export default function PanelHeader({
   const shellRef = useDismiss(close);
   const firstName = user.name.trim().split(/\s+/)[0] || "there";
 
-  // Refresh on open so the badge reflects the current state.
-  useEffect(() => {
-    if (open !== "notifications" || items !== null) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const response = await fetch("/api/admin/notifications");
-        const payload = await response.json();
-        if (cancelled) return;
-        if (!response.ok) {
-          setError(payload.error ?? "Notifications could not be loaded.");
-          setItems([]);
-          return;
-        }
-        setItems(payload.notifications);
-      } catch {
-        if (!cancelled) {
-          setError("Could not reach the server.");
-          setItems([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/notifications");
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error ?? "Notifications could not be loaded.");
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, items]);
+      setError("");
+      setItems(payload.notifications);
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // The badge stays live: fetched on mount, refreshed after every in-panel
+  // navigation and menu open, plus a slow poll while the tab is visible.
+  useEffect(() => {
+    load();
+  }, [load, pathname]);
+
+  useEffect(() => {
+    if (open === "notifications") load();
+  }, [open, load]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [load]);
 
   async function signOut() {
     await fetch("/api/auth/sign-out", {
@@ -94,7 +99,8 @@ export default function PanelHeader({
     window.location.assign("/");
   }
 
-  const total = items?.reduce((sum, item) => sum + item.count, 0) ?? 0;
+  // Informational items (drafts, roadmap) do not ring the bell.
+  const badge = items?.filter((item) => item.actionable).reduce((sum, item) => sum + item.count, 0) ?? 0;
 
   return (
     <header className="workspace-topbar" ref={shellRef}>
@@ -113,25 +119,25 @@ export default function PanelHeader({
             type="button"
             aria-haspopup="true"
             aria-expanded={open === "notifications"}
-            aria-label={items === null ? "Notifications" : `Notifications, ${total} item${total === 1 ? "" : "s"}`}
+            aria-label={items === null ? "Notifications" : `Notifications, ${badge} item${badge === 1 ? "" : "s"}`}
             onClick={() => setOpen(open === "notifications" ? null : "notifications")}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6" />
               <path d="M10.5 20a2 2 0 0 0 3 0" />
             </svg>
-            {items !== null && total > 0 ? <span className="wtopbar-badge">{total > 9 ? "9+" : total}</span> : null}
+            {items !== null && badge > 0 ? <span className="wtopbar-badge">{badge > 9 ? "9+" : badge}</span> : null}
           </button>
 
           {open === "notifications" ? (
             <div className="wmenu wmenu-wide" role="dialog" aria-label="Notifications">
               <div className="wmenu-head">
                 <span>Notifications</span>
-                {items !== null && total > 0 ? <span className="wmenu-count">{total}</span> : null}
+                {items !== null && badge > 0 ? <span className="wmenu-count">{badge}</span> : null}
               </div>
-              {loading ? (
+              {items === null && loading ? (
                 <p className="wmenu-empty">Loading…</p>
-              ) : error ? (
+              ) : items === null && error ? (
                 <p className="wmenu-empty wmenu-error">{error}</p>
               ) : items === null ? null : items.length === 0 ? (
                 <p className="wmenu-empty">Nothing needs your attention.</p>

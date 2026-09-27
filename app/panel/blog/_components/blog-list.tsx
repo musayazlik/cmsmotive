@@ -161,7 +161,7 @@ export default function BlogList({ posts }: { posts: PostRow[] }) {
                 <th>Tags</th>
                 <th>Status</th>
                 <th>Updated</th>
-                <th className="wtable-actions-col">Actions</th>
+                <th scope="col" className="wtable-actions-col"><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody>

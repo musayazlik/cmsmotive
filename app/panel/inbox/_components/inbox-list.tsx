@@ -230,7 +230,7 @@ export default function InboxList({ rows, limit }: { rows: InquiryRow[]; limit: 
                 <th scope="col">Received</th>
                 <th scope="col">Status</th>
                 <th scope="col" className="wtable-actions-col">
-                  Actions
+                  <span className="visually-hidden">Actions</span>
                 </th>
               </tr>
             </thead>
@@ -274,8 +274,10 @@ export default function InboxList({ rows, limit }: { rows: InquiryRow[]; limit: 
                       </td>
                       <td>
                         {archived ? (
-                          <span className="wbadge wbadge-missing">archived</span>
-                        ) : row.readAt ? null : (
+                          <span className="wbadge wbadge-user">archived</span>
+                        ) : row.readAt ? (
+                          <span className="wbadge wbadge-verified">read</span>
+                        ) : (
                           <span className="wbadge wbadge-pending">new</span>
                         )}
                       </td>

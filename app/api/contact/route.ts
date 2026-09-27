@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sendContactEmail } from "@/lib/plunk";
+import { sendContactAckEmail, sendContactEmail } from "@/lib/plunk";
 
 export const runtime = "nodejs";
 
@@ -24,11 +24,20 @@ export async function POST(request: Request) {
   }
 
   const inquiry = await prisma.contactInquiry.create({ data });
+  // The auto-reply is a courtesy: if it fails, the submission still proceeds
+  // normally and only the log records it.
+  try {
+    await sendContactAckEmail({ to: data.email, name: data.name, agency: data.agency, message: data.message });
+  } catch (error) {
+    console.error("contact: acknowledgement email failed", error);
+  }
   try {
     await sendContactEmail(data);
     await prisma.contactInquiry.update({ where: { id: inquiry.id }, data: { emailSent: true } });
     return Response.json({ ok: true });
-  } catch {
+  } catch (error) {
+    // The row is already saved; the inbox shows it with a failed-mail badge.
+    console.error("contact: notification email failed", error);
     return Response.json({ error: "Your message was saved, but email delivery failed. Please email hello@cmsmotive.de directly." }, { status: 502 });
   }
 }

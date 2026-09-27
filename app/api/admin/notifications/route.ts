@@ -10,25 +10,26 @@ type Notification = {
   detail: string;
   href: string;
   count: number;
+  /** Counts toward the bell badge; informational items stay menu-only. */
+  actionable: boolean;
 };
 
 /**
- * Notifications are derived from live records rather than stored, so they never
- * go stale and no writer has to be wired up yet. Every item links to a panel
- * page that can act on it.
+ * Notifications are derived from live records rather than stored, so they
+ * never go stale and no writer has to be wired up. Every item links to a
+ * panel page that can act on it. Handled work (read/archived messages,
+ * verified accounts, published themes) drops out of the counts on its own.
  */
 export async function GET() {
   const { failure } = await requireAdmin();
   if (failure) return failure;
 
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  const [unverifiedUsers, newUsers, draftThemes, draftExtensions, recentInquiries] = await Promise.all([
+  const [unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] = await Promise.all([
     prisma.user.count({ where: { emailVerified: false } }),
-    prisma.user.count({ where: { createdAt: { gte: weekAgo } } }),
+    prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
+    prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null, emailSent: false } }),
     prisma.theme.count({ where: { status: { in: ["concept", "in-development"] } } }),
     prisma.extension.count({ where: { status: { in: ["concept", "planning", "in-development"] } } }),
-    prisma.contactInquiry.count({ where: { createdAt: { gte: weekAgo } } }),
   ]);
 
   const items: Notification[] = [];
@@ -41,6 +42,23 @@ export async function GET() {
       detail: "These accounts cannot sign in until the e-mail address is confirmed.",
       href: "/panel/users",
       count: unverifiedUsers,
+      actionable: true,
+    });
+  }
+
+  if (unreadInquiries > 0) {
+    items.push({
+      id: "inquiries-unread",
+      // Unread messages whose notification mail failed deserve more urgency.
+      tone: failedInquiries > 0 ? "warn" : "info",
+      title: `${unreadInquiries} unread contact message${unreadInquiries === 1 ? "" : "s"}`,
+      detail:
+        failedInquiries > 0
+          ? `${failedInquiries} of them got no e-mail confirmation — worth a direct reply.`
+          : "New messages from the contact form are waiting to be read.",
+      href: "/panel/inbox",
+      count: unreadInquiries,
+      actionable: true,
     });
   }
 
@@ -52,6 +70,7 @@ export async function GET() {
       detail: "Themes still in concept or development are hidden from the catalogue.",
       href: "/panel/themes",
       count: draftThemes,
+      actionable: false,
     });
   }
 
@@ -63,30 +82,13 @@ export async function GET() {
       detail: "Extensions in planning are shown as concept cards only.",
       href: "/panel/extensions",
       count: draftExtensions,
+      actionable: false,
     });
   }
 
-  if (newUsers > 0) {
-    items.push({
-      id: "users-new",
-      tone: "info",
-      title: `${newUsers} account${newUsers === 1 ? "" : "s"} in the last 7 days`,
-      detail: "Review the new sign-ups and their roles.",
-      href: "/panel/users",
-      count: newUsers,
-    });
-  }
-
-  if (recentInquiries > 0) {
-    items.push({
-      id: "inquiries-recent",
-      tone: "info",
-      title: `${recentInquiries} contact request${recentInquiries === 1 ? "" : "s"} this week`,
-      detail: "New messages from the contact form are waiting for a reply.",
-      href: "/panel/inbox",
-      count: recentInquiries,
-    });
-  }
-
-  return Response.json({ notifications: items, total: items.reduce((sum, item) => sum + item.count, 0) });
+  return Response.json({
+    notifications: items,
+    total: items.reduce((sum, item) => sum + item.count, 0),
+    actionable: items.filter((item) => item.actionable).reduce((sum, item) => sum + item.count, 0),
+  });
 }

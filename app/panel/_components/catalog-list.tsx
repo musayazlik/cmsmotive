@@ -194,7 +194,7 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
                 <th scope="col">Media</th>
                 <th scope="col">Added</th>
                 <th scope="col" className="wtable-actions-col">
-                  Actions
+                  <span className="visually-hidden">Actions</span>
                 </th>
               </tr>
             </thead>

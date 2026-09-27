@@ -65,6 +65,7 @@ export default function PanelShell({
       <aside className="workspace-sidebar">
         <Link className="workspace-logo" href="/" aria-label="CMSMotive home">
           <Image src="/assets/images/logo.png" alt="CMSMotive" width={144} height={48} priority />
+          <span className="workspace-logo-tag">YÖNETİM PANELİ</span>
         </Link>
         <div className="workspace-sidebar-label">YOUR WORKSPACE / 01</div>
         <nav className="workspace-nav" aria-label="Workspace navigation">

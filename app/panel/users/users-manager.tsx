@@ -368,7 +368,7 @@ export default function UsersManager() {
                 <th scope="col">Status</th>
                 <th scope="col">Joined</th>
                 <th scope="col" className="wtable-actions-col">
-                  Actions
+                  <span className="visually-hidden">Actions</span>
                 </th>
               </tr>
             </thead>

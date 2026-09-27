@@ -131,7 +131,7 @@ export default function TagManager({ tags }: { tags: TagRow[] }) {
                 <th>Tag</th>
                 <th>Posts</th>
                 <th>Created</th>
-                <th className="wtable-actions-col">Actions</th>
+                <th scope="col" className="wtable-actions-col"><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody>

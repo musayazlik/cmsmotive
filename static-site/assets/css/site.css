@@ -139,7 +139,7 @@
 @media(max-width:420px){.filter-bar{grid-template-columns:1fr}.filter-search,.filter-control:last-child{grid-column:auto}.final-cta .button-row .btn{width:100%}}
 
 /* Refined storefront hero and clearer desktop navigation */
-.desktop-nav{gap:24px}
+.desktop-nav{gap:32px}
 .desktop-nav .nav-link{font-size:1rem;font-weight:600;letter-spacing:-.02em;color:#38434a}
 .desktop-nav .nav-link:hover,.desktop-nav .nav-link[aria-current=page]{color:var(--indigo)}
 .hero{padding:86px 0 66px;position:relative}
@@ -164,7 +164,7 @@
 .hero-preview-dot{width:6px;height:6px;border-radius:50%;background:#64b24a}
 .hero-visual-caption{position:relative;display:flex;justify-content:space-between;gap:12px;margin:16px 18px 0;color:#68757a;font:500 .59rem 'DM Mono',monospace;letter-spacing:.06em}
 .hero-visual .floating-spec{right:-18px;bottom:61px;border-color:#344152;background:#172033;box-shadow:0 17px 34px rgba(14,22,38,.22)}
-@media(max-width:1100px){.desktop-nav{gap:16px}.desktop-nav .nav-link{font-size:.9rem}.hero-grid{grid-template-columns:minmax(0,47fr) minmax(0,53fr);gap:28px}.hero h1{font-size:clamp(2.9rem,4.6vw,4.5rem)}}
+@media(max-width:1100px){.desktop-nav{gap:22px}.desktop-nav .nav-link{font-size:.9rem}.hero-grid{grid-template-columns:minmax(0,47fr) minmax(0,53fr);gap:28px}.hero h1{font-size:clamp(2.9rem,4.6vw,4.5rem)}}
 @media(max-width:900px){.hero{padding:49px 0 48px}.hero-grid{grid-template-columns:1fr}.hero-copy{padding:0}.hero h1{font-size:clamp(3.25rem,6.2vw,4.8rem)}.hero-visual{max-width:720px;margin:30px auto 0}}
 @media(max-width:620px){.hero{padding:38px 0 40px}.hero-kicker{max-width:100%;margin-bottom:23px;font-size:.56rem}.hero-kicker-year{display:none}.hero h1{font-size:clamp(2.7rem,9vw,3.6rem);line-height:1.08}.hero .lead{font-size:1rem}.hero-proof{margin-top:30px;gap:9px 12px;font-size:.56rem}.hero-visual{margin-top:32px;padding:14px 6px 23px 2px}.hero-visual .visual-backplate{inset:47px -22px 10px 30px}.hero-preview-tag{left:12px;top:0;font-size:.5rem}.hero-visual .browser,.hero-visual:hover .browser{transform:none}.hero-visual-caption{margin:13px 5px 0;font-size:.48rem}.hero-visual-caption span:last-child{display:none}.hero-visual .floating-spec{right:0;bottom:39px}}
 @media(prefers-reduced-motion:reduce){.hero-visual .browser,.hero-visual:hover .browser{transform:none}}

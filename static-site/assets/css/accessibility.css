@@ -1,0 +1,251 @@
+.access-section {
+  padding-block: clamp(82px, 9vw, 130px);
+  background: #f7f8f5;
+}
+
+.access-layout {
+  display: grid;
+  grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr);
+  gap: clamp(42px, 7vw, 112px);
+  align-items: center;
+}
+
+.access-copy h2 {
+  max-width: 590px;
+  font-size: clamp(3rem, 4.3vw, 4.25rem);
+  line-height: 1.08;
+  letter-spacing: -.062em;
+}
+
+.access-copy h2 em {
+  color: var(--indigo);
+  font-style: normal;
+}
+
+.access-intro {
+  max-width: 485px;
+  margin-top: 24px;
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.access-link {
+  margin-top: 25px;
+}
+
+.access-principles {
+  max-width: 520px;
+  margin-top: clamp(42px, 5vw, 68px);
+  border-top: 1px solid var(--line);
+}
+
+.access-principle {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.access-principle > span {
+  padding-top: 2px;
+  color: var(--indigo);
+  font: 500 .7rem/1.5 'DM Mono', monospace;
+}
+
+.access-principle h3 {
+  font-size: 1rem;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+}
+
+.access-principle p {
+  margin-top: 3px;
+  font-size: .8rem;
+  line-height: 1.65;
+}
+
+.access-board {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid #d5dcda;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 58px rgba(17, 27, 40, .08);
+}
+
+.access-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 15px 27px;
+  font: 500 .64rem/1.5 'DM Mono', monospace;
+  letter-spacing: .065em;
+  color: #536067;
+}
+
+.access-board-mark {
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid #d5e9ad;
+  border-radius: 5px;
+  background: #eff8dd;
+  color: #456923;
+}
+
+.access-board-feature {
+  position: relative;
+  overflow: hidden;
+  min-height: 245px;
+  padding: 30px 30px 34px;
+  background: radial-gradient(circle at 90% 16%, rgba(198, 243, 106, .15), transparent 32%), #17212d;
+  color: #fff;
+}
+
+.access-board-feature::after {
+  content: '';
+  position: absolute;
+  right: -105px;
+  top: 12px;
+  width: 250px;
+  height: 250px;
+  border: 1px solid rgba(205, 223, 232, .18);
+  border-radius: 50%;
+  box-shadow: 0 0 0 38px rgba(205, 223, 232, .035), 0 0 0 80px rgba(205, 223, 232, .025);
+  pointer-events: none;
+}
+
+.access-board-feature > span:first-child {
+  display: block;
+  position: relative;
+  z-index: 1;
+  color: var(--lime);
+  font: 500 .66rem/1.5 'DM Mono', monospace;
+  letter-spacing: .1em;
+}
+
+.access-board-feature h3 {
+  position: relative;
+  z-index: 1;
+  max-width: 420px;
+  margin-top: 19px;
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  line-height: 1.09;
+  letter-spacing: -.058em;
+}
+
+.access-board-feature p {
+  position: relative;
+  z-index: 1;
+  max-width: 350px;
+  margin-top: 14px;
+  color: #c5d1d7;
+  font-size: .79rem;
+  line-height: 1.65;
+}
+
+.access-board-symbol {
+  position: absolute;
+  right: 28px;
+  bottom: 22px;
+  z-index: 1;
+  color: var(--lime);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.access-board-list {
+  padding: 5px 27px 0;
+}
+
+.access-check {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 15px;
+  min-height: 87px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.access-check-no {
+  color: #808f97;
+  font: 500 .68rem/1 'DM Mono', monospace;
+}
+
+.access-check h4 {
+  font-size: .9rem;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+}
+
+.access-check p {
+  margin-top: 3px;
+  font-size: .73rem;
+  line-height: 1.45;
+}
+
+.access-check-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eaf6d7;
+  color: #41671d;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.access-board-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 19px 27px 22px;
+}
+
+.access-board-footer span {
+  color: var(--indigo);
+  font: 500 .65rem/1.5 'DM Mono', monospace;
+  letter-spacing: .045em;
+  white-space: nowrap;
+}
+
+.access-board-footer p {
+  max-width: 195px;
+  text-align: right;
+  font-size: .69rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+  .access-layout {
+    grid-template-columns: 1fr;
+    gap: 52px;
+  }
+  .access-copy h2,
+  .access-intro,
+  .access-principles {
+    max-width: 650px;
+  }
+  .access-board {
+    max-width: 700px;
+  }
+}
+
+@media (max-width: 620px) {
+  .access-section { padding-block: 72px; }
+  .access-copy h2 { font-size: clamp(2.65rem, 10vw, 3.7rem); }
+  .access-principles { margin-top: 39px; }
+  .access-board-head { min-height: 58px; padding: 12px 18px; font-size: .54rem; }
+  .access-board-mark { padding: 5px 7px; }
+  .access-board-feature { min-height: 225px; padding: 27px 20px 31px; }
+  .access-board-feature h3 { font-size: clamp(1.9rem, 8vw, 2.5rem); }
+  .access-board-list { padding-inline: 18px; }
+  .access-check { gap: 10px; min-height: 82px; }
+  .access-board-footer { padding: 16px 18px 19px; }
+  .access-board-footer p { max-width: 130px; }
+}

@@ -25,6 +25,7 @@
       property="og:image"
       content="assets/images/hero-typo3-template-v1.webp"
     />
+    <link rel="stylesheet" href="assets/css/accessibility.css" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -439,77 +440,101 @@
           </div>
         </div>
       </section>
-      <section class="section">
-        <div class="container two-col">
-          <div data-reveal>
+      <section class="section access-section" aria-labelledby="access-title">
+        <div class="container access-layout">
+          <div class="access-copy" data-reveal>
             <span class="eyebrow">Access is part of quality</span>
-            <h2>Designed for more people to use.</h2>
-            <p class="lead lead-mt-24">
-              Accessibility belongs in the first design review, the component
-              library and the final audit—not in a footnote.
+            <h2 id="access-title">
+              Better by design.<br /><em>Open to everyone.</em>
+            </h2>
+            <p class="access-intro">
+              Accessibility starts with the first component, not the final
+              audit. We make it part of how every theme is planned, built and
+              reviewed.
             </p>
-            <a class="text-link" href="blog-accessibility.html"
+            <a class="text-link access-link" href="blog-accessibility.html"
               >Read our approach<img
                 src="assets/icons/arrow-right.svg"
                 alt=""
                 width="16"
                 height="16"
             /></a>
-            <div class="statement-list statement-list-mt-39">
-              <div class="statement">
-                <span class="index">01</span>
+            <div
+              class="access-principles"
+              aria-label="Our accessibility priorities"
+            >
+              <div class="access-principle">
+                <span>01</span>
                 <div>
                   <h3>Keyboard journeys</h3>
-                  <p>Navigation and controls planned for full keyboard use.</p>
+                  <p>Clear focus and navigation from start to finish.</p>
                 </div>
               </div>
-              <div class="statement">
-                <span class="index">02</span>
+              <div class="access-principle">
+                <span>02</span>
                 <div>
-                  <h3>Content structure</h3>
-                  <p>
-                    Clear hierarchy and semantic patterns for editors and
-                    visitors.
-                  </p>
+                  <h3>Content that makes sense</h3>
+                  <p>Useful hierarchy for visitors and editors alike.</p>
                 </div>
               </div>
-              <div class="statement">
-                <span class="index">03</span>
+              <div class="access-principle">
+                <span>03</span>
                 <div>
-                  <h3>Audit-ready workflow</h3>
-                  <p>Practical checks that teams can repeat as sites evolve.</p>
+                  <h3>Repeatable reviews</h3>
+                  <p>Practical checks the team can use as a site grows.</p>
                 </div>
               </div>
             </div>
           </div>
-          <div class="audit-card" data-reveal="delay">
-            <div class="audit-head">
-              <span class="mono mono-sm">ACCESSIBILITY REVIEW / EXAMPLE</span
-              ><span class="badge green">Process preview</span>
+          <aside
+            class="access-board"
+            data-reveal="delay"
+            aria-label="Accessibility review example"
+          >
+            <div class="access-board-head">
+              <span>CMSMOTIVE / ACCESS REVIEW</span
+              ><span class="access-board-mark">OUR PROCESS</span>
             </div>
-            <div class="audit-score">AA<span> target</span></div>
-            <p class="audit-card-text">
-              A working checklist for product and project reviews.
-            </p>
-            <div class="audit-bars">
-              <div class="audit-bar">
-                <div><span>Keyboard navigation</span><span>Review</span></div>
-                <div class="track"><div class="fill audit-fill-88"></div></div>
+            <div class="access-board-feature">
+              <span>THE QUESTION THAT GUIDES US</span>
+              <h3>Can everyone<br />complete the task?</h3>
+              <p>
+                A useful interface should work beyond the ideal mouse, screen
+                and setting.
+              </p>
+              <span class="access-board-symbol" aria-hidden="true">↗</span>
+            </div>
+            <div class="access-board-list">
+              <div class="access-check">
+                <span class="access-check-no">01</span>
+                <div>
+                  <h4>Operable</h4>
+                  <p>Keyboard paths and visible focus</p>
+                </div>
+                <span class="access-check-icon" aria-hidden="true">✓</span>
               </div>
-              <div class="audit-bar">
-                <div><span>Semantic structure</span><span>Review</span></div>
-                <div class="track"><div class="fill audit-fill-94"></div></div>
+              <div class="access-check">
+                <span class="access-check-no">02</span>
+                <div>
+                  <h4>Understandable</h4>
+                  <p>Plain structure and predictable controls</p>
+                </div>
+                <span class="access-check-icon" aria-hidden="true">✓</span>
               </div>
-              <div class="audit-bar">
-                <div><span>Contrast checks</span><span>Review</span></div>
-                <div class="track"><div class="fill audit-fill-82"></div></div>
+              <div class="access-check">
+                <span class="access-check-no">03</span>
+                <div>
+                  <h4>Perceivable</h4>
+                  <p>Readable type and considered contrast</p>
+                </div>
+                <span class="access-check-icon" aria-hidden="true">✓</span>
               </div>
             </div>
-            <p class="audit-note">
-              Illustrative workflow visual; these bars are not a published audit
-              score.
-            </p>
-          </div>
+            <div class="access-board-footer">
+              <span>REFERENCE / WCAG 2.2 AA</span>
+              <p>Reviewed from component to handoff.</p>
+            </div>
+          </aside>
         </div>
       </section>
       <section class="section-sm">
@@ -789,6 +814,63 @@
         </div>
       </section>
     </main>
+    <section
+      class="section-sm newsletter-section"
+      aria-labelledby="newsletter-title"
+    >
+      <div class="container">
+        <div class="newsletter-card" data-reveal>
+          <div class="newsletter-copy">
+            <span class="eyebrow">The Dispatch</span>
+            <h2 id="newsletter-title">One email a month, like a good paper.</h2>
+            <p>
+              New themes, extension releases and build notes from the CMSMotive
+              workbench — pressed, folded and delivered to your inbox. No spam,
+              unsubscribe any time.
+            </p>
+          </div>
+          <form class="newsletter-form" data-newsletter-form novalidate>
+            <div class="newsletter-fields">
+              <input
+                name="firstName"
+                type="text"
+                placeholder="First name"
+                autocomplete="given-name"
+                aria-label="First name"
+                required
+              /><input
+                name="lastName"
+                type="text"
+                placeholder="Last name"
+                autocomplete="family-name"
+                aria-label="Last name"
+                required
+              /><input
+                class="newsletter-email"
+                name="email"
+                type="email"
+                placeholder="Email address"
+                autocomplete="email"
+                aria-label="Email address"
+                required
+              /><button class="btn btn-primary" type="submit">
+                <span class="btn-label">Subscribe</span
+                ><span class="btn-icon" aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <p
+              class="newsletter-status"
+              data-newsletter-status
+              role="status"
+            ></p>
+            <p class="newsletter-note">
+              We store your name and email only to send the newsletter. See the
+              <a href="privacy.html">privacy policy</a>.
+            </p>
+          </form>
+        </div>
+      </div>
+    </section>
     <footer class="site-footer">
       <div class="container">
         <div class="footer-top">

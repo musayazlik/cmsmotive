@@ -16,7 +16,6 @@ import {
   type CategoryInput,
   type PostInput,
   type PostStatus,
-  type QuickCreateResult,
   type TagInput,
 } from "./_lib";
 
@@ -244,14 +243,17 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
         where: { id: input.id },
         data: { name, slug, description: description || null, color },
       });
+      revalidateBlog();
+      return { ok: true, id: input.id, name };
     } else {
       const slug2 = await uniqueSlug("category", slug);
-      await prisma.category.create({
+      const created = await prisma.category.create({
         data: { name, slug: slug2, description: description || null, color },
+        select: { id: true, name: true },
       });
+      revalidateBlog();
+      return { ok: true, id: created.id, name: created.name };
     }
-    revalidateBlog();
-    return { ok: true };
   } catch (error) {
     if (isUniqueViolation(error)) {
       return { ok: false, error: "A category with this slug already exists." };
@@ -274,24 +276,6 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
     console.error("deleteCategory failed", error);
     return { ok: false, error: "The category could not be deleted." };
   }
-}
-
-/** Quick-create from the post form; returns the id so the form can select it. */
-export async function quickCreateCategory(name: string): Promise<QuickCreateResult> {
-  const trimmed = name.trim();
-  if (!trimmed) return { ok: false, error: "Category name is required." };
-
-  const slug = slugify(trimmed);
-  const existing = await prisma.category.findUnique({ where: { slug } });
-  if (existing) return { ok: true, id: existing.id, name: existing.name };
-
-  const result = await saveCategory({ name: trimmed, slug, description: "", color: "#4353e8" });
-  if (!result.ok) return { ok: false, error: result.error };
-
-  const created = await prisma.category.findUnique({ where: { slug }, select: { id: true, name: true } });
-  return created
-    ? { ok: true, id: created.id, name: created.name }
-    : { ok: false, error: "The category could not be created." };
 }
 
 // ---------------------------------------------------------------------------
@@ -318,12 +302,17 @@ export async function saveTag(input: TagInput): Promise<ActionResult> {
         return { ok: false, error: "A tag with this slug already exists." };
       }
       await prisma.tag.update({ where: { id: input.id }, data: { name, slug } });
+      revalidateBlog();
+      return { ok: true, id: input.id, name };
     } else {
       const slug2 = await uniqueSlug("tag", slug);
-      await prisma.tag.create({ data: { name, slug: slug2 } });
+      const created = await prisma.tag.create({
+        data: { name, slug: slug2 },
+        select: { id: true, name: true },
+      });
+      revalidateBlog();
+      return { ok: true, id: created.id, name: created.name };
     }
-    revalidateBlog();
-    return { ok: true };
   } catch (error) {
     if (isUniqueViolation(error)) {
       return { ok: false, error: "A tag with this slug already exists." };
@@ -345,22 +334,4 @@ export async function deleteTag(id: string): Promise<ActionResult> {
     console.error("deleteTag failed", error);
     return { ok: false, error: "The tag could not be deleted." };
   }
-}
-
-/** Quick-create from the post form; returns the id so the form can select it. */
-export async function quickCreateTag(name: string): Promise<QuickCreateResult> {
-  const trimmed = name.trim();
-  if (!trimmed) return { ok: false, error: "Tag name is required." };
-
-  const slug = slugify(trimmed);
-  const existing = await prisma.tag.findUnique({ where: { slug } });
-  if (existing) return { ok: true, id: existing.id, name: existing.name };
-
-  const result = await saveTag({ name: trimmed, slug });
-  if (!result.ok) return { ok: false, error: result.error };
-
-  const created = await prisma.tag.findUnique({ where: { slug }, select: { id: true, name: true } });
-  return created
-    ? { ok: true, id: created.id, name: created.name }
-    : { ok: false, error: "The tag could not be created." };
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import ConfirmDialog from "./confirm-dialog";
+import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import { deleteTag, saveTag } from "../_actions";
 import type { TagRow } from "../_lib";
 

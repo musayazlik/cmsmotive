@@ -19,12 +19,8 @@ export const STATUS_LABELS: Record<PostStatus, string> = {
   published: "Published",
 };
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-/** Result of the quick-create helpers used inside the post form. */
-export type QuickCreateResult =
-  | { ok: true; id: string; name: string }
-  | { ok: false; error: string };
+/** Create/update results carry the record so forms can select what they just made. */
+export type ActionResult = { ok: true; id?: string; name?: string } | { ok: false; error: string };
 
 export type CoverRef = { assetId: string; url: string; name: string };
 

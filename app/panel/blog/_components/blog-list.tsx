@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import ConfirmDialog from "./confirm-dialog";
+import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import { deletePost, setPostStatus } from "../_actions";
 import { STATUS_LABELS, type PostRow, type PostStatus } from "../_lib";
 import Select from "@/app/panel/_components/ui/select";

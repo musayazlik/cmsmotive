@@ -92,9 +92,16 @@ export default function Select({
   }
 
   function onTriggerKeyDown(event: React.KeyboardEvent) {
-    // While open the focus sits on the option buttons, so the trigger only
-    // handles the closed state.
-    if (open || disabled) return;
+    if (disabled) return;
+    // while open the focus sits on an option button; the trigger still honors
+    // Escape so the list can be dismissed when there is nothing to focus
+    if (open) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+      return;
+    }
     if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
       event.preventDefault();
       openList();

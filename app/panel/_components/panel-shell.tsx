@@ -17,12 +17,13 @@ type NavItem = {
 /** Single source of truth for the panel navigation. */
 const PANEL_NAV: NavItem[] = [
   { href: "/panel", index: "01", label: "Overview" },
-  { href: "/panel/users", index: "02", label: "Users" },
-  { href: "/panel/themes", index: "03", label: "Themes" },
-  { href: "/panel/extensions", index: "04", label: "Extensions" },
+  { href: "/panel/inbox", index: "02", label: "Inbox" },
+  { href: "/panel/users", index: "03", label: "Users" },
+  { href: "/panel/themes", index: "04", label: "Themes" },
+  { href: "/panel/extensions", index: "05", label: "Extensions" },
   {
     href: "/panel/blog",
-    index: "05",
+    index: "06",
     label: "Blog",
     children: [
       { href: "/panel/blog", label: "Posts" },
@@ -30,7 +31,9 @@ const PANEL_NAV: NavItem[] = [
       { href: "/panel/blog/tags", label: "Tags" },
     ],
   },
-  { href: "/docs", index: "06", label: "Documentation" },
+  { href: "/panel/media", index: "07", label: "Media" },
+  { href: "/panel/settings", index: "08", label: "Settings" },
+  { href: "/docs", index: "09", label: "Documentation" },
 ];
 
 /** A section is active on its own route and on every route nested under it. */
@@ -45,9 +48,11 @@ function sectionFor(pathname: string) {
 
 export default function PanelShell({
   user,
+  unreadInquiries,
   children,
 }: {
   user: { name: string; email: string; role: string };
+  unreadInquiries: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -66,7 +71,18 @@ export default function PanelShell({
           {PANEL_NAV.map((item) => (
             <div key={item.href} className="workspace-nav-group">
               <Link href={item.href} className={isActive(pathname, item.href) ? "active" : undefined}>
-                <span>{item.index}</span> {item.label} <b aria-hidden="true">↗</b>
+                <span>{item.index}</span> {item.label}
+                {item.href === "/panel/inbox" && unreadInquiries > 0 ? (
+                  <>
+                    <span className="workspace-nav-count" aria-hidden="true">
+                      {unreadInquiries > 9 ? "9+" : unreadInquiries}
+                    </span>
+                    <span className="visually-hidden">
+                      {unreadInquiries} unread contact {unreadInquiries === 1 ? "message" : "messages"}
+                    </span>
+                  </>
+                ) : null}
+                <b aria-hidden="true">↗</b>
               </Link>
               {item.children ? (
                 <div className="workspace-subnav">
@@ -82,13 +98,13 @@ export default function PanelShell({
         </nav>
         <div className="workspace-sidebar-bottom">
           <span className="workspace-sidebar-label">ACCOUNT</span>
-          <div className="workspace-person">
+          <Link className="workspace-person" href="/panel/account" title="My account">
             <span>{(firstName[0] ?? "?").toUpperCase()}</span>
             <div>
               <strong>{user.name}</strong>
               <small>{user.email}</small>
             </div>
-          </div>
+          </Link>
           <SignOutButton />
         </div>
       </aside>

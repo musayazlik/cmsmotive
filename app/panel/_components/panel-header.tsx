@@ -187,6 +187,14 @@ export default function PanelHeader({
               <Link className="wmenu-item" href="/panel" aria-current={pathname === "/panel" ? "page" : undefined} onClick={close}>
                 Overview
               </Link>
+              <Link
+                className="wmenu-item"
+                href="/panel/account"
+                aria-current={pathname === "/panel/account" ? "page" : undefined}
+                onClick={close}
+              >
+                My account
+              </Link>
               <Link className="wmenu-item" href="/" onClick={close}>
                 View site
               </Link>

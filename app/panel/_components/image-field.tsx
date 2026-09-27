@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
+import { useUploadSettings } from "./upload-settings";
+import { optimizeAllForUpload } from "@/lib/webp";
 
 export type UploadedImage = {
   assetId: string;
@@ -23,6 +25,8 @@ type Props = {
 export default function ImageField({ endpoint, label, hint, multiple, max = 10, value, onChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+  const [optimizing, setOptimizing] = useState(false);
+  const uploadSettings = useUploadSettings();
 
   const { startUpload, isUploading } = useUploadThing(endpoint, {
     onClientUploadComplete: (files) => {
@@ -39,6 +43,7 @@ export default function ImageField({ endpoint, label, hint, multiple, max = 10, 
 
   const room = multiple ? max - value.length : 1 - value.length;
   const full = room <= 0;
+  const busy = isUploading || optimizing;
 
   return (
     <div className="wfield">
@@ -56,7 +61,7 @@ export default function ImageField({ endpoint, label, hint, multiple, max = 10, 
                 <button
                   type="button"
                   onClick={() => onChange(value.filter((item) => item.url !== image.url))}
-                  disabled={isUploading}
+                  disabled={busy}
                   aria-label={`Remove ${image.name}`}
                 >
                   Remove
@@ -75,7 +80,7 @@ export default function ImageField({ endpoint, label, hint, multiple, max = 10, 
           accept="image/*"
           multiple={multiple}
           hidden
-          onChange={(event) => {
+          onChange={async (event) => {
             const files = Array.from(event.target.files ?? []);
             event.target.value = "";
             if (files.length === 0) return;
@@ -83,16 +88,27 @@ export default function ImageField({ endpoint, label, hint, multiple, max = 10, 
               setError(`Only ${room} more file${room === 1 ? "" : "s"} can be added.`);
               return;
             }
-            startUpload(files);
+            setOptimizing(true);
+            const optimized = await optimizeAllForUpload(files, uploadSettings);
+            setOptimizing(false);
+            startUpload(optimized.map((entry) => entry.file));
           }}
         />
         <button
           className="wbtn wbtn-ghost wbtn-upload"
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={isUploading || full}
+          disabled={busy || full}
         >
-          {isUploading ? "Uploading…" : value.length > 0 ? (multiple ? "Add more" : "Replace") : "Choose image"}
+          {busy
+            ? optimizing
+              ? "Optimizing…"
+              : "Uploading…"
+            : value.length > 0
+              ? multiple
+                ? "Add more"
+                : "Replace"
+              : "Choose image"}
         </button>
         {multiple ? <span className="wupload-count">{value.length} / {max}</span> : null}
       </div>

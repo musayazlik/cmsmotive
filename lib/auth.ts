@@ -31,4 +31,21 @@ export const auth = betterAuth({
       });
     },
   },
+  rateLimit: {
+    // Explicit so dev and prod behave the same (better-auth otherwise only
+    // limits in production). "memory" counts per process, which is fine for
+    // the single-instance deployment; switch to "database" when scaling out.
+    enabled: true,
+    window: 60,
+    max: 100,
+    storage: "memory",
+    customRules: {
+      // Brute-force protection for credential sign-in: 5 attempts per minute
+      // per IP address, then 429 with a Retry-After header.
+      "/sign-in/email": { window: 60, max: 5 },
+      // These endpoints trigger an e-mail each hit, so keep them tight.
+      "/request-password-reset": { window: 60, max: 3 },
+      "/change-password": { window: 60, max: 3 },
+    },
+  },
 });

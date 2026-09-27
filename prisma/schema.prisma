@@ -74,15 +74,19 @@ model Verification {
 }
 
 model ContactInquiry {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
   email        String
   agency       String
   typo3Version String
   license      String
   message      String
-  emailSent    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  emailSent    Boolean   @default(false)
+  /// Set the first time the message is opened in the panel inbox; null means unread.
+  readAt       DateTime?
+  /// Set once the message is archived out of the active inbox; null keeps it listed.
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
 
   @@index([createdAt])
 }
@@ -239,4 +243,24 @@ model PostTag {
   @@id([postId, tagId])
   @@index([tagId])
   @@map("PostTag")
+}
+
+/// Key-value site settings edited from the panel settings page.
+/// Values are stored as strings; consumers parse them against defaults.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+/// Footer newsletter signup. Emails are unique so resubscribing simply
+/// refreshes the stored name instead of creating a second row.
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  source    String   @default("footer")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

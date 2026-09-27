@@ -54,6 +54,58 @@ export function mediaKind(mimeType: string): "image" | "video" | "other" {
   return "other";
 }
 
+/**
+ * Untracked files only exist in UploadThing, which reports no mime type —
+ * the extension is close enough for the type filter and thumbnails.
+ */
+const MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+  svg: "image/svg+xml",
+  bmp: "image/bmp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+};
+
+export function guessMimeType(fileName: string): string {
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXTENSION[extension] ?? "";
+}
+
+/** Raster images render as thumbnails; svg and everything else get a tile. */
+export function isRasterImage(mimeType: string): boolean {
+  return mimeType.startsWith("image/") && mimeType !== "image/svg+xml";
+}
+
+const ARCHIVE_EXTENSIONS = new Set(["zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "dmg", "iso"]);
+
+export type MediaTile = {
+  /** Short label shown inside the tile, e.g. "PDF", "ZIP", "SVG". */
+  label: string;
+  tone: "pdf" | "archive" | "file" | "video";
+};
+
+/**
+ * Default visual for files without a raster preview: a colored tile with
+ * the extension so svg, pdf and archive files stay recognizable at a glance.
+ */
+export function fileTile(fileName: string, mimeType: string): MediaTile {
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const label = (extension || "file").slice(0, 4).toUpperCase();
+
+  if (mimeType === "application/pdf" || extension === "pdf") return { label, tone: "pdf" };
+  if (mimeType.startsWith("video/") || MIME_BY_EXTENSION[extension]?.startsWith("video/")) {
+    return { label, tone: "video" };
+  }
+  if (ARCHIVE_EXTENSIONS.has(extension)) return { label, tone: "archive" };
+  return { label, tone: "file" };
+}
+
 export const SOURCE_LABELS: Record<MediaSource, string> = {
   tracked: "Tracked",
   untracked: "Untracked",

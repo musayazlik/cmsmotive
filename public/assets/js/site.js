@@ -511,3 +511,31 @@ document.querySelectorAll('[data-contact-form]').forEach(form => {
     }
   });
 });
+
+document.querySelectorAll('[data-newsletter-form]').forEach(form => {
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const fields = new FormData(form);
+    const value = key => String(fields.get(key) || '').trim();
+    const status = form.querySelector('[data-newsletter-status]');
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    if (status) { status.classList.remove('is-error'); status.textContent = 'Signing you up…'; }
+    try {
+      const response = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: value('firstName'), lastName: value('lastName'), email: value('email') }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'The subscription could not be saved.');
+      if (status) status.textContent = 'Welcome aboard. Your first issue is on its way.';
+      form.reset();
+    } catch (error) {
+      if (status) { status.classList.add('is-error'); status.textContent = error.message || 'Please try again later.'; }
+    } finally {
+      button.disabled = false;
+    }
+  });
+});

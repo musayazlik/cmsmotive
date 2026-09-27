@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
+import { useUploadSettings } from "@/app/panel/_components/upload-settings";
+import { optimizeForUpload } from "@/lib/webp";
 import type { CoverRef } from "../_lib";
 
 type Props = {
@@ -16,6 +18,8 @@ type Props = {
 export default function CoverField({ value, onChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+  const [optimizing, setOptimizing] = useState(false);
+  const uploadSettings = useUploadSettings();
 
   const { startUpload, isUploading } = useUploadThing("blogMedia", {
     onClientUploadComplete: (files) => {
@@ -32,6 +36,8 @@ export default function CoverField({ value, onChange }: Props) {
     onUploadError: (message) => setError(message.message || "The cover image could not be uploaded."),
   });
 
+  const busy = isUploading || optimizing;
+
   return (
     <div className="wfield-card">
       <p className="wsection-label">Cover image</p>
@@ -41,10 +47,10 @@ export default function CoverField({ value, onChange }: Props) {
           {/* eslint-disable-next-line @next/next/no-img-element -- UploadThing returns arbitrary remote hosts */}
           <img src={value.url} alt={value.name} />
           <div className="wcover-actions">
-            <button type="button" className="wbtn wbtn-sm" onClick={() => inputRef.current?.click()} disabled={isUploading}>
-              {isUploading ? "Uploading…" : "Replace"}
+            <button type="button" className="wbtn wbtn-sm" onClick={() => inputRef.current?.click()} disabled={busy}>
+              {busy ? "Working…" : "Replace"}
             </button>
-            <button type="button" className="wbtn wbtn-sm wbtn-danger-ghost" onClick={() => onChange(null)} disabled={isUploading}>
+            <button type="button" className="wbtn wbtn-sm wbtn-danger-ghost" onClick={() => onChange(null)} disabled={busy}>
               Remove
             </button>
           </div>
@@ -54,9 +60,9 @@ export default function CoverField({ value, onChange }: Props) {
           type="button"
           className="wcover-empty"
           onClick={() => inputRef.current?.click()}
-          disabled={isUploading}
+          disabled={busy}
         >
-          {isUploading ? "Uploading…" : "Choose a cover image"}
+          {busy ? (optimizing ? "Optimizing…" : "Uploading…") : "Choose a cover image"}
         </button>
       )}
 
@@ -67,10 +73,14 @@ export default function CoverField({ value, onChange }: Props) {
         type="file"
         accept="image/*"
         hidden
-        onChange={(event) => {
+        onChange={async (event) => {
           const files = Array.from(event.target.files ?? []);
           event.target.value = "";
-          if (files.length > 0) startUpload(files.slice(0, 1));
+          if (files.length === 0) return;
+          setOptimizing(true);
+          const optimized = await optimizeForUpload(files[0], uploadSettings);
+          setOptimizing(false);
+          startUpload([optimized.file]);
         }}
       />
 

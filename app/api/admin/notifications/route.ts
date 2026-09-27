@@ -83,7 +83,7 @@ export async function GET() {
       tone: "info",
       title: `${recentInquiries} contact request${recentInquiries === 1 ? "" : "s"} this week`,
       detail: "New messages from the contact form are waiting for a reply.",
-      href: "/contact",
+      href: "/panel/inbox",
       count: recentInquiries,
     });
   }

@@ -15,6 +15,8 @@ type Props = {
   error?: string;
   /** Shown in the trigger while nothing is selected. */
   placeholder?: string;
+  /** Shown in the list while there are no options to pick from. */
+  emptyLabel?: string;
   /** Chips shown before the "+N more" overflow chip. */
   maxChips?: number;
   disabled?: boolean;
@@ -22,7 +24,7 @@ type Props = {
 };
 
 export default function MultiSelect({
-  value, onChange, options, label, hideLabel, hint, note, error, placeholder, maxChips = 2, disabled, id,
+  value, onChange, options, label, hideLabel, hint, note, error, placeholder, emptyLabel, maxChips = 2, disabled, id,
 }: Props) {
   const normalized = useMemo(() => toOptions(options), [options]);
   const fieldId = id ?? useId();
@@ -73,7 +75,16 @@ export default function MultiSelect({
   }
 
   function onTriggerKeyDown(event: React.KeyboardEvent) {
-    if (open || disabled) return;
+    if (disabled) return;
+    // while open the focus usually sits on an option; the trigger still honors
+    // Escape so an empty list (nothing to focus) can be dismissed too
+    if (open) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+      return;
+    }
     if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
       event.preventDefault();
       openList();
@@ -181,7 +192,12 @@ export default function MultiSelect({
             ) : null}
           </div>
           <ul className="wui-options" role="listbox" id={listId} aria-label={label} aria-multiselectable="true">
-            {normalized.map((option, index) => (
+            {normalized.length === 0 ? (
+              <li role="presentation" className="wui-empty">
+                {emptyLabel ?? "No options"}
+              </li>
+            ) : (
+              normalized.map((option, index) => (
               <li key={option.value} role="presentation">
                 <button
                   ref={(node) => {
@@ -202,7 +218,8 @@ export default function MultiSelect({
                   <span className="wui-option-label">{option.label}</span>
                 </button>
               </li>
-            ))}
+            ))
+            )}
           </ul>
         </div>
       ) : null}

@@ -191,6 +191,63 @@ Documentation/</pre>
       </div>
       <div class="docs-spacer"></div>
     </main>
+    <section
+      class="section-sm newsletter-section"
+      aria-labelledby="newsletter-title"
+    >
+      <div class="container">
+        <div class="newsletter-card" data-reveal>
+          <div class="newsletter-copy">
+            <span class="eyebrow">The Dispatch</span>
+            <h2 id="newsletter-title">One email a month, like a good paper.</h2>
+            <p>
+              New themes, extension releases and build notes from the CMSMotive
+              workbench — pressed, folded and delivered to your inbox. No spam,
+              unsubscribe any time.
+            </p>
+          </div>
+          <form class="newsletter-form" data-newsletter-form novalidate>
+            <div class="newsletter-fields">
+              <input
+                name="firstName"
+                type="text"
+                placeholder="First name"
+                autocomplete="given-name"
+                aria-label="First name"
+                required
+              /><input
+                name="lastName"
+                type="text"
+                placeholder="Last name"
+                autocomplete="family-name"
+                aria-label="Last name"
+                required
+              /><input
+                class="newsletter-email"
+                name="email"
+                type="email"
+                placeholder="Email address"
+                autocomplete="email"
+                aria-label="Email address"
+                required
+              /><button class="btn btn-primary" type="submit">
+                <span class="btn-label">Subscribe</span
+                ><span class="btn-icon" aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <p
+              class="newsletter-status"
+              data-newsletter-status
+              role="status"
+            ></p>
+            <p class="newsletter-note">
+              We store your name and email only to send the newsletter. See the
+              <a href="privacy.html">privacy policy</a>.
+            </p>
+          </form>
+        </div>
+      </div>
+    </section>
     <footer class="site-footer">
       <div class="container">
         <div class="footer-top">

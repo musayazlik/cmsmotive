@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import ConfirmDialog from "./confirm-dialog";
+import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import ColorField from "./color-field";
 import { deleteCategory, saveCategory } from "../_actions";
 import type { CategoryRow } from "../_lib";

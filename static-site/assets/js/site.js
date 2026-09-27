@@ -465,6 +465,16 @@ document.querySelectorAll('[data-comments]').forEach(section => {
   render();
 });
 
+const backToTopButton = document.querySelector('[data-back-to-top]');
+if (backToTopButton) {
+  const syncBackToTop = () => backToTopButton.classList.toggle('is-visible', window.scrollY > 480);
+  syncBackToTop();
+  window.addEventListener('scroll', syncBackToTop, { passive: true });
+  backToTopButton.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+  });
+}
+
 document.querySelectorAll('[data-contact-form]').forEach(form => {
   form.addEventListener('submit', event => {
     event.preventDefault();

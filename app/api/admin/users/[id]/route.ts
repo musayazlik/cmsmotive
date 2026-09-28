@@ -20,8 +20,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+  const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
   if (!target) return Response.json({ error: "User not found." }, { status: 404 });
+  // The seeded superadmin is invisible to the panel and cannot be touched here.
+  if (target.role === "superadmin") {
+    return Response.json({ error: "The superadmin account is protected." }, { status: 403 });
+  }
 
   const data: { name?: string; email?: string; role?: string; emailVerified?: boolean } = {};
 
@@ -48,6 +52,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.role !== undefined) {
     if (!isUserRole(body.role)) {
       return Response.json({ error: `Role must be one of: ${USER_ROLES.join(", ")}.` }, { status: 400 });
+    }
+    // Superadmin can only exist through the seed; the panel never grants it.
+    if (body.role === "superadmin") {
+      return Response.json({ error: "The superadmin role cannot be assigned from the panel." }, { status: 403 });
     }
     // An admin must not be able to strip their own admin access and lock the
     // panel, because no other admin may exist.
@@ -109,6 +117,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
   if (!target) return Response.json({ error: "User not found." }, { status: 404 });
+  // The seeded superadmin is invisible to the panel and cannot be deleted here.
+  if (target.role === "superadmin") {
+    return Response.json({ error: "The superadmin account is protected." }, { status: 403 });
+  }
 
   // Refuse to remove the last remaining admin so the panel cannot be orphaned.
   if (isAdminRole(target.role)) {

@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const session = await requirePanelUser();
 
-  const totalUsers = await prisma.user.count();
+  // The seeded superadmin is hidden from the panel, so it is not counted either.
+  const totalUsers = await prisma.user.count({ where: { role: { not: "superadmin" } } });
 
   return (
     <>

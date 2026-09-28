@@ -29,11 +29,15 @@ export async function GET(request: Request) {
     if (!Number.isNaN(date.getTime())) joinedAfter = date;
   }
 
+  // The seeded superadmin is hidden from the panel list entirely; the role
+  // filter only narrows within the visible roles.
+  const selectedRole = isUserRole(roleParam) && roleParam !== "superadmin" ? roleParam : null;
+
   const where = {
+    role: selectedRole ?? { not: "superadmin" },
     ...(q
       ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { email: { contains: q, mode: "insensitive" as const } }] }
       : {}),
-    ...(isUserRole(roleParam) ? { role: roleParam } : {}),
     ...(joinedAfter ? { createdAt: { gte: joinedAfter } } : {}),
   };
 
@@ -91,6 +95,10 @@ export async function POST(request: Request) {
   }
   if (!isUserRole(role)) {
     return Response.json({ error: `Role must be one of: ${USER_ROLES.join(", ")}.` }, { status: 400 });
+  }
+  // Superadmin exists only through the seed and stays invisible to the panel.
+  if (role === "superadmin") {
+    return Response.json({ error: "The superadmin role cannot be assigned from the panel." }, { status: 403 });
   }
   if (password.length > 0 && password.length < 8) {
     return Response.json({ error: "Password must be at least 8 characters, or left empty." }, { status: 400 });

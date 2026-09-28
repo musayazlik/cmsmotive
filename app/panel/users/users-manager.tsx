@@ -17,7 +17,8 @@ type UserRow = {
 type DialogKind = "create" | "edit" | "delete" | null;
 
 const PAGE_SIZES = [20, 50, 100];
-const ROLES: Role[] = ["superadmin", "admin", "user"];
+// Superadmin is seed-only and invisible in the panel, so it is not offered here.
+const ROLES: Role[] = ["admin", "user"];
 const ROLE_LABELS: Record<Role, string> = { superadmin: "Superadmin", admin: "Admin", user: "User" };
 
 const EMPTY_FORM = { name: "", email: "", role: "user" as Role, password: "" };

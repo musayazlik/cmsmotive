@@ -14,15 +14,9 @@ function rewriteUrl(value: string, sourcePath: string) {
 
 export async function readLegacyPage(sourcePath: string) {
   const html = await readFile(path.join(sourceRoot, sourcePath), "utf8");
-  let output = html.replace(/\b(href|src)=(['"])(.*?)\2/g, (_match, attribute: string, quote: string, value: string) =>
+  return html.replace(/\b(href|src)=(['"])(.*?)\2/g, (_match, attribute: string, quote: string, value: string) =>
     `${attribute}=${quote}${rewriteUrl(value, sourcePath)}${quote}`,
   );
-  if (!sourcePath.startsWith("auth/")) {
-    output = output
-      .replace('<div class="header-actions">', '<div class="header-actions"><a class="account-link" href="/panel">Account <span aria-hidden="true">↗</span></a>')
-      .replace('<nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">', '<nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"><a href="/panel">Account ↗</a>');
-  }
-  return output;
 }
 
 export function htmlResponse(html: string) {

@@ -39,9 +39,6 @@ export function SiteHeader({ current }: { current?: string }) {
               <img src="/assets/icons/arrow-right.svg" alt="" width={16} height={16} />
             </span>
           </a>
-          <a className="account-link" href="/panel">
-            Account <span aria-hidden="true">↗</span>
-          </a>
           <button className="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
             <span></span>
             <span></span>

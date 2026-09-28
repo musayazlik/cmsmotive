@@ -643,4 +643,4 @@ a.contact-method:hover{border-color:var(--indigo);box-shadow:var(--shadow);trans
 @media(max-width:620px){.back-to-top{right:16px;bottom:16px;width:54px;height:49px}}
 @media(prefers-reduced-motion:reduce){.back-to-top,.back-to-top-shape,.back-to-top-bg,.back-to-top-arrow{transition:none!important;animation:none!important}}
 
-.account-link{font:500 .72rem "DM Mono",monospace;color:var(--indigo);white-space:nowrap}.account-link:hover{text-decoration:underline}@media(max-width:1100px){.account-link{display:none}}
+

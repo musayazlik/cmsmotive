@@ -1,6 +1,6 @@
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/prisma";
-import { EMAIL_PATTERN, USER_ROLES, isUserRole, requireAdmin } from "@/lib/admin-guard";
+import { ADMIN_ROLES, EMAIL_PATTERN, USER_ROLES, isAdminRole, isUserRole, requireAdmin } from "@/lib/admin-guard";
 
 export const runtime = "nodejs";
 
@@ -51,7 +51,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     // An admin must not be able to strip their own admin access and lock the
     // panel, because no other admin may exist.
-    if (id === session.user.id && body.role !== "admin") {
+    if (id === session.user.id && !isAdminRole(body.role)) {
       return Response.json({ error: "You cannot remove your own admin access." }, { status: 409 });
     }
     data.role = body.role;
@@ -111,8 +111,8 @@ export async function DELETE(_request: Request, context: RouteContext) {
   if (!target) return Response.json({ error: "User not found." }, { status: 404 });
 
   // Refuse to remove the last remaining admin so the panel cannot be orphaned.
-  if (target.role === "admin") {
-    const admins = await prisma.user.count({ where: { role: "admin" } });
+  if (isAdminRole(target.role)) {
+    const admins = await prisma.user.count({ where: { role: { in: [...ADMIN_ROLES] } } });
     if (admins <= 1) {
       return Response.json({ error: "This is the last admin account and cannot be deleted." }, { status: 409 });
     }

@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { isAdminRole } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -16,7 +17,7 @@ export async function requirePanelUser() {
     where: { id: session.user.id },
     select: { role: true },
   });
-  if (user?.role !== "admin") redirect("/panel");
+  if (!user || !isAdminRole(user.role)) redirect("/panel");
 
   return { id: session.user.id, name: session.user.name, email: session.user.email, role: user.role };
 }

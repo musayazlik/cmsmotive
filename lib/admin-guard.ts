@@ -2,11 +2,18 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export const USER_ROLES = ["admin", "user"] as const;
+export const USER_ROLES = ["superadmin", "admin", "user"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+/** Roles that grant panel administration; "superadmin" outranks "admin". */
+export const ADMIN_ROLES = ["superadmin", "admin"] as const;
 
 export function isUserRole(value: unknown): value is UserRole {
   return typeof value === "string" && (USER_ROLES as readonly string[]).includes(value);
+}
+
+export function isAdminRole(value: unknown): boolean {
+  return typeof value === "string" && (ADMIN_ROLES as readonly string[]).includes(value);
 }
 
 /**
@@ -24,7 +31,7 @@ export async function requireAdmin() {
     where: { id: session.user.id },
     select: { role: true },
   });
-  if (user?.role !== "admin") {
+  if (!isAdminRole(user?.role)) {
     return { session: null, failure: Response.json({ error: "Forbidden." }, { status: 403 }) };
   }
 

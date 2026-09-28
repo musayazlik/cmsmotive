@@ -12,8 +12,8 @@ type SeedUser = {
   label: string;
   name: string;
   email: string;
-  role: string;
-  password: string;
+  role: "superadmin" | "admin";
+  passwordEnv: string;
 };
 
 function readPassword(envKey: string): string {
@@ -30,17 +30,17 @@ function readPassword(envKey: string): string {
 const seedUsers: SeedUser[] = [
   {
     label: "superadmin",
-    name: process.env.SEED_ADMIN_NAME?.trim() || "CMSMotive Superadmin",
-    email: (process.env.SEED_ADMIN_EMAIL?.trim() || "admin@cmsmotive.de").toLowerCase(),
-    role: "admin",
-    password: readPassword("SEED_ADMIN_PASSWORD"),
+    name: process.env.SEED_SUPERADMIN_NAME?.trim() || "CMSMotive Superadmin",
+    email: (process.env.SEED_SUPERADMIN_EMAIL?.trim() || "superadmin@cmsmotive.de").toLowerCase(),
+    role: "superadmin",
+    passwordEnv: "SEED_SUPERADMIN_PASSWORD",
   },
   {
-    label: "user",
-    name: process.env.SEED_USER_NAME?.trim() || "CMSMotive User",
-    email: (process.env.SEED_USER_EMAIL?.trim() || "user@cmsmotive.de").toLowerCase(),
-    role: "user",
-    password: readPassword("SEED_USER_PASSWORD"),
+    label: "admin",
+    name: process.env.SEED_ADMIN_NAME?.trim() || "CMSMotive Admin",
+    email: (process.env.SEED_ADMIN_EMAIL?.trim() || "admin@cmsmotive.de").toLowerCase(),
+    role: "admin",
+    passwordEnv: "SEED_ADMIN_PASSWORD",
   },
 ];
 
@@ -49,7 +49,7 @@ const seedUsers: SeedUser[] = [
  * Re-running the seed is safe: users are matched on e-mail and the existing
  * password row is updated instead of duplicated.
  */
-async function upsertCredentialUser({ name, email, role, password }: SeedUser) {
+async function upsertCredentialUser({ name, email, role, password }: SeedUser & { password: string }) {
   // The password must be hashed with better-auth's own algorithm, otherwise
   // sign-in cannot verify it.
   const hashed = await hashPassword(password);
@@ -91,21 +91,21 @@ async function upsertCredentialUser({ name, email, role, password }: SeedUser) {
 async function main() {
   console.log("Seeding CMSMotive accounts...");
 
+  const seeded: { seedUser: SeedUser; user: { email: string; role: string } }[] = [];
   for (const seedUser of seedUsers) {
-    const user = await upsertCredentialUser(seedUser);
+    const user = await upsertCredentialUser({ ...seedUser, password: readPassword(seedUser.passwordEnv) });
+    seeded.push({ seedUser, user });
     console.log(`  ${seedUser.label.padEnd(10)} ${user.email}  role=${user.role}`);
   }
 
-  const usedDefaults = seedUsers.filter(
-    (seedUser) => seedUser.password === DEV_PASSWORD,
-  );
+  const usedDefaults = seeded.filter(({ seedUser }) => !process.env[seedUser.passwordEnv]?.trim());
   if (usedDefaults.length > 0) {
     console.warn("");
     console.warn("WARNING: the following accounts were created with the development password:");
-    for (const seedUser of usedDefaults) {
-      console.warn(`  ${seedUser.email}  ->  ${DEV_PASSWORD}`);
+    for (const { user } of usedDefaults) {
+      console.warn(`  ${user.email}  ->  ${DEV_PASSWORD}`);
     }
-    console.warn("Set SEED_ADMIN_PASSWORD and SEED_USER_PASSWORD before deploying.");
+    console.warn(`Set ${seedUsers.map((seedUser) => seedUser.passwordEnv).join(" and ")} before deploying.`);
   }
 }
 

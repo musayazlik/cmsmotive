@@ -561,3 +561,6 @@ a.workspace-person:hover{border-color:var(--indigo)}
 .wai-warning p{margin:0}
 @media(max-width:700px){.wai-fieldset,.wai-preferences{padding:15px}.wai-fieldset-head{flex-wrap:wrap;gap:10px}.wai-fields{grid-template-columns:1fr}.wai-fields .wcheck-row{min-height:0}.wai-row{grid-template-columns:1fr}.wai-working{min-height:370px;padding:18px 15px}.wai-working-visual{height:158px}.wai-working h3{font-size:22px}.wai-foot-status{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.wai-working-halo,.wai-working-sheet,.wai-working-sheet:after,.wai-working-line,.wai-working-spark,.wai-working-kicker i,.wai-foot-status i,.wai-working-progress span{animation:none!important}.wai-working-progress span{transform:none;background:var(--indigo);opacity:.4}}
+
+/* Superadmin badge: dark chip with gold text to outrank the admin badge. */
+.wbadge-superadmin{background:#23283b;border-color:#23283b;color:#f5d488}

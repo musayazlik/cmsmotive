@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DatePicker, Select, TextField } from "../_components/ui";
 
-type Role = "admin" | "user";
+type Role = "superadmin" | "admin" | "user";
 
 type UserRow = {
   id: string;
@@ -17,7 +17,8 @@ type UserRow = {
 type DialogKind = "create" | "edit" | "delete" | null;
 
 const PAGE_SIZES = [20, 50, 100];
-const ROLES: Role[] = ["admin", "user"];
+const ROLES: Role[] = ["superadmin", "admin", "user"];
+const ROLE_LABELS: Record<Role, string> = { superadmin: "Superadmin", admin: "Admin", user: "User" };
 
 const EMPTY_FORM = { name: "", email: "", role: "user" as Role, password: "" };
 
@@ -110,7 +111,7 @@ function Dialog({
               label="Role"
               value={form.role}
               onChange={(role) => onFormChange({ ...form, role: role as Role })}
-              options={ROLES.map((role) => ({ value: role, label: role === "admin" ? "Admin" : "User" }))}
+              options={ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
             />
             <TextField
               id="w-user-password"
@@ -312,7 +313,7 @@ export default function UsersManager() {
                 setRoleFilter(next as Role | "");
                 setPage(1);
               }}
-              options={ROLES.map((role) => ({ value: role, label: role === "admin" ? "Admin" : "User" }))}
+              options={ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
             />
             <DatePicker
               label="Joined from"

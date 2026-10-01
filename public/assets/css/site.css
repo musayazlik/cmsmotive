@@ -643,4 +643,10 @@ a.contact-method:hover{border-color:var(--indigo);box-shadow:var(--shadow);trans
 @media(max-width:620px){.back-to-top{right:16px;bottom:16px;width:54px;height:49px}}
 @media(prefers-reduced-motion:reduce){.back-to-top,.back-to-top-shape,.back-to-top-bg,.back-to-top-arrow{transition:none!important;animation:none!important}}
 
-
+/* Mobile/tablet (single-column hero): the hero CTAs span the full row, and
+   the floating spec card flows under the preview instead of covering it. */
+@media(max-width:900px){
+  .hero-buttons{flex-direction:column;align-items:stretch}
+  .hero-buttons .btn{width:100%}
+  .hero-visual .floating-spec{position:static;width:fit-content;margin:14px 4px 0 auto}
+}

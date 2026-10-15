@@ -25,12 +25,14 @@ function decodeEntities(text: string) {
  * `t("Explore themes")` for the React pages: looks the English source text up
  * in the same catalog the static-site pages use (plus i18n/app/<locale>.json)
  * and falls back to the source text. `{name}` placeholders are filled from `vars`.
+ * `quiet` skips the missing-key warning: for copy edited in the panel, where
+ * only text that matches the English catalog has a translation.
  */
-export function getTranslator(locale: Locale): Translate {
+export function getTranslator(locale: Locale, { quiet = false }: { quiet?: boolean } = {}): Translate {
   const catalog = locale === SOURCE_LOCALE ? null : loadAppCatalog(locale);
   return (key, vars) => {
     let text = catalog?.get(key) ?? key;
-    if (catalog && !catalog.has(key) && process.env.NODE_ENV !== "production") {
+    if (catalog && !quiet && !catalog.has(key) && process.env.NODE_ENV !== "production") {
       console.warn(`[i18n] missing ${locale} translation: ${JSON.stringify(key)}`);
     }
     if (vars) text = text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match));

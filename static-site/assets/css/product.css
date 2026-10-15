@@ -690,3 +690,203 @@
     align-items: center;
   }
 }
+
+/* ---------------- detail pages rendered by Next.js (app/[locale]/(product)) ---------------- */
+
+/* Cover in the browser frame: any image ratio, cropped to the frame. */
+.product-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.compare-scroll {
+  overflow-x: auto;
+}
+
+/* Description tab: rich text written in the panel editor (Tiptap). */
+.product-richtext {
+  max-width: 780px;
+  padding: 40px 0 8px;
+  color: var(--ink-muted);
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+.product-richtext > * + * {
+  margin-top: 1em;
+}
+
+.product-richtext > :first-child {
+  margin-top: 0;
+}
+
+.product-richtext h2,
+.product-richtext h3,
+.product-richtext h4 {
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.product-richtext h2 {
+  margin-top: 1.9em;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+}
+
+.product-richtext h3 {
+  margin-top: 1.6em;
+  font-size: 1.3rem;
+}
+
+.product-richtext h4 {
+  margin-top: 1.4em;
+  font-size: 1.05rem;
+}
+
+.product-richtext h2 + *,
+.product-richtext h3 + *,
+.product-richtext h4 + * {
+  margin-top: 0.6em;
+}
+
+.product-richtext ul,
+.product-richtext ol {
+  padding-left: 1.3em;
+}
+
+.product-richtext li + li {
+  margin-top: 0.4em;
+}
+
+.product-richtext strong {
+  color: var(--ink);
+}
+
+.product-richtext a {
+  color: var(--indigo);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.product-richtext blockquote {
+  margin: 1.4em 0;
+  padding: 4px 0 4px 18px;
+  border-left: 3px solid var(--indigo);
+  font-style: italic;
+}
+
+.product-richtext pre {
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  font: 400 0.85rem/1.7 "DM Mono", monospace;
+  overflow-x: auto;
+}
+
+.product-richtext :not(pre) > code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--wash-2);
+  font: 400 0.88em "DM Mono", monospace;
+}
+
+.product-richtext mark {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: #fff1a8;
+  color: inherit;
+}
+
+.product-richtext hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Images keep the width set in the editor and its alignment (data-align). */
+.product-richtext img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.4em auto;
+  border-radius: 12px;
+}
+
+.product-richtext img[data-align="left"] {
+  margin-left: 0;
+}
+
+.product-richtext img[data-align="right"] {
+  margin-right: 0;
+}
+
+.product-richtext img[data-align="wide"] {
+  width: 100%;
+}
+
+.product-richtext video {
+  display: block;
+  width: 100%;
+  margin: 1.4em 0;
+  border-radius: 12px;
+  background: #000;
+}
+
+.product-richtext div[data-youtube-video] iframe {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 12px;
+}
+
+.product-richtext table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.product-richtext th,
+.product-richtext td {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.product-richtext th {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.product-richtext td p,
+.product-richtext th p {
+  margin: 0;
+}
+
+.product-richtext ul[data-type="taskList"] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.product-richtext li[data-type="taskItem"] {
+  display: flex;
+  gap: 10px;
+}
+
+.product-richtext li[data-type="taskItem"] > label {
+  flex: none;
+  margin-top: 0.3em;
+}
+
+.product-richtext li[data-type="taskItem"] input {
+  accent-color: var(--indigo);
+}
+
+.product-richtext li[data-type="taskItem"][data-checked="true"] > div {
+  text-decoration: line-through;
+}

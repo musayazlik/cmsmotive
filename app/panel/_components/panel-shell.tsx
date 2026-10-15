@@ -22,9 +22,10 @@ const PANEL_NAV: NavItem[] = [
   { href: "/panel/users", index: "04", label: "Users" },
   { href: "/panel/themes", index: "05", label: "Themes" },
   { href: "/panel/extensions", index: "06", label: "Extensions" },
+  { href: "/panel/changelog", index: "07", label: "Changelog" },
   {
     href: "/panel/blog",
-    index: "07",
+    index: "08",
     label: "Blog",
     children: [
       { href: "/panel/blog", label: "Posts" },
@@ -32,9 +33,9 @@ const PANEL_NAV: NavItem[] = [
       { href: "/panel/blog/tags", label: "Tags" },
     ],
   },
-  { href: "/panel/media", index: "08", label: "Media" },
-  { href: "/panel/settings", index: "09", label: "Settings" },
-  { href: "/docs", index: "10", label: "Documentation" },
+  { href: "/panel/media", index: "09", label: "Media" },
+  { href: "/panel/settings", index: "10", label: "Settings" },
+  { href: "/docs", index: "11", label: "Documentation" },
 ];
 
 /** Sidebar badges: count, and the screen-reader wording for one / many. */

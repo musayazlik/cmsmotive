@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ReviewStatus } from "@/lib/reviews";
 import ConfirmDialog from "../../_components/confirm-dialog";
+import { Select, type SelectOption } from "../../_components/ui";
 import { deleteReview, setReviewStatus } from "../_actions";
 import { formatReviewDate, stars, type ActionResult, type ReviewRow } from "../_lib";
 
@@ -157,11 +158,37 @@ function ReviewDialog({
   );
 }
 
-export default function ReviewList({ rows, limit }: { rows: ReviewRow[]; limit: number }) {
+/**
+ * Product filter options: one product type, every theme and extension, and
+ * reviews whose product has since been deleted.
+ */
+function productOptions(rows: ReviewRow[], products: SelectOption[]): SelectOption[] {
+  const removed = new Map<string, SelectOption>();
+  for (const row of rows) {
+    if (row.productType === null) removed.set(row.productKey, { value: row.productKey, label: `Removed · ${row.productName}` });
+  }
+  return [
+    { value: "type:theme", label: "All themes" },
+    { value: "type:extension", label: "All extensions" },
+    ...products,
+    ...removed.values(),
+  ];
+}
+
+type Props = {
+  rows: ReviewRow[];
+  limit: number;
+  /** Every theme and extension, so the filter also offers products without reviews yet. */
+  products: SelectOption[];
+  initialProduct?: string;
+};
+
+export default function ReviewList({ rows, limit, products, initialProduct = "" }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(rows);
   const [tab, setTab] = useState<ReviewStatus>("pending");
   const [query, setQuery] = useState("");
+  const [product, setProduct] = useState(initialProduct);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -175,12 +202,18 @@ export default function ReviewList({ rows, limit }: { rows: ReviewRow[]; limit: 
   const confirming = items.find((row) => row.id === confirmId) ?? null;
 
   const queryLower = query.trim().toLowerCase();
+  const matchesProduct = (row: ReviewRow) =>
+    !product ||
+    (product === "type:theme" ? row.productType === "theme" : product === "type:extension" ? row.productType === "extension" : row.productKey === product);
   const visible = items.filter((row) => {
-    if (row.status !== tab) return false;
+    if (row.status !== tab || !matchesProduct(row)) return false;
     if (!queryLower) return true;
     return [row.authorName, row.authorEmail, row.productName, row.body].some((field) => field.toLowerCase().includes(queryLower));
   });
-  const counts = Object.fromEntries(TABS.map(({ status }) => [status, items.filter((row) => row.status === status).length]));
+  const counts = Object.fromEntries(
+    TABS.map(({ status }) => [status, items.filter((row) => row.status === status && matchesProduct(row)).length]),
+  );
+  const options = productOptions(items, products);
 
   function run(id: string, action: Promise<ActionResult>, onSuccess: () => void) {
     setPendingId(id);
@@ -244,6 +277,17 @@ export default function ReviewList({ rows, limit }: { rows: ReviewRow[]; limit: 
               placeholder="Search name, e-mail, product or text…"
             />
           </div>
+          <div className="wtable-filters">
+            <Select
+              label="Product"
+              hideLabel
+              placeholder="All products"
+              emptyLabel="All products"
+              value={product}
+              onChange={setProduct}
+              options={options}
+            />
+          </div>
         </div>
 
         {error && !active ? (
@@ -294,6 +338,7 @@ export default function ReviewList({ rows, limit }: { rows: ReviewRow[]; limit: 
                     </td>
                     <td>
                       <strong>{row.productName}</strong>
+                      <small className="wreview-type">{row.productType === "extension" ? "Extension" : row.productType === "theme" ? "Theme" : "Removed product"}</small>
                       <small className="winbox-project">
                         <Stars rating={row.rating} />
                       </small>

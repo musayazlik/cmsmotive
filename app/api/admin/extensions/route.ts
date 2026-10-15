@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
-import { SLUG_PATTERN, isExtensionStatus, EXTENSION_STATUSES, type ExtensionStatus } from "@/lib/catalog-guard";
+import { SLUG_PATTERN, isExtensionStatus, EXTENSION_STATUSES, validateDetail, validatePosition, type ExtensionStatus } from "@/lib/catalog-guard";
 import { prismaErrors } from "@/lib/prisma-errors";
 
 export const runtime = "nodejs";
@@ -37,11 +37,12 @@ export async function GET(request: Request) {
     prisma.extension.count({ where }),
     prisma.extension.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      // Same order as the public catalogue (home page and /extensions).
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {
-        id: true, slug: true, name: true, summary: true, description: true, status: true,
+        id: true, slug: true, name: true, summary: true, description: true, status: true, position: true,
         cover: { select: { id: true, url: true, fileName: true } },
         gallery: { orderBy: { position: "asc" }, select: { id: true, asset: { select: { id: true, url: true, fileName: true } } } },
         createdAt: true, updatedAt: true,
@@ -106,6 +107,13 @@ export async function POST(request: Request) {
     return Response.json({ error: `Status must be one of: ${EXTENSION_STATUSES.join(", ")}.` }, { status: 400 });
   }
 
+  const order = validatePosition(body);
+  if ("error" in order) return Response.json({ error: order.error }, { status: 400 });
+  const position = order.data;
+
+  const detail = validateDetail(body);
+  if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
+
   if (coverId) {
     const cover = await prisma.mediaAsset.findUnique({ where: { id: coverId }, select: { id: true } });
     if (!cover) return Response.json({ error: "Cover image not found." }, { status: 400 });
@@ -123,7 +131,8 @@ export async function POST(request: Request) {
   try {
     const extension = await prisma.extension.create({
       data: {
-        name, slug, summary, description, status,
+        name, slug, summary, description, status, position,
+        ...detail.data,
         coverId: coverId ?? undefined,
         gallery: { create: galleryIds.map((assetId, position) => ({ assetId, position })) },
       },

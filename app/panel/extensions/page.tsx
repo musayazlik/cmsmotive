@@ -24,7 +24,6 @@ export default async function ExtensionsPage() {
         api="/api/admin/extensions"
         resourceKey="extensions"
         variant="extension"
-        endpoint="extensionMedia"
         createHref="/panel/extensions/new"
         createLabel="New extension"
         emptyText="No extensions yet."

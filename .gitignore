@@ -9,3 +9,9 @@ generated
 *.tsbuildinfo
 __pycache__
 .pnpm-store
+.temp_files/
+
+.wrongstack/
+!/.wrongstack/
+/.wrongstack/*
+!/.wrongstack/project.json

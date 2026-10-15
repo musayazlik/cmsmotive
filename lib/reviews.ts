@@ -1,18 +1,18 @@
 /**
- * Products that accept reviews. Keys match the static-site detail pages
- * (static-site/theme-<key>.html, built by build.py) and are stored as
- * ProductReview.productSlug.
+ * Every theme and extension accepts reviews on its detail page
+ * (/theme/<slug>, /extension/<slug>). product.js sends the product type and
+ * slug; the API resolves them to ProductReview.themeId / extensionId.
  */
-export const REVIEW_PRODUCTS = {
-  nordform: { name: "Nordform", path: "/theme-nordform" },
-  foundation: { name: "Foundation", path: "/theme-foundation" },
-  campus: { name: "Campus", path: "/theme-campus" },
-} as const;
+export const REVIEW_PRODUCT_TYPES = ["theme", "extension"] as const;
+export type ReviewProductType = (typeof REVIEW_PRODUCT_TYPES)[number];
 
-export type ReviewProductSlug = keyof typeof REVIEW_PRODUCTS;
+export function isReviewProductType(value: unknown): value is ReviewProductType {
+  return typeof value === "string" && (REVIEW_PRODUCT_TYPES as readonly string[]).includes(value);
+}
 
-export function isReviewProduct(value: unknown): value is ReviewProductSlug {
-  return typeof value === "string" && Object.hasOwn(REVIEW_PRODUCTS, value);
+/** Public detail page of a reviewed product. */
+export function productPath(type: ReviewProductType, slug: string) {
+  return `/${type}/${slug}`;
 }
 
 export const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;

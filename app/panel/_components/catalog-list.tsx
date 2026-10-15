@@ -1,26 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import CatalogDialog, { type CatalogRecord } from "./catalog-dialog";
+import ConfirmDialog from "./confirm-dialog";
 import { MultiSelect, Select } from "./ui";
-import {
-  EXTENSION_STATUSES,
-  THEME_INDUSTRIES,
-  THEME_STATUSES,
-  VERSION_TARGETS,
-} from "@/lib/catalog-guard";
+import { EXTENSION_STATUSES, THEME_INDUSTRIES, THEME_STATUSES } from "@/lib/catalog-guard";
 
 type Row = {
   id: string;
   slug: string;
   name: string;
   summary: string;
-  description: string;
   status: string;
-  industry?: string;
-  versionTarget?: string;
-  price?: number | null;
-  position?: number;
   cover: { assetId: string; url: string; fileName: string } | null;
   gallery: { assetId: string; url: string; fileName: string }[];
   createdAt: string;
@@ -30,7 +20,6 @@ type Props = {
   api: string;
   resourceKey: "themes" | "extensions";
   variant: "theme" | "extension";
-  endpoint: "themeMedia" | "extensionMedia";
   createHref: string;
   createLabel: string;
   emptyText: string;
@@ -38,7 +27,7 @@ type Props = {
 
 const PAGE_SIZES = [20, 50, 100];
 
-export default function CatalogList({ api, resourceKey, variant, endpoint, createHref, createLabel, emptyText }: Props) {
+export default function CatalogList({ api, resourceKey, variant, createHref, createLabel, emptyText }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -50,8 +39,9 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [dialog, setDialog] = useState<"edit" | "delete" | null>(null);
-  const [active, setActive] = useState<CatalogRecord | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const hasFilters = statusFilter.length > 0 || (variant === "theme" && industryFilter !== "");
 
@@ -87,22 +77,24 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
     return () => window.clearTimeout(timer);
   }, [load, query]);
 
-  function open(kind: "edit" | "delete", row: Row) {
-    setActive({
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      summary: row.summary,
-      description: row.description,
-      status: row.status,
-      industry: row.industry ?? "",
-      versionTarget: row.versionTarget ?? "",
-      price: row.price ?? null,
-      position: row.position ?? 0,
-      cover: row.cover ? { assetId: row.cover.assetId, url: row.cover.url, name: row.cover.fileName } : null,
-      gallery: row.gallery.map((item) => ({ assetId: item.assetId, url: item.url, name: item.fileName })),
-    });
-    setDialog(kind);
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setActionError("");
+    try {
+      const response = await fetch(`${api}/${pendingDelete.id}`, { method: "DELETE" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setActionError(payload.error ?? "The record could not be deleted.");
+        return;
+      }
+      await load();
+    } catch {
+      setActionError("Could not reach the server.");
+    } finally {
+      setDeleting(false);
+      setPendingDelete(null);
+    }
   }
 
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -188,6 +180,12 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
           </div>
         </div>
 
+        {actionError ? (
+          <p className="wdialog-error wpost-feedback" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+
         <div className="wtable-scroll">
           <table className="wtable">
             <thead>
@@ -263,13 +261,13 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
                     </td>
                     <td className="wtable-actions-col">
                       <div className="wtable-actions">
-                        <button className="wbtn wbtn-ghost wbtn-sm" type="button" onClick={() => open("edit", row)}>
+                        <a className="wbtn wbtn-ghost wbtn-sm" href={`/panel/${resourceKey}/${row.id}`}>
                           Edit
-                        </button>
+                        </a>
                         <button
                           className="wbtn wbtn-ghost wbtn-sm wbtn-danger-ghost"
                           type="button"
-                          onClick={() => open("delete", row)}
+                          onClick={() => setPendingDelete(row)}
                         >
                           Delete
                         </button>
@@ -319,20 +317,13 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
         </div>
       </div>
 
-      <CatalogDialog
-        kind={dialog}
-        record={active}
-        endpoint={endpoint}
-        api={active ? `${api}/${active.id}` : api}
-        variant={variant}
-        statuses={variant === "theme" ? THEME_STATUSES : EXTENSION_STATUSES}
-        industries={THEME_INDUSTRIES}
-        versions={VERSION_TARGETS}
-        onClose={() => {
-          setDialog(null);
-          setActive(null);
-        }}
-        onSaved={load}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={`Delete ${pendingDelete?.name ?? variant}?`}
+        body="The record and its gallery will be permanently removed. The uploaded images stay in the media library. This cannot be undone."
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onClose={() => setPendingDelete(null)}
       />
     </>
   );

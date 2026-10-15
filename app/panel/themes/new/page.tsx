@@ -26,7 +26,7 @@ export default async function NewThemePage() {
         <span className="workspace-index">03 / 05</span>
       </div>
 
-      <CatalogForm endpoint="themeMedia" api="/api/admin/themes" redirectTo="/panel/themes" variant="theme" />
+      <CatalogForm variant="theme" />
     </>
   );
 }

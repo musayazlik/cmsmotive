@@ -183,7 +183,7 @@ export default async function PanelOverviewPage() {
             </span>
             <h2 id="feature-title">Nordform</h2>
             <p>Considered design foundations for ambitious TYPO3 projects.</p>
-            <a href="/theme-nordform">
+            <a href="/theme/nordform">
               Explore the theme <span aria-hidden="true">↗</span>
             </a>
           </div>

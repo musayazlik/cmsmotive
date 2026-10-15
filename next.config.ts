@@ -40,6 +40,11 @@ const nextConfig: NextConfig = {
       { source: "/de/:path*", destination: "/:path*", permanent: true },
       { source: "/index.html", destination: "/", permanent: true },
       { source: "/auth/:mode.html", destination: "/auth/:mode", permanent: true },
+      // Theme pages moved from the static /theme-<slug> files to /theme/<slug> (app/[locale]/(product)).
+      { source: "/theme-:slug.html", destination: "/theme/:slug", permanent: true },
+      { source: "/theme-:slug", destination: "/theme/:slug", permanent: true },
+      { source: `/:locale(${prefixedLocales})/theme-:slug.html`, destination: "/:locale/theme/:slug", permanent: true },
+      { source: `/:locale(${prefixedLocales})/theme-:slug`, destination: "/:locale/theme/:slug", permanent: true },
       { source: "/:slug.html", destination: "/:slug", permanent: true },
       { source: `/:locale(${prefixedLocales})/index.html`, destination: "/:locale", permanent: true },
       { source: `/:locale(${prefixedLocales})/:slug.html`, destination: "/:locale/:slug", permanent: true },
@@ -55,6 +60,9 @@ const nextConfig: NextConfig = {
         // `/en/blog` matches app/[locale]/blog directly; the German journal needs its locale filled in.
         { source: "/blog", destination: "/de/blog" },
         { source: "/blog/:slug", destination: "/de/blog/:slug" },
+        // Same for the theme and extension detail pages (app/[locale]/(product)).
+        { source: "/theme/:slug", destination: "/de/theme/:slug" },
+        { source: "/extension/:slug", destination: "/de/extension/:slug" },
         ...pages.flatMap((slug) => [
           { source: slug === "index" ? "/" : `/${slug}`, destination: `/legacy/de/${slug}` },
           {

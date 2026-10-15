@@ -151,6 +151,8 @@
   if (!reviewsRoot) return;
 
   const product = reviewsRoot.dataset.product;
+  // "theme" or "extension"; the API looks the product up by type and slug.
+  const productType = reviewsRoot.dataset.productType || 'theme';
   const PAGE_SIZE = 5;
   const CAPTCHA_ACTION = 'product_review';
   const q = (selector) => document.querySelector(selector);
@@ -228,7 +230,7 @@
 
   async function loadReviews() {
     try {
-      const response = await fetch(`/api/reviews?product=${encodeURIComponent(product)}`, { headers: { Accept: 'application/json' } });
+      const response = await fetch(`/api/reviews?type=${encodeURIComponent(productType)}&product=${encodeURIComponent(product)}`, { headers: { Accept: 'application/json' } });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       siteKey = data.recaptchaSiteKey;
@@ -322,6 +324,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           product,
+          type: productType,
           name: data.get('name'),
           email: data.get('email'),
           rating,

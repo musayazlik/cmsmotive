@@ -5,7 +5,7 @@ import {
   REVIEW_CAPTCHA_ACTION,
   REVIEW_LIMITS,
   REVIEWS_PER_HOUR,
-  isReviewProduct,
+  isReviewProductType,
   publicAuthorName,
 } from "@/lib/reviews";
 
@@ -25,12 +25,29 @@ function fail(code: string, error: string, status: number) {
   return Response.json({ code, error }, { status });
 }
 
+/**
+ * The reviewed theme or extension as a ProductReview filter. `type` is
+ * optional for older pages, which only reviewed themes.
+ */
+async function findProduct(type: unknown, slug: unknown) {
+  if (typeof slug !== "string" || !slug) return null;
+  const kind = type === undefined || type === null || type === "" ? "theme" : type;
+  if (!isReviewProductType(kind)) return null;
+  if (kind === "theme") {
+    const theme = await prisma.theme.findUnique({ where: { slug }, select: { id: true } });
+    return theme ? { themeId: theme.id } : null;
+  }
+  const extension = await prisma.extension.findUnique({ where: { slug }, select: { id: true } });
+  return extension ? { extensionId: extension.id } : null;
+}
+
 /** Approved reviews and the star summary for one product page. */
 export async function GET(request: Request) {
-  const product = new URL(request.url).searchParams.get("product");
-  if (!isReviewProduct(product)) return fail("unknown-product", "Unknown product.", 404);
+  const params = new URL(request.url).searchParams;
+  const product = await findProduct(params.get("type"), params.get("product"));
+  if (!product) return fail("unknown-product", "Unknown product.", 404);
 
-  const where = { productSlug: product, status: "approved" };
+  const where = { ...product, status: "approved" };
   const [reviews, groups] = await Promise.all([
     prisma.productReview.findMany({
       where,
@@ -82,7 +99,8 @@ export async function POST(request: Request) {
   const requestKey = text("requestKey");
   const locale = isLocale(text("locale")) ? text("locale") : "de";
 
-  if (!isReviewProduct(product)) return fail("unknown-product", "Unknown product.", 404);
+  const target = await findProduct(input.type, product);
+  if (!target) return fail("unknown-product", "Unknown product.", 404);
   // Honeypot: real visitors never see or fill the "website" field.
   if (text("website")) return fail("invalid", "Please check the form fields.", 400);
   if (
@@ -119,7 +137,7 @@ export async function POST(request: Request) {
       });
       if (recent >= REVIEWS_PER_HOUR) throw new Error("rate-limit");
       await tx.productReview.create({
-        data: { productSlug: product, authorName: name, authorEmail: email, rating, body, locale, requestKey },
+        data: { ...target, productSlug: product, authorName: name, authorEmail: email, rating, body, locale, requestKey },
       });
     });
   } catch (error) {

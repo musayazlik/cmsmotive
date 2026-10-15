@@ -4,7 +4,7 @@ import { LOCALES, LOCALE_LABELS, localizePath, type Locale } from "@/lib/i18n/co
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
 
 /**
- * Public-site chrome for the Next.js journal pages, mirroring the markup the
+ * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
  * static-site pages ship (site.css + site.js do the actual styling and
  * behavior). Links are plain anchors on purpose: every other public page is
  * served as prerendered HTML, so full page loads are the expected motion.
@@ -189,9 +189,9 @@ export function SiteFooter({ locale, t }: Omit<ChromeProps, "path">) {
           </div>
           {column("Products", [
             ["/themes", "Themes"],
-            ["/theme-nordform", "Nordform"],
-            ["/theme-foundation", "Foundation"],
-            ["/theme-campus", "Campus"],
+            ["/theme/nordform", "Nordform"],
+            ["/theme/foundation", "Foundation"],
+            ["/theme/campus", "Campus"],
             ["/extensions", "Extensions"],
             ["/headless", "Headless"],
             ["/pricing", "Licensing"],

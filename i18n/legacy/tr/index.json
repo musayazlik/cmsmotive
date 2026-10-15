@@ -48,6 +48,7 @@
   "Start with the product.": "Ürünle başlayın.",
   "A focused set of product directions, with one detailed theme preview and a free starter pathway.": "Ayrıntılı bir tema önizlemesi ve ücretsiz bir başlangıç seçeneğiyle odaklı bir ürün yelpazesi.",
   "View all themes": "Tüm temaları görün",
+  "View all extensions": "Tüm eklentileri görün",
   "Explore Nordform": "Nordform'u keşfedin",
   "Contemporary pale concrete architecture": "Açık renk betondan çağdaş mimari",
   "Featured concept": "Öne çıkan konsept",
@@ -182,5 +183,6 @@
   "Cookies": "Çerezler",
   "© 2026 CMSMotive. Independent product concept. TYPO3 is a registered trademark of the TYPO3 Association; CMSMotive is not affiliated with or endorsed by the TYPO3 Association.": "© 2026 CMSMotive. Bağımsız ürün konsepti. TYPO3, TYPO3 Association'ın tescilli markasıdır; CMSMotive, TYPO3 Association ile bağlantılı değildir ve onun tarafından desteklenmemektedir.",
   "Built for the long run. &nbsp;↗": "Uzun soluklu olarak inşa edildi. &nbsp;↗",
-  "Back to top": "Başa dön"
+  "Back to top": "Başa dön",
+  "Explore extension": "Eklentiyi keşfedin"
 }

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { trackPageView } from "@/lib/analytics";
 import { LOCALE_TAGS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator } from "@/lib/i18n/translate";
-import { SiteFrame } from "../_components/site-chrome";
+import { SiteFrame } from "../../_components/site-chrome";
 
 export const dynamic = "force-dynamic";
 

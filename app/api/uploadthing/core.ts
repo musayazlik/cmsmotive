@@ -1,6 +1,7 @@
 import { createUploadthing, UploadThingError, type FileRouter } from "uploadthing/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isAdminRole } from "@/lib/admin-guard";
 
 const f = createUploadthing();
 
@@ -14,7 +15,8 @@ async function requireAdminUpload(req: Request) {
   if (!session) throw new UploadThingError("Unauthorized");
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true, role: true } });
-  if (user?.role !== "admin") throw new UploadThingError("Forbidden");
+  // Same roles as the panel guard (lib/admin-guard.ts): superadmins upload too.
+  if (!user || !isAdminRole(user.role)) throw new UploadThingError("Forbidden");
 
   return { userId: user.id };
 }
@@ -44,6 +46,15 @@ export const uploadRouter = {
 
   extensionMedia: f({
     image: { maxFileSize: "8MB", maxFileCount: 12 },
+  })
+    .middleware(({ req }) => requireAdminUpload(req))
+    .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata.userId, file)),
+
+  // Images and videos embedded in theme and extension descriptions. Cover and
+  // gallery uploads stay on the image-only endpoints above.
+  catalogContent: f({
+    image: { maxFileSize: "8MB", maxFileCount: 8 },
+    video: { maxFileSize: "64MB", maxFileCount: 4 },
   })
     .middleware(({ req }) => requireAdminUpload(req))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata.userId, file)),

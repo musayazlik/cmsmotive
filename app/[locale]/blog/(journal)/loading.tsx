@@ -4,7 +4,7 @@ import { loadCatalog } from "@/lib/i18n/catalog";
 import { SOURCE_LOCALE } from "@/lib/i18n/config";
 import { translateHtml } from "@/lib/i18n/html";
 import { getRequestLocale } from "@/lib/i18n/request";
-import { SiteFrame } from "../_components/site-chrome";
+import { SiteFrame } from "../../_components/site-chrome";
 
 const doc = parseLegacyDocument(loadingHtml, "loading.html");
 

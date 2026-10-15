@@ -1,75 +1,18 @@
 "use client";
 
-import { marked } from "marked";
 import { Image } from "@tiptap/extension-image";
 import { Youtube } from "@tiptap/extension-youtube";
 import Placeholder from "@tiptap/extension-placeholder";
-import {
-  EditorContent,
-  mergeAttributes,
-  Node,
-  useEditor,
-  useEditorState,
-  type Editor,
-} from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
+import { Video } from "@/app/panel/_components/editor/video";
+import { looksLikeMarkdown, markdownToHtml } from "@/app/panel/_components/editor/markdown";
 import {
   IconBold, IconBulletList, IconCode, IconImage, IconItalic, IconLink, IconOrderedList,
   IconQuote, IconRedo, IconStrike, IconUnderline, IconUndo, IconUnlink, IconVideo, IconYoutube,
-} from "./icons";
-
-/** Uploaded videos become plain, self-contained block nodes. */
-const Video = Node.create({
-  name: "video",
-  group: "block",
-  atom: true,
-  draggable: true,
-
-  addAttributes() {
-    return { src: { default: null } };
-  },
-
-  parseHTML() {
-    return [{ tag: "video[src]" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["video", mergeAttributes({ controls: true, preload: "metadata" }, HTMLAttributes)];
-  },
-});
-
-/*
- * Markdown paste support: plain-text clipboards that clearly carry markdown are
- * converted to the schema's nodes instead of landing as literal text. The
- * scoring is deliberately conservative — a lone `**word**` or one link stays
- * literal text, whole documents convert.
- */
-const MD_SIGNALS: { pattern: RegExp; score: number }[] = [
-  { pattern: /(^|\n) {0,3}(?:```|~~~)/, score: 3 }, // fenced code block
-  { pattern: /(^|\n) {0,3}#{1,6} \S/, score: 3 }, // heading
-  { pattern: /(^|\n) {0,3}> \S/, score: 2 }, // blockquote
-  { pattern: /\*\*[^*\n]+\*\*|__[^_\n]+__/, score: 2 }, // bold
-  { pattern: /\[[^\]\n]+\]\([^)\n]{4,}\)/, score: 2 }, // link
-];
-
-function looksLikeMarkdown(text: string) {
-  if (text.trim().length < 6) return false;
-  let score = 0;
-  for (const { pattern, score: value } of MD_SIGNALS) {
-    if (pattern.test(text)) score += value;
-  }
-  if ((text.match(/(^|\n) {0,3}[-*+] \S/g) ?? []).length >= 2) score += 3; // bullet list
-  if ((text.match(/(^|\n) {0,3}\d{1,9}[.)] \S/g) ?? []).length >= 2) score += 3; // ordered list
-  return score >= 3;
-}
-
-/** Markdown → schema HTML; headings clamp to the levels the toolbar offers. */
-function markdownToHtml(text: string) {
-  const html = marked.parse(text, { async: false }) as string;
-  return html.replace(/<h([1-6])>/g, (_, level: string) => `<h${Math.min(4, Math.max(2, Number(level)))}>`);
-}
+} from "@/app/panel/_components/editor/icons";
 
 type Props = {
   value: string;

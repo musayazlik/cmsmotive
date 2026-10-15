@@ -91,6 +91,32 @@ model ContactInquiry {
   @@index([createdAt])
 }
 
+/// Guest review on a static-site product page (theme-<productSlug>). Every
+/// review starts "pending" and only "approved" rows are shown publicly or
+/// counted in the star rating; moderation happens in /panel/reviews.
+model ProductReview {
+  id          String    @id @default(cuid())
+  /// Key from lib/reviews.ts (REVIEW_PRODUCTS), e.g. "nordform".
+  productSlug String
+  authorName  String
+  /// Never shown publicly.
+  authorEmail String
+  rating      Int
+  body        String
+  /// pending | approved | rejected
+  status      String    @default("pending")
+  /// Site locale the review was written on (de | en | tr).
+  locale      String    @default("de")
+  /// Client-generated UUID so a double submit cannot create two rows.
+  requestKey  String    @unique
+  moderatedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([productSlug, status, createdAt])
+  @@index([status, createdAt])
+  @@index([authorEmail, createdAt])
+}
+
 /// Uploads handled by UploadThing; the row is written by onUploadComplete.
 model MediaAsset {
   id               String             @id @default(cuid())

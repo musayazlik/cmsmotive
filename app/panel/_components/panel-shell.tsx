@@ -18,12 +18,13 @@ type NavItem = {
 const PANEL_NAV: NavItem[] = [
   { href: "/panel", index: "01", label: "Overview" },
   { href: "/panel/inbox", index: "02", label: "Inbox" },
-  { href: "/panel/users", index: "03", label: "Users" },
-  { href: "/panel/themes", index: "04", label: "Themes" },
-  { href: "/panel/extensions", index: "05", label: "Extensions" },
+  { href: "/panel/reviews", index: "03", label: "Reviews" },
+  { href: "/panel/users", index: "04", label: "Users" },
+  { href: "/panel/themes", index: "05", label: "Themes" },
+  { href: "/panel/extensions", index: "06", label: "Extensions" },
   {
     href: "/panel/blog",
-    index: "06",
+    index: "07",
     label: "Blog",
     children: [
       { href: "/panel/blog", label: "Posts" },
@@ -31,10 +32,17 @@ const PANEL_NAV: NavItem[] = [
       { href: "/panel/blog/tags", label: "Tags" },
     ],
   },
-  { href: "/panel/media", index: "07", label: "Media" },
-  { href: "/panel/settings", index: "08", label: "Settings" },
-  { href: "/docs", index: "09", label: "Documentation" },
+  { href: "/panel/media", index: "08", label: "Media" },
+  { href: "/panel/settings", index: "09", label: "Settings" },
+  { href: "/docs", index: "10", label: "Documentation" },
 ];
+
+/** Sidebar badges: count, and the screen-reader wording for one / many. */
+function navBadge(href: string, counts: { unreadInquiries: number; pendingReviews: number }) {
+  if (href === "/panel/inbox") return { count: counts.unreadInquiries, one: "unread contact message", many: "unread contact messages" };
+  if (href === "/panel/reviews") return { count: counts.pendingReviews, one: "review awaiting approval", many: "reviews awaiting approval" };
+  return null;
+}
 
 /** A section is active on its own route and on every route nested under it. */
 function isActive(pathname: string, href: string) {
@@ -49,10 +57,12 @@ function sectionFor(pathname: string) {
 export default function PanelShell({
   user,
   unreadInquiries,
+  pendingReviews,
   children,
 }: {
   user: { name: string; email: string; role: string };
   unreadInquiries: number;
+  pendingReviews: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -69,33 +79,36 @@ export default function PanelShell({
         </Link>
         <div className="workspace-sidebar-label">YOUR WORKSPACE / 01</div>
         <nav className="workspace-nav" aria-label="Workspace navigation">
-          {PANEL_NAV.map((item) => (
-            <div key={item.href} className="workspace-nav-group">
-              <Link href={item.href} className={isActive(pathname, item.href) ? "active" : undefined}>
-                <span>{item.index}</span> {item.label}
-                {item.href === "/panel/inbox" && unreadInquiries > 0 ? (
-                  <>
-                    <span className="workspace-nav-count" aria-hidden="true">
-                      {unreadInquiries > 9 ? "9+" : unreadInquiries}
-                    </span>
-                    <span className="visually-hidden">
-                      {unreadInquiries} unread contact {unreadInquiries === 1 ? "message" : "messages"}
-                    </span>
-                  </>
+          {PANEL_NAV.map((item) => {
+            const badge = navBadge(item.href, { unreadInquiries, pendingReviews });
+            return (
+              <div key={item.href} className="workspace-nav-group">
+                <Link href={item.href} className={isActive(pathname, item.href) ? "active" : undefined}>
+                  <span>{item.index}</span> {item.label}
+                  {badge && badge.count > 0 ? (
+                    <>
+                      <span className="workspace-nav-count" aria-hidden="true">
+                        {badge.count > 9 ? "9+" : badge.count}
+                      </span>
+                      <span className="visually-hidden">
+                        {badge.count} {badge.count === 1 ? badge.one : badge.many}
+                      </span>
+                    </>
+                  ) : null}
+                  <b aria-hidden="true">↗</b>
+                </Link>
+                {item.children ? (
+                  <div className="workspace-subnav">
+                    {item.children.map((child) => (
+                      <Link key={child.href} href={child.href} className={pathname === child.href ? "active" : undefined}>
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
                 ) : null}
-                <b aria-hidden="true">↗</b>
-              </Link>
-              {item.children ? (
-                <div className="workspace-subnav">
-                  {item.children.map((child) => (
-                    <Link key={child.href} href={child.href} className={pathname === child.href ? "active" : undefined}>
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
         <div className="workspace-sidebar-bottom">
           <span className="workspace-sidebar-label">ACCOUNT</span>

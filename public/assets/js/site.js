@@ -1,5 +1,101 @@
 document.documentElement.classList.add('js');
 
+// Strings this script writes into the page, in the page language (<html lang>, set by the server).
+// Page copy itself is translated on the server (lib/i18n); English is the source text and the key.
+const SITE_LOCALES = ['de', 'en', 'tr'];
+const SITE_LANG = SITE_LOCALES.includes(document.documentElement.lang) ? document.documentElement.lang : 'en';
+const SITE_STRINGS = {
+  de: {
+    'Open menu': 'Menü öffnen',
+    'Close menu': 'Menü schließen',
+    'Copied': 'Kopiert',
+    'Select command above': 'Befehl oben markieren',
+    '{count} theme shown': '{count} Theme angezeigt',
+    '{count} themes shown': '{count} Themes angezeigt',
+    'Example reader': 'Beispielleserin',
+    'Example editorial reply': 'Beispielantwort der Redaktion',
+    'How do you decide when display type needs its own component instead of another heading variant?': 'Wie entscheiden Sie, wann eine Display-Schrift eine eigene Komponente statt einer weiteren Überschriftenvariante braucht?',
+    'When its layout behavior changes as well as its visual role. We test that decision against real titles at several screen widths.': 'Wenn sich neben der visuellen Rolle auch das Layoutverhalten ändert. Wir prüfen diese Entscheidung mit echten Titeln auf mehreren Bildschirmbreiten.',
+    'Saved comments are unavailable in this browser.': 'Gespeicherte Kommentare sind in diesem Browser nicht verfügbar.',
+    'Example': 'Beispiel',
+    'Reply': 'Antworten',
+    'Reply to {name}': 'Antwort an {name}',
+    'Remove': 'Entfernen',
+    'Remove comment by {name}': 'Kommentar von {name} entfernen',
+    'No comments yet. Start the conversation.': 'Noch keine Kommentare. Beginnen Sie die Diskussion.',
+    'Replies to {name}': 'Antworten an {name}',
+    'Please enter your name and a comment.': 'Bitte geben Sie Ihren Namen und einen Kommentar ein.',
+    'This browser could not save the comment. Please check its storage settings.': 'Dieser Browser konnte den Kommentar nicht speichern. Bitte prüfen Sie die Speichereinstellungen.',
+    'Reply saved in this browser.': 'Antwort in diesem Browser gespeichert.',
+    'Comment saved in this browser.': 'Kommentar in diesem Browser gespeichert.',
+    'This browser could not remove the comment. Please check its storage settings.': 'Dieser Browser konnte den Kommentar nicht entfernen. Bitte prüfen Sie die Speichereinstellungen.',
+    'Comment removed from this browser.': 'Kommentar aus diesem Browser entfernt.',
+    'Your name': 'Ihr Name',
+    'Your reply': 'Ihre Antwort',
+    'Write a reply...': 'Antwort schreiben...',
+    'Cancel': 'Abbrechen',
+    'Post reply': 'Antwort senden',
+    'Sending your message…': 'Ihre Nachricht wird gesendet…',
+    'Message could not be sent.': 'Die Nachricht konnte nicht gesendet werden.',
+    'Thank you. Your message has been sent.': 'Vielen Dank. Ihre Nachricht wurde gesendet.',
+    'Please email hello@cmsmotive.de directly.': 'Bitte schreiben Sie direkt an hello@cmsmotive.de.',
+    'Signing you up…': 'Sie werden angemeldet…',
+    'The subscription could not be saved.': 'Das Abonnement konnte nicht gespeichert werden.',
+    'Welcome aboard. Your first issue is on its way.': 'Willkommen an Bord. Ihre erste Ausgabe ist unterwegs.',
+    'Please try again later.': 'Bitte versuchen Sie es später erneut.',
+    'Invalid request.': 'Ungültige Anfrage.',
+    'Please check the form fields.': 'Bitte prüfen Sie die Formularfelder.',
+    'Your message was saved, but email delivery failed. Please email hello@cmsmotive.de directly.': 'Ihre Nachricht wurde gespeichert, aber der E-Mail-Versand ist fehlgeschlagen. Bitte schreiben Sie direkt an hello@cmsmotive.de.',
+    'Please provide your first name, last name and a valid email address.': 'Bitte geben Sie Vorname, Nachname und eine gültige E-Mail-Adresse an.',
+    'The subscription could not be saved. Please try again later.': 'Das Abonnement konnte nicht gespeichert werden. Bitte versuchen Sie es später erneut.'
+  },
+  tr: {
+    'Open menu': 'Menüyü aç',
+    'Close menu': 'Menüyü kapat',
+    'Copied': 'Kopyalandı',
+    'Select command above': 'Yukarıdaki komutu seçin',
+    '{count} theme shown': '{count} tema gösteriliyor',
+    '{count} themes shown': '{count} tema gösteriliyor',
+    'Example reader': 'Örnek okur',
+    'Example editorial reply': 'Örnek editör yanıtı',
+    'How do you decide when display type needs its own component instead of another heading variant?': 'Bir başlık yazı tipinin başka bir başlık varyantı yerine kendi bileşenine ihtiyaç duyduğuna nasıl karar veriyorsunuz?',
+    'When its layout behavior changes as well as its visual role. We test that decision against real titles at several screen widths.': 'Görsel rolünün yanında düzen davranışı da değiştiğinde. Bu kararı gerçek başlıklarla birkaç ekran genişliğinde test ediyoruz.',
+    'Saved comments are unavailable in this browser.': 'Kaydedilen yorumlar bu tarayıcıda kullanılamıyor.',
+    'Example': 'Örnek',
+    'Reply': 'Yanıtla',
+    'Reply to {name}': '{name} adlı kişiye yanıt',
+    'Remove': 'Kaldır',
+    'Remove comment by {name}': '{name} adlı kişinin yorumunu kaldır',
+    'No comments yet. Start the conversation.': 'Henüz yorum yok. Sohbeti siz başlatın.',
+    'Replies to {name}': '{name} adlı kişiye yanıtlar',
+    'Please enter your name and a comment.': 'Lütfen adınızı ve bir yorum girin.',
+    'This browser could not save the comment. Please check its storage settings.': 'Bu tarayıcı yorumu kaydedemedi. Lütfen depolama ayarlarını kontrol edin.',
+    'Reply saved in this browser.': 'Yanıt bu tarayıcıda kaydedildi.',
+    'Comment saved in this browser.': 'Yorum bu tarayıcıda kaydedildi.',
+    'This browser could not remove the comment. Please check its storage settings.': 'Bu tarayıcı yorumu kaldıramadı. Lütfen depolama ayarlarını kontrol edin.',
+    'Comment removed from this browser.': 'Yorum bu tarayıcıdan kaldırıldı.',
+    'Your name': 'Adınız',
+    'Your reply': 'Yanıtınız',
+    'Write a reply...': 'Bir yanıt yazın...',
+    'Cancel': 'Vazgeç',
+    'Post reply': 'Yanıtı gönder',
+    'Sending your message…': 'Mesajınız gönderiliyor…',
+    'Message could not be sent.': 'Mesaj gönderilemedi.',
+    'Thank you. Your message has been sent.': 'Teşekkürler. Mesajınız gönderildi.',
+    'Please email hello@cmsmotive.de directly.': 'Lütfen doğrudan hello@cmsmotive.de adresine yazın.',
+    'Signing you up…': 'Kaydınız yapılıyor…',
+    'The subscription could not be saved.': 'Abonelik kaydedilemedi.',
+    'Welcome aboard. Your first issue is on its way.': 'Aramıza hoş geldiniz. İlk sayınız yolda.',
+    'Please try again later.': 'Lütfen daha sonra tekrar deneyin.',
+    'Invalid request.': 'Geçersiz istek.',
+    'Please check the form fields.': 'Lütfen form alanlarını kontrol edin.',
+    'Your message was saved, but email delivery failed. Please email hello@cmsmotive.de directly.': 'Mesajınız kaydedildi ancak e-posta gönderilemedi. Lütfen doğrudan hello@cmsmotive.de adresine yazın.',
+    'Please provide your first name, last name and a valid email address.': 'Lütfen adınızı, soyadınızı ve geçerli bir e-posta adresi girin.',
+    'The subscription could not be saved. Please try again later.': 'Abonelik kaydedilemedi. Lütfen daha sonra tekrar deneyin.'
+  }
+};
+const siteT = (text, vars = {}) => (SITE_STRINGS[SITE_LANG]?.[text] ?? text).replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
+
 const menuButton = document.querySelector('.menu-toggle');
 const mobileNav = document.querySelector('.mobile-nav');
 if (menuButton && mobileNav) {
@@ -8,15 +104,17 @@ if (menuButton && mobileNav) {
     mobileNav.classList.remove('open');
     mobileNav.inert = true;
     menuButton.setAttribute('aria-expanded', 'false');
-    menuButton.setAttribute('aria-label', 'Open menu');
+    menuButton.setAttribute('aria-label', siteT('Open menu'));
     document.body.classList.remove('menu-open');
   };
   menuButton.addEventListener('click', () => {
     const open = menuButton.getAttribute('aria-expanded') !== 'true';
+    // The top bar scrolls away above the sticky header, so pin the panel to the header's current bottom edge.
+    if (open) mobileNav.style.top = `${menuButton.closest('.site-header').getBoundingClientRect().bottom}px`;
     mobileNav.inert = !open;
     mobileNav.classList.toggle('open', open);
     menuButton.setAttribute('aria-expanded', String(open));
-    menuButton.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    menuButton.setAttribute('aria-label', siteT(open ? 'Close menu' : 'Open menu'));
     document.body.classList.toggle('menu-open', open);
   });
   mobileNav.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
@@ -29,6 +127,55 @@ if (menuButton && mobileNav) {
   const desktopQuery = window.matchMedia('(min-width: 901px)');
   if (desktopQuery.addEventListener) desktopQuery.addEventListener('change', closeMenu);
   else desktopQuery.addListener(closeMenu);
+}
+
+// Language menu in the top bar: links to this page in each site language. The server sets the
+// hrefs for its pages; pages it cannot (the React status pages) are pointed here from the URL.
+const langSwitch = document.querySelector('[data-lang-switch]');
+if (langSwitch) {
+  const trigger = langSwitch.querySelector('.lang-trigger');
+  const menu = langSwitch.querySelector('.lang-menu');
+  const options = [...menu.querySelectorAll('a[data-lang]')];
+  const pagePath = window.location.pathname.replace(/^\/(?:en|tr)(?=\/|$)/, '') || '/';
+  options.forEach(option => {
+    const code = option.dataset.lang;
+    option.href = (code === 'de' ? pagePath : `/${code}${pagePath === '/' ? '' : pagePath}`) + window.location.search;
+    if (code === SITE_LANG) option.setAttribute('aria-current', 'true');
+    else option.removeAttribute('aria-current');
+  });
+  const current = langSwitch.querySelector('[data-lang-current]');
+  if (current) current.textContent = SITE_LANG.toUpperCase();
+  const close = (restoreFocus = false) => {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) trigger.focus();
+  };
+  const open = () => {
+    menu.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    (options.find(item => item.hasAttribute('aria-current')) || options[0]).focus();
+  };
+  trigger.addEventListener('click', () => menu.hidden ? open() : close());
+  menu.addEventListener('keydown', event => {
+    const index = options.indexOf(document.activeElement);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      options[(index + step + options.length) % options.length].focus();
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      options[event.key === 'Home' ? 0 : options.length - 1].focus();
+    } else if (event.key === 'Tab') {
+      close();
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !menu.hidden) close(true);
+  });
+  document.addEventListener('click', event => {
+    if (!langSwitch.contains(event.target)) close();
+  });
 }
 
 const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -65,10 +212,10 @@ document.querySelectorAll('[data-copy]').forEach(button => {
         if (!copied) throw new Error('Copy unavailable');
       }
       const before = button.textContent;
-      button.textContent = 'Copied';
+      button.textContent = siteT('Copied');
       window.setTimeout(() => { button.textContent = before; }, 1800);
     } catch {
-      button.textContent = 'Select command above';
+      button.textContent = siteT('Select command above');
     }
   });
 });
@@ -266,10 +413,11 @@ if (search && industry && price && version) {
   const count = document.querySelector('#filter-count');
   const empty = document.querySelector('#empty-state');
   const update = () => {
-    const query = search.value.trim().toLowerCase();
+    const query = search.value.trim().toLocaleLowerCase(SITE_LANG);
     let visible = 0;
     products.forEach(product => {
-      const matchesSearch = `${product.dataset.name} ${product.dataset.industry}`.includes(query);
+      // Match the English data attributes and the visible, translated card text.
+      const matchesSearch = `${product.dataset.name} ${product.dataset.industry} ${product.querySelector('h3')?.textContent || ''} ${product.querySelector('.product-kicker')?.textContent || ''}`.toLocaleLowerCase(SITE_LANG).includes(query);
       const matchesIndustry = industry.value === 'all' || product.dataset.industry.includes(industry.value);
       const numericPrice = Number(product.dataset.price);
       const matchesPrice = price.value === 'all' || (price.value === 'free' && numericPrice === 0) || (price.value === 'paid' && numericPrice > 0) || (price.value === 'roadmap' && numericPrice < 0);
@@ -278,7 +426,7 @@ if (search && industry && price && version) {
       product.hidden = !show;
       if (show) visible++;
     });
-    count.textContent = `${visible} ${visible === 1 ? 'theme' : 'themes'} shown`;
+    count.textContent = siteT(visible === 1 ? '{count} theme shown' : '{count} themes shown', { count: visible });
     empty.classList.toggle('show', visible === 0);
   };
   [search, industry, price, version].forEach(control => control.addEventListener(control === search ? 'input' : 'change', update));
@@ -302,15 +450,15 @@ document.querySelectorAll('[data-comments]').forEach(section => {
   const mainForm = section.querySelector('[data-comment-form]');
   const mainStatus = section.querySelector('[data-comment-status]');
   const examples = article === 'blog-typography.html' ? [
-    { id: 'example-question', name: 'Example reader', message: 'How do you decide when display type needs its own component instead of another heading variant?', date: '2026-09-12T10:00:00.000Z', example: true },
-    { id: 'example-answer', parentId: 'example-question', name: 'Example editorial reply', message: 'When its layout behavior changes as well as its visual role. We test that decision against real titles at several screen widths.', date: '2026-09-13T10:00:00.000Z', example: true }
+    { id: 'example-question', name: siteT('Example reader'), message: siteT('How do you decide when display type needs its own component instead of another heading variant?'), date: '2026-09-12T10:00:00.000Z', example: true },
+    { id: 'example-answer', parentId: 'example-question', name: siteT('Example editorial reply'), message: siteT('When its layout behavior changes as well as its visual role. We test that decision against real titles at several screen widths.'), date: '2026-09-13T10:00:00.000Z', example: true }
   ] : [];
   let saved = [];
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
     if (Array.isArray(parsed)) saved = parsed.filter(item => item && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.message === 'string' && typeof item.date === 'string');
   } catch {
-    mainStatus.textContent = 'Saved comments are unavailable in this browser.';
+    mainStatus.textContent = siteT('Saved comments are unavailable in this browser.');
   }
 
   const make = (tag, className, value) => {
@@ -321,7 +469,7 @@ document.querySelectorAll('[data-comments]').forEach(section => {
   };
   const displayDate = date => {
     const value = new Date(date);
-    return Number.isNaN(value.getTime()) ? '' : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(value);
+    return Number.isNaN(value.getTime()) ? '' : new Intl.DateTimeFormat(SITE_LANG, { month: 'short', day: 'numeric', year: 'numeric' }).format(value);
   };
   const commentNode = (item, reply = false) => {
     const row = make('div', 'comment-top');
@@ -335,20 +483,20 @@ document.querySelectorAll('[data-comments]').forEach(section => {
     const time = make('time', '', displayDate(item.date));
     time.dateTime = item.date;
     byline.append(time);
-    if (item.example) byline.append(make('span', 'comment-example', 'Example'));
+    if (item.example) byline.append(make('span', 'comment-example', siteT('Example')));
     content.append(byline, make('p', '', item.message));
     if (!reply) {
-      const button = make('button', 'comment-reply-button', 'Reply');
+      const button = make('button', 'comment-reply-button', siteT('Reply'));
       button.type = 'button';
       button.dataset.replyTo = item.id;
-      button.setAttribute('aria-label', `Reply to ${item.name}`);
+      button.setAttribute('aria-label', siteT('Reply to {name}', { name: item.name }));
       content.append(button);
     }
     if (!item.example) {
-      const remove = make('button', 'comment-remove-button', 'Remove');
+      const remove = make('button', 'comment-remove-button', siteT('Remove'));
       remove.type = 'button';
       remove.dataset.removeComment = item.id;
-      remove.setAttribute('aria-label', `Remove comment by ${item.name}`);
+      remove.setAttribute('aria-label', siteT('Remove comment by {name}', { name: item.name }));
       content.append(remove);
     }
     row.append(avatar, content);
@@ -360,7 +508,7 @@ document.querySelectorAll('[data-comments]').forEach(section => {
     list.replaceChildren();
     const roots = all.filter(item => !item.parentId);
     if (!roots.length) {
-      list.append(make('p', 'comment-empty', 'No comments yet. Start the conversation.'));
+      list.append(make('p', 'comment-empty', siteT('No comments yet. Start the conversation.')));
       return;
     }
     roots.forEach(item => {
@@ -369,7 +517,7 @@ document.querySelectorAll('[data-comments]').forEach(section => {
       const replies = all.filter(reply => reply.parentId === item.id);
       if (replies.length) {
         const repliesNode = make('div', 'comment-replies');
-        repliesNode.setAttribute('aria-label', `Replies to ${item.name}`);
+        repliesNode.setAttribute('aria-label', siteT('Replies to {name}', { name: item.name }));
         replies.forEach(reply => repliesNode.append(commentNode(reply, true)));
         thread.append(repliesNode);
       }
@@ -381,7 +529,7 @@ document.querySelectorAll('[data-comments]').forEach(section => {
     const name = form.elements.name.value.trim();
     const message = form.elements.message.value.trim();
     if (name.length < 2 || message.length < 2) {
-      mainStatus.textContent = 'Please enter your name and a comment.';
+      mainStatus.textContent = siteT('Please enter your name and a comment.');
       return;
     }
     const item = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name, message, date: new Date().toISOString() };
@@ -390,13 +538,13 @@ document.querySelectorAll('[data-comments]').forEach(section => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
-      mainStatus.textContent = 'This browser could not save the comment. Please check its storage settings.';
+      mainStatus.textContent = siteT('This browser could not save the comment. Please check its storage settings.');
       return;
     }
     saved = next;
     form.reset();
     render();
-    mainStatus.textContent = parentId ? 'Reply saved in this browser.' : 'Comment saved in this browser.';
+    mainStatus.textContent = siteT(parentId ? 'Reply saved in this browser.' : 'Comment saved in this browser.');
     document.getElementById(`comment-${item.id}`)?.focus();
   };
 
@@ -412,12 +560,12 @@ document.querySelectorAll('[data-comments]').forEach(section => {
       try {
         localStorage.setItem(storageKey, JSON.stringify(next));
       } catch {
-        mainStatus.textContent = 'This browser could not remove the comment. Please check its storage settings.';
+        mainStatus.textContent = siteT('This browser could not remove the comment. Please check its storage settings.');
         return;
       }
       saved = next;
       render();
-      mainStatus.textContent = 'Comment removed from this browser.';
+      mainStatus.textContent = siteT('Comment removed from this browser.');
       return;
     }
     const button = event.target.closest('[data-reply-to]');
@@ -433,27 +581,27 @@ document.querySelectorAll('[data-comments]').forEach(section => {
     if (!parent) return;
     const wrapper = make('div', 'reply-composer');
     wrapper.dataset.parentId = parentId;
-    const heading = make('h4', '', `Reply to ${parent.name}`);
+    const heading = make('h4', '', siteT('Reply to {name}', { name: parent.name }));
     const form = make('form', 'comment-form');
     const nameField = make('div', 'comment-field');
     const nameId = `reply-name-${parentId}`;
-    const nameLabel = make('label', '', 'Your name');
+    const nameLabel = make('label', '', siteT('Your name'));
     nameLabel.htmlFor = nameId;
     const nameInput = make('input');
-    Object.assign(nameInput, { id: nameId, name: 'name', required: true, minLength: 2, maxLength: 60, placeholder: 'Your name', autocomplete: 'name' });
+    Object.assign(nameInput, { id: nameId, name: 'name', required: true, minLength: 2, maxLength: 60, placeholder: siteT('Your name'), autocomplete: 'name' });
     nameField.append(nameLabel, nameInput);
     const messageField = make('div', 'comment-field');
     const messageId = `reply-message-${parentId}`;
-    const messageLabel = make('label', '', 'Your reply');
+    const messageLabel = make('label', '', siteT('Your reply'));
     messageLabel.htmlFor = messageId;
     const messageInput = make('textarea');
-    Object.assign(messageInput, { id: messageId, name: 'message', required: true, minLength: 2, maxLength: 2000, rows: 3, placeholder: 'Write a reply...' });
+    Object.assign(messageInput, { id: messageId, name: 'message', required: true, minLength: 2, maxLength: 2000, rows: 3, placeholder: siteT('Write a reply...') });
     messageField.append(messageLabel, messageInput);
     const actions = make('div', 'comment-form-bottom');
-    const cancel = make('button', 'comment-cancel', 'Cancel');
+    const cancel = make('button', 'comment-cancel', siteT('Cancel'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => { wrapper.remove(); button.focus(); });
-    const submit = make('button', 'btn btn-primary', 'Post reply');
+    const submit = make('button', 'btn btn-primary', siteT('Post reply'));
     submit.type = 'submit';
     actions.append(cancel, submit);
     form.append(nameField, messageField, actions);
@@ -493,7 +641,7 @@ document.querySelectorAll('[data-contact-form]').forEach(form => {
     const status = form.querySelector('[data-contact-status]');
     const button = form.querySelector('[type="submit"]');
     button.disabled = true;
-    if (status) { status.textContent = 'Sending your message…'; status.hidden = false; }
+    if (status) { status.textContent = siteT('Sending your message…'); status.hidden = false; }
     try {
       const response = await fetch('/api/contact', {
         method: 'POST',
@@ -501,11 +649,11 @@ document.querySelectorAll('[data-contact-form]').forEach(form => {
         body: JSON.stringify({ name, email, agency, typo3Version: version, license, message }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Message could not be sent.');
-      if (status) status.textContent = 'Thank you. Your message has been sent.';
+      if (!response.ok) throw new Error(siteT(result.error || 'Message could not be sent.'));
+      if (status) status.textContent = siteT('Thank you. Your message has been sent.');
       form.reset();
     } catch (error) {
-      if (status) status.textContent = error.message || 'Please email hello@cmsmotive.de directly.';
+      if (status) status.textContent = error.message || siteT('Please email hello@cmsmotive.de directly.');
     } finally {
       button.disabled = false;
     }
@@ -521,7 +669,7 @@ document.querySelectorAll('[data-newsletter-form]').forEach(form => {
     const status = form.querySelector('[data-newsletter-status]');
     const button = form.querySelector('[type="submit"]');
     button.disabled = true;
-    if (status) { status.classList.remove('is-error'); status.textContent = 'Signing you up…'; }
+    if (status) { status.classList.remove('is-error'); status.textContent = siteT('Signing you up…'); }
     try {
       const response = await fetch('/api/newsletter', {
         method: 'POST',
@@ -529,11 +677,11 @@ document.querySelectorAll('[data-newsletter-form]').forEach(form => {
         body: JSON.stringify({ firstName: value('firstName'), lastName: value('lastName'), email: value('email') }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'The subscription could not be saved.');
-      if (status) status.textContent = 'Welcome aboard. Your first issue is on its way.';
+      if (!response.ok) throw new Error(siteT(result.error || 'The subscription could not be saved.'));
+      if (status) status.textContent = siteT('Welcome aboard. Your first issue is on its way.');
       form.reset();
     } catch (error) {
-      if (status) { status.classList.add('is-error'); status.textContent = error.message || 'Please try again later.'; }
+      if (status) { status.classList.add('is-error'); status.textContent = error.message || siteT('Please try again later.'); }
     } finally {
       button.disabled = false;
     }

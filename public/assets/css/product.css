@@ -1,0 +1,692 @@
+/*
+ * Product detail tabs (description / compatibility / reviews / changelog),
+ * guest reviews and the changelog timeline. Loaded after site.css on the
+ * theme pages only; behaviour lives in assets/js/product.js.
+ */
+
+/* ---------- tabs ---------- */
+
+.product-tabs {
+  margin-top: 38px;
+}
+
+.product-tablist {
+  position: sticky;
+  top: var(--product-tabs-top, 88px);
+  z-index: 5;
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+  padding: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--header-bg);
+  backdrop-filter: blur(10px);
+}
+
+.product-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+/* Without JavaScript every panel stays visible and the tab bar is pointless. */
+.product-tabs:not(.is-tabbed) .product-tablist {
+  display: none;
+}
+
+.product-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.product-tab:hover {
+  color: var(--ink);
+  background: var(--wash);
+}
+
+.product-tab[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--canvas);
+}
+
+.product-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.product-tab-count {
+  min-width: 22px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--indigo-soft);
+  color: var(--on-indigo-soft);
+  font: 500 0.66rem/1 "DM Mono", monospace;
+  text-align: center;
+}
+
+.product-tab[aria-selected="true"] .product-tab-count {
+  background: var(--lime);
+  color: var(--lime-ink);
+}
+
+.product-tab-count[hidden] {
+  display: none;
+}
+
+.product-panel {
+  scroll-margin-top: 150px;
+}
+
+.is-tabbed .product-panel:not(.is-active) {
+  display: none;
+}
+
+.is-tabbed .product-panel.is-active {
+  animation: product-fade 0.35s var(--ease) both;
+}
+
+.product-panel-head {
+  padding: 42px 0 8px;
+}
+
+.product-panel-head h2 {
+  margin: 0;
+  font-size: clamp(2rem, 3.2vw, 2.9rem);
+}
+
+.product-panel-head p {
+  max-width: 640px;
+  margin: 12px 0 0;
+}
+
+/* The first detail section sits right under the tab bar. */
+.product-panel > .detail-section:first-child {
+  padding-top: 40px;
+}
+
+.product-panel > .detail-section:last-child {
+  border-bottom: 0;
+}
+
+/* ---------- stars ---------- */
+
+.review-stars {
+  --star-size: 1rem;
+  --star-on: #f2b01e;
+  --star-off: var(--line-strong);
+  display: inline-block;
+  font-size: var(--star-size);
+  line-height: 1;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.review-stars::before {
+  content: "★★★★★";
+  background: linear-gradient(90deg, var(--star-on) calc(var(--rating, 0) / 5 * 100%), var(--star-off) 0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Hero badge linking to the reviews tab. */
+.product-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.82rem;
+  transition: border-color 0.2s;
+}
+
+.product-rating[hidden] {
+  display: none;
+}
+
+.product-rating:hover {
+  border-color: var(--line-hover);
+}
+
+.product-rating strong {
+  font-weight: 800;
+}
+
+.product-rating span:last-child {
+  color: var(--muted);
+}
+
+/* ---------- reviews: summary + list ---------- */
+
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.5fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 34px 0 10px;
+}
+
+.review-summary {
+  position: sticky;
+  top: 170px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.review-score {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-score strong {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.review-score .review-stars {
+  --star-size: 1.15rem;
+}
+
+.review-score p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.review-bars {
+  display: grid;
+  gap: 9px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-bars li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 10px;
+  font: 400 0.72rem/1 "DM Mono", monospace;
+  color: var(--muted);
+}
+
+.review-bars li span:last-child {
+  text-align: right;
+}
+
+.review-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.review-bar i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #f2b01e;
+  transition: width 0.6s var(--ease);
+}
+
+.review-write {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.review-write .btn-label {
+  white-space: nowrap;
+}
+
+/* Compact theme pages: keep the portrait-ish photo from towering over the copy. */
+.theme-detail-img {
+  aspect-ratio: 4 / 3;
+  height: auto;
+  object-fit: cover;
+}
+
+.review-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-item {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.review-item header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.review-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--on-indigo-soft);
+  font-weight: 800;
+  font-size: 0.86rem;
+}
+
+.review-item header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.review-item header strong {
+  font-size: 0.92rem;
+}
+
+.review-item time {
+  font: 400 0.68rem/1 "DM Mono", monospace;
+  color: var(--faint);
+}
+
+.review-item .review-stars {
+  margin-left: auto;
+}
+
+.review-item p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.review-empty {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 28px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.review-empty[hidden] {
+  display: none;
+}
+
+.review-empty strong {
+  font-size: 1.05rem;
+}
+
+.review-empty p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.review-more {
+  margin-top: 16px;
+}
+
+.review-more[hidden] {
+  display: none;
+}
+
+/* ---------- reviews: form ---------- */
+
+.review-form-card {
+  margin: 28px 0 10px;
+  scroll-margin-top: 150px;
+}
+
+.review-form-card .contact-form {
+  margin-top: 22px;
+}
+
+.review-rating {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.review-rating legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+/* Inputs run 5..1 so `:checked ~ label` and hover can fill the lower stars. */
+.review-rating-stars {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.review-rating-stars input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.review-rating-stars label {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--line-strong);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.review-rating-stars label:hover,
+.review-rating-stars label:hover ~ label,
+.review-rating-stars input:checked ~ label {
+  color: #f2b01e;
+}
+
+.review-rating-stars label:hover {
+  transform: scale(1.12);
+}
+
+.review-rating-stars input:focus-visible + label {
+  box-shadow: var(--focus-ring);
+}
+
+.review-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.review-rating-hint {
+  margin-left: 10px;
+  color: var(--muted);
+  font: 400 0.72rem/1 "DM Mono", monospace;
+  vertical-align: middle;
+}
+
+.review-counter {
+  display: block;
+  margin-top: 6px;
+  color: var(--faint);
+  font: 400 0.68rem/1 "DM Mono", monospace;
+  text-align: right;
+}
+
+.review-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.review-captcha-note {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.review-captcha-note a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.contact-form-status.is-error {
+  border-color: #f2c4bd;
+  background: #fdf0ee;
+  color: var(--danger-text);
+}
+
+.contact-form-status.is-success {
+  border-color: var(--success-soft-line);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.contact-form-status[hidden] {
+  display: none;
+}
+
+/* The reCAPTCHA notice above replaces Google's floating badge (allowed by its terms). */
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
+/* ---------- changelog ---------- */
+
+.changelog {
+  margin: 0;
+  padding: 26px 0 10px;
+  list-style: none;
+}
+
+.changelog-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 26px;
+  padding: 0 0 34px;
+}
+
+.changelog-entry::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 0;
+  left: 182px;
+  width: 1px;
+  background: var(--line);
+}
+
+.changelog-entry:last-child::before {
+  display: none;
+}
+
+.changelog-meta {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 8px;
+}
+
+.changelog-version {
+  font: 500 0.95rem/1 "DM Mono", monospace;
+  color: var(--ink);
+}
+
+.changelog-meta time {
+  font: 400 0.7rem/1 "DM Mono", monospace;
+  color: var(--faint);
+}
+
+.changelog-body {
+  position: relative;
+  padding-left: 26px;
+}
+
+.changelog-body::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: -17px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--indigo);
+  border-radius: 50%;
+  background: var(--canvas);
+}
+
+.changelog-entry:first-child .changelog-body::before {
+  border-color: var(--lime-ink);
+  background: var(--lime);
+}
+
+.changelog-body h3 {
+  margin: 0 0 10px;
+  font-size: 1.12rem;
+}
+
+.changelog-body ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+}
+
+.changelog-body li {
+  margin: 6px 0;
+}
+
+.changelog-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font: 500 0.6rem/1.2 "DM Mono", monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.changelog-tag.is-new {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.changelog-tag.is-improved {
+  background: var(--indigo-soft);
+  color: var(--on-indigo-soft);
+}
+
+.changelog-tag.is-fixed {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* ---------- compact theme pages ---------- */
+
+.product-tabs-section {
+  padding-top: 0;
+}
+
+.product-tabs-section .product-tabs {
+  margin-top: 0;
+}
+
+/* ---------- motion + responsive ---------- */
+
+@keyframes product-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-tabbed .product-panel.is-active,
+  .review-bar i,
+  .review-rating-stars label {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .review-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-summary {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .product-tab {
+    padding: 0 13px;
+    font-size: 0.8rem;
+  }
+
+  .review-item {
+    padding: 18px;
+  }
+
+  .review-item header {
+    flex-wrap: wrap;
+  }
+
+  .review-item .review-stars {
+    margin-left: 50px;
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .changelog-entry {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding-left: 26px;
+  }
+
+  .changelog-entry::before {
+    left: 5px;
+    top: 14px;
+  }
+
+  .changelog-body {
+    padding-left: 0;
+  }
+
+  .changelog-body::before {
+    left: -26px;
+    top: -26px;
+  }
+
+  .changelog-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}

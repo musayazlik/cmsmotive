@@ -31,6 +31,8 @@ export default function CatalogForm({ endpoint, api, redirectTo, variant }: Prop
   const [status, setStatus] = useState<string>(statuses[0]);
   const [industry, setIndustry] = useState<string>(THEME_INDUSTRIES[0]);
   const [versionTarget, setVersionTarget] = useState<string>(VERSION_TARGETS[0]);
+  const [price, setPrice] = useState("");
+  const [position, setPosition] = useState("0");
   const [cover, setCover] = useState<UploadedImage[]>([]);
   const [gallery, setGallery] = useState<UploadedImage[]>([]);
   const [error, setError] = useState("");
@@ -55,6 +57,8 @@ export default function CatalogForm({ endpoint, api, redirectTo, variant }: Prop
     if (variant === "theme") {
       payload.industry = industry;
       payload.versionTarget = versionTarget;
+      payload.price = price.trim() === "" ? null : Number(price);
+      payload.position = position.trim() === "" ? 0 : Number(position);
     }
 
     try {
@@ -120,6 +124,28 @@ export default function CatalogForm({ endpoint, api, redirectTo, variant }: Prop
                 value={versionTarget}
                 onChange={setVersionTarget}
                 options={VERSION_TARGETS}
+              />
+            </div>
+          ) : null}
+
+          {variant === "theme" ? (
+            <div className="wfield-row">
+              <TextField
+                id="c-price"
+                label="Price (EUR)"
+                value={price}
+                onChange={setPrice}
+                placeholder="269"
+                pattern="[0-9]*"
+                note="Shown on the catalogue card. 0 = free, empty = not decided yet."
+              />
+              <TextField
+                id="c-position"
+                label="Sort order"
+                value={position}
+                onChange={setPosition}
+                pattern="[0-9]*"
+                note="Lower numbers come first on the home page and /themes."
               />
             </div>
           ) : null}

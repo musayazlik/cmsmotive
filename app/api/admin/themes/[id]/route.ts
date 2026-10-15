@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
-import { assertAssetsExist, isThemeStatus, THEME_INDUSTRIES, validateCore, VERSION_TARGETS } from "@/lib/catalog-guard";
+import { assertAssetsExist, isThemeStatus, THEME_INDUSTRIES, validateCore, validateListing, VERSION_TARGETS } from "@/lib/catalog-guard";
 import { prismaErrors } from "@/lib/prisma-errors";
 
 export const runtime = "nodejs";
@@ -41,6 +41,10 @@ export async function PATCH(request: Request, context: Context) {
     return Response.json({ error: "Status must be one of: concept, in-development, published." }, { status: 400 });
   }
 
+  const listing = validateListing(body);
+  if ("error" in listing) return Response.json({ error: listing.error }, { status: 400 });
+  const { price, position } = listing.data;
+
   const assetError = await assertAssetsExist([coverId, ...galleryIds], prisma);
   if (assetError) return assetError;
 
@@ -50,7 +54,7 @@ export async function PATCH(request: Request, context: Context) {
       return tx.theme.update({
         where: { id },
         data: {
-          name, slug, summary, description, industry, versionTarget,
+          name, slug, summary, description, industry, versionTarget, price, position,
           status: body.status as string,
           coverId,
           gallery: { create: galleryIds.map((assetId, position) => ({ assetId, position })) },

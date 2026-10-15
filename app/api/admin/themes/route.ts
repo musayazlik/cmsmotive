@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
-import { SLUG_PATTERN, isThemeStatus, THEME_INDUSTRIES, THEME_STATUSES, type ThemeStatus } from "@/lib/catalog-guard";
+import { SLUG_PATTERN, isThemeStatus, THEME_INDUSTRIES, THEME_STATUSES, validateListing, type ThemeStatus } from "@/lib/catalog-guard";
 import { prismaErrors } from "@/lib/prisma-errors";
 
 export const runtime = "nodejs";
@@ -41,11 +41,12 @@ export async function GET(request: Request) {
     prisma.theme.count({ where }),
     prisma.theme.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      // Same order as the public catalogue (home page and /themes).
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {
-        id: true, slug: true, name: true, summary: true, description: true, status: true, industry: true, versionTarget: true,
+        id: true, slug: true, name: true, summary: true, description: true, status: true, industry: true, versionTarget: true, price: true, position: true,
         cover: { select: { id: true, url: true, fileName: true } },
         gallery: { orderBy: { position: "asc" }, select: { id: true, asset: { select: { id: true, url: true, fileName: true } } } },
         createdAt: true, updatedAt: true,
@@ -118,6 +119,10 @@ export async function POST(request: Request) {
     return Response.json({ error: `Status must be one of: ${THEME_STATUSES.join(", ")}.` }, { status: 400 });
   }
 
+  const listing = validateListing(body);
+  if ("error" in listing) return Response.json({ error: listing.error }, { status: 400 });
+  const { price, position } = listing.data;
+
   if (coverId) {
     const cover = await prisma.mediaAsset.findUnique({ where: { id: coverId }, select: { id: true } });
     if (!cover) return Response.json({ error: "Cover image not found." }, { status: 400 });
@@ -135,7 +140,7 @@ export async function POST(request: Request) {
   try {
     const theme = await prisma.theme.create({
       data: {
-        name, slug, summary, description, industry, versionTarget, status,
+        name, slug, summary, description, industry, versionTarget, status, price, position,
         coverId: coverId ?? undefined,
         gallery: { create: galleryIds.map((assetId, position) => ({ assetId, position })) },
       },

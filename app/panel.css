@@ -582,3 +582,11 @@ a.workspace-person:hover{border-color:var(--indigo)}
 @media(max-width:700px){.workspace-sidebar-scroll{flex:none;margin:0;padding:0;overflow:visible;background:none}}
 /* Short laptop screens: tighten the rhythm so most of the menu fits without scrolling. */
 @media(min-width:701px) and (max-height:860px){.workspace-sidebar-scroll .workspace-sidebar-label{margin:22px 13px 10px}.workspace-nav{gap:3px}.workspace-nav a{padding:11px 13px}.workspace-subnav a{padding:6px 11px}.workspace-sidebar-bottom{padding-top:12px}.workspace-sidebar-bottom .workspace-sidebar-label{display:none}.workspace-person{padding:9px 10px}.workspace-signout{padding-top:12px}}
+
+/* Status tabs (inbox, reviews) never widen the page on phones: they scroll sideways instead. */
+.winbox-tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}
+.winbox-tabs::-webkit-scrollbar{display:none}
+.winbox-tab{flex:none;white-space:nowrap}
+/* Contain absolutely positioned children (the visually-hidden "Actions" header) so they
+   are clipped by the table scroller instead of widening the whole page on phones. */
+.wtable-scroll{position:relative}

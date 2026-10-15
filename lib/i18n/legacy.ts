@@ -1,4 +1,4 @@
-import { loadCatalog } from "./catalog";
+import { loadAppCatalog } from "./catalog";
 import { localizeDocument } from "./document";
 import type { Locale } from "./config";
 
@@ -14,6 +14,7 @@ function siteOrigin() {
  * `pagePath` is the page's unprefixed public path (`/`, `/themes`).
  */
 export function localizeLegacyHtml(html: string, locale: Locale, pagePath: string): string {
-  const catalog = loadCatalog(locale);
+  // Includes i18n/app strings: pages also carry database-driven copy (lib/catalog.ts).
+  const catalog = loadAppCatalog(locale);
   return localizeDocument(html, locale, pagePath, (key) => catalog.get(key), siteOrigin());
 }

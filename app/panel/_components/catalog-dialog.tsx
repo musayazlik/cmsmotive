@@ -14,6 +14,8 @@ export type CatalogRecord = {
   description: string;
   industry?: string;
   versionTarget?: string;
+  price?: number | null;
+  position?: number;
   cover: { assetId: string; url: string; name: string } | null;
   gallery: { assetId: string; url: string; name: string }[];
 };
@@ -51,7 +53,7 @@ export default function CatalogDialog({
   onSaved,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [form, setForm] = useState({ name: "", slug: "", summary: "", description: "", status: "", industry: "", versionTarget: "" });
+  const [form, setForm] = useState({ name: "", slug: "", summary: "", description: "", status: "", industry: "", versionTarget: "", price: "", position: "0" });
   const [cover, setCover] = useState<UploadedImage[]>([]);
   const [gallery, setGallery] = useState<UploadedImage[]>([]);
   const [error, setError] = useState("");
@@ -68,6 +70,8 @@ export default function CatalogDialog({
       status: record.status,
       industry: record.industry ?? "",
       versionTarget: record.versionTarget ?? "",
+      price: record.price === null || record.price === undefined ? "" : String(record.price),
+      position: String(record.position ?? 0),
     });
     setCover(record.cover ? [record.cover] : []);
     setGallery(record.gallery);
@@ -94,6 +98,8 @@ export default function CatalogDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          price: form.price.trim() === "" ? null : Number(form.price),
+          position: form.position.trim() === "" ? 0 : Number(form.position),
           coverId: cover[0]?.assetId ?? null,
           galleryIds: gallery.map((image) => image.assetId),
         }),
@@ -203,6 +209,27 @@ export default function CatalogDialog({
                   value={form.versionTarget}
                   options={versions ?? []}
                   onChange={(versionTarget) => setForm((prev) => ({ ...prev, versionTarget }))}
+                />
+              </div>
+            ) : null}
+
+            {variant === "theme" ? (
+              <div className="wfield-row">
+                <TextField
+                  id="e-price"
+                  label="Price (EUR)"
+                  value={form.price}
+                  pattern="[0-9]*"
+                  note="0 = free, empty = not decided yet."
+                  onChange={(price) => setForm((prev) => ({ ...prev, price }))}
+                />
+                <TextField
+                  id="e-position"
+                  label="Sort order"
+                  value={form.position}
+                  pattern="[0-9]*"
+                  note="Lower numbers come first on the site."
+                  onChange={(position) => setForm((prev) => ({ ...prev, position }))}
                 />
               </div>
             ) : null}

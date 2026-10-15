@@ -5,6 +5,7 @@ export const EXTENSION_STATUSES = ["concept", "planning", "in-development", "pub
 
 export const THEME_INDUSTRIES = [
   "Architecture & corporate",
+  "Free starter",
   "Agency starter",
   "Education & public",
   "Other",
@@ -13,6 +14,30 @@ export const THEME_INDUSTRIES = [
 export const VERSION_TARGETS = ["TYPO3 13", "TYPO3 14", "TYPO3 13 / 14", "Not decided"] as const;
 
 export const MAX_GALLERY = 12;
+
+/** Upper bound for the indicative catalogue price, in whole euros. */
+export const MAX_PRICE = 100000;
+
+/**
+ * Reads the catalogue fields of a theme payload: `price` in whole euros
+ * (empty or null = not set yet, 0 = free) and the public sort `position`.
+ */
+export function validateListing(body: Record<string, unknown>) {
+  const raw = body.price;
+  let price: number | null = null;
+  if (raw !== null && raw !== undefined && raw !== "") {
+    const value = typeof raw === "number" ? raw : Number(String(raw).trim());
+    if (!Number.isInteger(value) || value < 0 || value > MAX_PRICE) {
+      return { error: `Price must be a whole number of euros between 0 and ${MAX_PRICE}, or empty.` };
+    }
+    price = value;
+  }
+  const position = body.position === undefined || body.position === "" ? 0 : Number(body.position);
+  if (!Number.isInteger(position) || position < 0 || position > 9999) {
+    return { error: "Sort order must be a whole number between 0 and 9999." };
+  }
+  return { data: { price, position } };
+}
 
 export type ThemeStatus = (typeof THEME_STATUSES)[number];
 export type ExtensionStatus = (typeof EXTENSION_STATUSES)[number];
@@ -33,6 +58,8 @@ export type EditableTheme = {
   industry: string;
   versionTarget: string;
   status: string;
+  price: number | null;
+  position: number;
   coverId: string | null;
   galleryIds: string[];
 };

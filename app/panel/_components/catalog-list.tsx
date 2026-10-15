@@ -19,6 +19,8 @@ type Row = {
   status: string;
   industry?: string;
   versionTarget?: string;
+  price?: number | null;
+  position?: number;
   cover: { assetId: string; url: string; fileName: string } | null;
   gallery: { assetId: string; url: string; fileName: string }[];
   createdAt: string;
@@ -95,6 +97,8 @@ export default function CatalogList({ api, resourceKey, variant, endpoint, creat
       status: row.status,
       industry: row.industry ?? "",
       versionTarget: row.versionTarget ?? "",
+      price: row.price ?? null,
+      position: row.position ?? 0,
       cover: row.cover ? { assetId: row.cover.assetId, url: row.cover.url, name: row.cover.fileName } : null,
       gallery: row.gallery.map((item) => ({ assetId: item.assetId, url: item.url, name: item.fileName })),
     });

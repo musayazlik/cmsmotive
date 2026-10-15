@@ -151,6 +151,10 @@ model Theme {
   status        String         @default("concept")
   industry      String
   versionTarget String
+  /// Indicative price in whole euros shown on the catalogue card: 0 = free, null = not set yet.
+  price         Int?
+  /// Order on the public catalogue (home page and /themes), ascending.
+  position      Int            @default(0)
   coverId       String?
   cover         MediaAsset?    @relation("ThemeCover", fields: [coverId], references: [id], onDelete: SetNull)
   gallery       ThemeGallery[]

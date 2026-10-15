@@ -15,9 +15,8 @@ import { getTranslator, type Translate } from "@/lib/i18n/translate";
 const NAV = [
   { href: "/themes", label: "Themes" },
   { href: "/extensions", label: "Extensions" },
-  { href: "/headless", label: "Headless" },
-  { href: "/docs", label: "Docs" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/docs", label: "Docs" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
 ];

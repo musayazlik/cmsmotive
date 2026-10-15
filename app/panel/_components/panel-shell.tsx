@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import SignOutButton from "../sign-out-button";
 import PanelHeader from "./panel-header";
 
@@ -69,6 +69,21 @@ export default function PanelShell({
   const firstName = user.name.trim().split(/\s+/)[0] || "there";
   const section = sectionFor(pathname);
   const crumb = section ? section.label.toUpperCase() : "WORKSPACE";
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Only the navigation scrolls (logo and account stay put). Keep the active
+  // entry in view, e.g. after a full reload on /panel/settings on a short screen.
+  useEffect(() => {
+    const area = scrollRef.current;
+    // A sub-page (Blog › Tags) marks both links active; the child is the one to show.
+    const active = area?.querySelector<HTMLElement>(".workspace-subnav a.active") ?? area?.querySelector<HTMLElement>("a.active");
+    if (!area || !active) return;
+    const areaBox = area.getBoundingClientRect();
+    const box = active.getBoundingClientRect();
+    const margin = 24;
+    if (box.top < areaBox.top + margin) area.scrollTop -= areaBox.top + margin - box.top;
+    else if (box.bottom > areaBox.bottom - margin) area.scrollTop += box.bottom - (areaBox.bottom - margin);
+  }, [pathname]);
 
   return (
     <div className="workspace">
@@ -77,39 +92,41 @@ export default function PanelShell({
           <Image src="/assets/images/logo.png" alt="CMSMotive" width={144} height={48} priority />
           <span className="workspace-logo-tag">YÖNETİM PANELİ</span>
         </Link>
-        <div className="workspace-sidebar-label">YOUR WORKSPACE / 01</div>
-        <nav className="workspace-nav" aria-label="Workspace navigation">
-          {PANEL_NAV.map((item) => {
-            const badge = navBadge(item.href, { unreadInquiries, pendingReviews });
-            return (
-              <div key={item.href} className="workspace-nav-group">
-                <Link href={item.href} className={isActive(pathname, item.href) ? "active" : undefined}>
-                  <span>{item.index}</span> {item.label}
-                  {badge && badge.count > 0 ? (
-                    <>
-                      <span className="workspace-nav-count" aria-hidden="true">
-                        {badge.count > 9 ? "9+" : badge.count}
-                      </span>
-                      <span className="visually-hidden">
-                        {badge.count} {badge.count === 1 ? badge.one : badge.many}
-                      </span>
-                    </>
+        <div className="workspace-sidebar-scroll" ref={scrollRef}>
+          <div className="workspace-sidebar-label">YOUR WORKSPACE / 01</div>
+          <nav className="workspace-nav" aria-label="Workspace navigation">
+            {PANEL_NAV.map((item) => {
+              const badge = navBadge(item.href, { unreadInquiries, pendingReviews });
+              return (
+                <div key={item.href} className="workspace-nav-group">
+                  <Link href={item.href} className={isActive(pathname, item.href) ? "active" : undefined}>
+                    <span>{item.index}</span> {item.label}
+                    {badge && badge.count > 0 ? (
+                      <>
+                        <span className="workspace-nav-count" aria-hidden="true">
+                          {badge.count > 9 ? "9+" : badge.count}
+                        </span>
+                        <span className="visually-hidden">
+                          {badge.count} {badge.count === 1 ? badge.one : badge.many}
+                        </span>
+                      </>
+                    ) : null}
+                    <b aria-hidden="true">↗</b>
+                  </Link>
+                  {item.children ? (
+                    <div className="workspace-subnav">
+                      {item.children.map((child) => (
+                        <Link key={child.href} href={child.href} className={pathname === child.href ? "active" : undefined}>
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
                   ) : null}
-                  <b aria-hidden="true">↗</b>
-                </Link>
-                {item.children ? (
-                  <div className="workspace-subnav">
-                    {item.children.map((child) => (
-                      <Link key={child.href} href={child.href} className={pathname === child.href ? "active" : undefined}>
-                        {child.label}
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </nav>
+                </div>
+              );
+            })}
+          </nav>
+        </div>
         <div className="workspace-sidebar-bottom">
           <span className="workspace-sidebar-label">ACCOUNT</span>
           <Link className="workspace-person" href="/panel/account" title="My account">

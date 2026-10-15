@@ -3,6 +3,7 @@ import { htmlResponse, readLegacyPage } from "@/lib/legacy";
 import { trackPageView } from "@/lib/analytics";
 import { isLocale } from "@/lib/i18n/config";
 import { localizeLegacyHtml } from "@/lib/i18n/legacy";
+import { injectThemeCatalog } from "@/lib/catalog";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,8 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
   const { locale, slug } = await context.params;
   if (!isLocale(locale) || !/^[a-z0-9-]+$/.test(slug)) notFound();
   try {
-    const html = await readLegacyPage(`${slug}.html`);
+    // Product grids come from the Theme table before the page is translated.
+    const html = await injectThemeCatalog(await readLegacyPage(`${slug}.html`));
     trackPageView(slug);
     const response = htmlResponse(localizeLegacyHtml(html, locale, slug === "index" ? "/" : `/${slug}`));
     response.headers.set("Content-Language", locale);

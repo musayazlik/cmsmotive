@@ -7,6 +7,7 @@ import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import { deletePost, setPostStatus } from "../_actions";
 import { STATUS_LABELS, type PostRow, type PostStatus } from "../_lib";
 import Select from "@/app/panel/_components/ui/select";
+import { useToast } from "@/app/panel/_components/ui/toast";
 
 const STATUS_BADGE: Record<PostStatus, string> = {
   draft: "wbadge wbadge-user",
@@ -27,6 +28,7 @@ export default function BlogList({ posts }: { posts: PostRow[] }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PostRow | null>(null);
+  const { toast, showToast } = useToast();
 
   const categoryOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -60,6 +62,11 @@ export default function BlogList({ posts }: { posts: PostRow[] }) {
   });
 
   async function togglePublish(post: PostRow) {
+    // Same publishing rule as the post form; the action re-checks on the server.
+    if (post.status !== "published" && (!post.categoryId || post.tags.length === 0)) {
+      showToast("Add a category and at least one tag before publishing this post.");
+      return;
+    }
     setBusyId(post.id);
     setError("");
     const result = await setPostStatus(post.id, post.status === "published" ? "draft" : "published");
@@ -265,6 +272,8 @@ export default function BlogList({ posts }: { posts: PostRow[] }) {
         onConfirm={confirmDeletePost}
         onClose={() => setPendingDelete(null)}
       />
+
+      {toast}
     </>
   );
 }

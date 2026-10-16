@@ -1,14 +1,15 @@
 import { translateHtml, type Translate } from "./html";
-import { LOCALES, LOCALE_TAGS, SOURCE_LOCALE, localizePath, type Locale } from "./config";
+import { LOCALES, SOURCE_LOCALE, localizePath, type Locale } from "./config";
 
 /**
  * Localizes a static-site document whose links are already root-relative
  * (see rewriteLegacyHtml): translates its copy through `translate`, sets
- * `<html lang>`, prefixes internal links, points the top-bar language menu
- * at `pagePath` in each locale and, when given an origin, adds hreflang
- * alternates. Pure, so Client Components can use it with bundled catalogs.
+ * `<html lang>`, prefixes internal links and points the top-bar language
+ * menu at `pagePath` in each locale. Pure, so Client Components can use it
+ * with bundled catalogs. Served pages get hreflang, canonical and the other
+ * search tags from lib/seo.ts afterwards.
  */
-export function localizeDocument(html: string, locale: Locale, pagePath: string, translate: Translate, origin?: string): string {
+export function localizeDocument(html: string, locale: Locale, pagePath: string, translate: Translate): string {
   let out = locale === SOURCE_LOCALE ? html : translateHtml(html, translate);
 
   out = out.replace(/<html\b([^>]*?)\blang=(["'])[^"']*\2/i, `<html$1lang="${locale}"`);
@@ -26,14 +27,5 @@ export function localizeDocument(html: string, locale: Locale, pagePath: string,
     return `<a href="${localizePath(pagePath, target)}" hreflang="${target}" lang="${target}" data-lang="${target}"${current}>`;
   });
   out = out.replace(/(<span\b[^>]*\bdata-lang-current\b[^>]*>)[^<]*/i, `$1${locale.toUpperCase()}`);
-
-  if (origin !== undefined) {
-    const alternates = [
-      ...LOCALES.map((code) => `<link rel="alternate" hreflang="${code}" href="${origin}${localizePath(pagePath, code)}">`),
-      `<link rel="alternate" hreflang="x-default" href="${origin}${pagePath}">`,
-      `<meta property="og:locale" content="${LOCALE_TAGS[locale].replace("-", "_")}">`,
-    ].join("");
-    out = out.replace(/<\/head>/i, `${alternates}</head>`);
-  }
   return out;
 }

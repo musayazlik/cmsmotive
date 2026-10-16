@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
-import { htmlResponse, readLegacyPage } from "@/lib/legacy";
+import { htmlResponse, injectAdminPanelLink, readLegacyPage } from "@/lib/legacy";
 import { trackPageView } from "@/lib/analytics";
 import { isLocale } from "@/lib/i18n/config";
 import { localizeLegacyHtml } from "@/lib/i18n/legacy";
 import { injectCatalog } from "@/lib/catalog";
+import { addLegacySeo, siteOrigin } from "@/lib/seo";
+import { injectTestimonials } from "@/lib/testimonials";
+import { hasPanelSession } from "@/lib/public-session";
 
 export const runtime = "nodejs";
 
@@ -18,10 +21,15 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
   const { locale, slug } = await context.params;
   if (!isLocale(locale) || !/^[a-z0-9-]+$/.test(slug)) notFound();
   try {
-    // Product grids come from the Theme and Extension tables before the page is translated.
-    const html = await injectCatalog(await readLegacyPage(`${slug}.html`));
+    // Product grids and review quotes come from the database before the page is translated.
+    const base = await injectTestimonials(await injectCatalog(await readLegacyPage(`${slug}.html`)));
+    // Signed-in visitors get the admin-panel link; injected before translation so it localizes too.
+    const html = (await hasPanelSession()) ? injectAdminPanelLink(base) : base;
     trackPageView(slug);
-    const response = htmlResponse(localizeLegacyHtml(html, locale, slug === "index" ? "/" : `/${slug}`));
+    const pagePath = slug === "index" ? "/" : `/${slug}`;
+    // Search tags and JSON-LD are read from the translated page, so they match its language.
+    const localized = localizeLegacyHtml(html, locale, pagePath);
+    const response = htmlResponse(addLegacySeo(localized, { origin: await siteOrigin(), locale, pagePath }));
     response.headers.set("Content-Language", locale);
     return response;
   } catch (error) {

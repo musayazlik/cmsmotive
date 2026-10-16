@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { LOCALE_HEADER, isLocale } from "@/lib/i18n/config";
+import { siteOrigin } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Workspace — CMSMotive",
-  description: "Your CMSMotive account and product workspace.",
-  robots: { index: false, follow: false },
-  icons: { icon: "/assets/icons/favicon.png" },
-};
+/**
+ * Defaults for the account area. Public pages opt back into indexing with
+ * their own metadata (lib/seo.ts pageMetadata()); `metadataBase` turns their
+ * root-relative canonical and share-image URLs into absolute ones.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    metadataBase: new URL(await siteOrigin()),
+    title: "Workspace — CMSMotive",
+    description: "Your CMSMotive account and product workspace.",
+    robots: { index: false, follow: false },
+    icons: { icon: "/assets/icons/favicon.png" },
+  };
+}
 
 /**
  * Deliberately bare: the panel pulls its stylesheet in app/panel/layout.tsx

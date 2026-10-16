@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import CoverField from "./cover-field";
-import BlogEditor from "./blog-editor";
 import ColorField from "./color-field";
 import AiDialog, { type AiApplyPayload } from "./ai-dialog";
 import { deletePost, saveCategory, savePost, saveTag } from "../_actions";
@@ -22,6 +21,8 @@ import CheckBox from "@/app/panel/_components/ui/checkbox";
 import DatePicker, { toISO } from "@/app/panel/_components/ui/date-picker";
 import TextArea from "@/app/panel/_components/ui/text-area";
 import TextField from "@/app/panel/_components/ui/text-field";
+import { useToast } from "@/app/panel/_components/ui/toast";
+import RichTextField from "@/app/panel/_components/editor/rich-text-field";
 import { slugify } from "@/lib/slug";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 
@@ -106,6 +107,7 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const { toast, showToast } = useToast();
 
   // create dialogs mirror the ones on the categories/tags pages
   const categoryDialogRef = useRef<HTMLDialogElement>(null);
@@ -266,6 +268,12 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
   }
 
   async function submit() {
+    // Publishing rule (enforced again in _actions.ts): a post cannot go live
+    // or be scheduled without a category and at least one tag.
+    if (status !== "draft" && (!categoryId || tagIds.length === 0)) {
+      showToast("Add a category and at least one tag before publishing this post.");
+      return;
+    }
     let publishAt: Date | null = null;
     if (status === "scheduled") {
       publishAt = scheduledAt ? new Date(scheduledAt) : null;
@@ -374,10 +382,14 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
             <SearchPreview title={title} slug={slug} excerpt={excerpt} />
           </div>
 
-          <div className="wfield-editor">
-            <p className="wsection-label">Post content</p>
-            <BlogEditor value={content} onChange={setContent} placeholder="Write the post…" />
-          </div>
+          <RichTextField
+            id="post-content"
+            label="Post content"
+            value={content}
+            onChange={setContent}
+            placeholder="Write the post…"
+            endpoint="blogMedia"
+          />
         </div>
 
         <div className="wform-side">
@@ -682,6 +694,8 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
         tagOptions={tagOptions}
         onApply={handleAiApply}
       />
+
+      {toast}
     </form>
   );
 }

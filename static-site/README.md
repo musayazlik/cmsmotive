@@ -28,7 +28,7 @@ The theme catalogue has working client-side search, filters and a reset action. 
 - Confirm the legal entity, registered address, jurisdiction and contact email. The legal pages are marked as drafts and contain visible placeholders.
 - The contact mailbox is `hello@cmsmotive.de`.
 - Verify product availability, package names, compatibility, final features, accessibility claims, pricing, licence grants and policies before enabling purchases. This concept does not take payment.
-- Choose whether to self-host Manrope and DM Mono. The current CSS loads them from Google Fonts, and the draft privacy page calls this out.
+- Choose whether to self-host Manrope and DM Mono. Every page currently links them from Google Fonts in its head (`FONTS_CSS` in `build.py`; `site.css` no longer `@import`s them), and the draft privacy page calls this out.
 - Replace concept imagery with verified product screenshots when packages are ready. The current architecture photographs are original generated editorial assets and are labelled as concept visuals.
 - Add real business and privacy policies after legal review for the applicable jurisdiction.
 
@@ -37,6 +37,8 @@ The theme catalogue has working client-side search, filters and a reset action. 
 The updated CMSMotive mark began as a built-in ImageGen logo exploration. Its original transparent PNG is saved at `assets/images/logo-concept-v2.png` and appears in the closing CTA. A clean, flat SVG adaptation at `assets/icons/logo-mark-v2.svg` is paired with the CMSMotive wordmark in the header and footer and used alone as the favicon. The previous SVG is retained as `assets/icons/logo-mark.svg`. The mark is separate from the TYPO3 logo.
 
 Final logo prompt: "Create a distinctive geometric CMSMotive M monogram from interlocking folded ribbon forms with a small modular aperture; premium European developer-product identity; deep cobalt indigo #4353E8 with a small acid-lime #C6F36A accent; centered, transparent background, no typography, container, gradient, glow or shadow." ImageGen provided the form; the SVG removes the glow that persisted in the raster generation.
+
+`assets/images/og/` holds 1200×630 JPEG copies of the page photographs for link previews (`og:image`), cropped from the WebP originals with sharp, because not every platform shows WebP previews.
 
 The photographs were created with the built-in image generation tool and optimized to WebP for this project:
 

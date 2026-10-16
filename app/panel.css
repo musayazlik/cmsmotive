@@ -816,3 +816,12 @@ a.workspace-person:hover{border-color:var(--indigo)}
 .wrelease small{display:block;margin-top:2px;font-size:11px;color:#7f8c91}
 .wreview-type{display:block;margin-top:2px;font:500 9.5px/1.4 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#8b969b}
 @media(max-width:700px){.wlib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.wlib-total{display:none}.wlib-toolbar .wbtn{flex:1}.wlib-note{flex-basis:100%}.wlib-foot .wbtn{flex:1}}
+/* floating panel notifications (ui/toast.tsx) */
+.wtoast{position:fixed;right:22px;bottom:22px;z-index:400;display:flex;align-items:center;gap:12px;max-width:min(420px,calc(100vw - 44px));padding:13px 15px;border:1px solid #f0c9c4;border-radius:11px;background:#fdf1ef;color:#a3372a;box-shadow:0 18px 44px rgba(16,20,24,.22);animation:wtoast-in .18s ease}
+.wtoast.is-success{border-color:#cfe2b4;background:#f0f8e5;color:#365a20}
+.wtoast p{margin:0;font-size:12.5px;line-height:1.6;font-weight:600}
+.wtoast-close{flex:none;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:inherit;font-size:15px;line-height:1;cursor:pointer;opacity:.7}
+.wtoast-close:hover{opacity:1}
+@keyframes wtoast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.wtoast{animation:none}}
+@media(max-width:700px){.wtoast{right:14px;bottom:14px;left:14px;max-width:none}}

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Script from "next/script";
 import { LOCALES, LOCALE_LABELS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
+import { hasPanelSession } from "@/lib/public-session";
 
 /**
  * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
@@ -11,6 +12,9 @@ import { getTranslator, type Translate } from "@/lib/i18n/translate";
  * Copy comes from the shared catalog (lib/i18n/translate.ts), keyed by the
  * English text of the static pages.
  */
+
+/** Manrope and DM Mono, as linked from the static pages' head (build.py FONTS_CSS); site.css no longer imports them. */
+const FONTS_CSS = "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap";
 
 const NAV = [
   { href: "/themes", label: "Themes" },
@@ -55,8 +59,9 @@ function ArrowIcon() {
   );
 }
 
-/** Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py (site.js binds [data-lang-switch]). */
-export function TopBar({ locale, t, path }: ChromeProps) {
+/** Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py (site.js binds [data-lang-switch]).
+ * Signed-in visitors also get the admin link (its static twin: lib/legacy.ts injectAdminPanelLink). */
+export function TopBar({ locale, t, path, showAdmin }: ChromeProps & { showAdmin?: boolean }) {
   return (
     <div className="topbar">
       <div className="container topbar-inner">
@@ -74,6 +79,17 @@ export function TopBar({ locale, t, path }: ChromeProps) {
           <span className="topbar-note">{t("Replies within one business day")}</span>
         </div>
         <div className="topbar-end">
+          {showAdmin ? (
+            <a className="topbar-admin" href="/panel" aria-label={t("Admin panel")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
+                <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
+                <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
+                <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
+              </svg>
+              <span>{t("Admin panel")}</span>
+            </a>
+          ) : null}
           <ul className="topbar-social" aria-label={t("CMSMotive on social media")}>
             {SOCIAL.map((item) => (
               <li key={item.label}>
@@ -243,7 +259,7 @@ export function BackToTop({ t }: { t: Translate }) {
  * Full public page frame: skip link, top bar, header, content, footer, site script.
  * `path` is the page's unprefixed path, used for the language menu links.
  */
-export function SiteFrame({
+export async function SiteFrame({
   locale,
   path,
   current,
@@ -255,12 +271,18 @@ export function SiteFrame({
   children: ReactNode;
 }) {
   const t = getTranslator(locale);
+  // Signed-in visitors get the admin-panel shortcut in the top bar.
+  const showAdmin = await hasPanelSession();
   return (
     <>
+      {/* React hoists these into <head>. */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      <link rel="stylesheet" href={FONTS_CSS} precedence="default" />
       <a className="skip-link" href="#main">
         {t("Skip to content")}
       </a>
-      <TopBar locale={locale} t={t} path={path} />
+      <TopBar locale={locale} t={t} path={path} showAdmin={showAdmin} />
       <SiteHeader locale={locale} t={t} current={current} />
       <main id="main">{children}</main>
       <SiteFooter locale={locale} t={t} />

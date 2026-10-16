@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { trackPageView } from "@/lib/analytics";
 import { LOCALE_TAGS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator } from "@/lib/i18n/translate";
+import { absoluteUrl, breadcrumbSchema, pageMetadata, siteOrigin } from "@/lib/seo";
 import { SiteFrame } from "../../_components/site-chrome";
+import { JsonLd } from "../../_components/json-ld";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +14,12 @@ type Props = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const locale = (await params).locale as Locale;
   const t = getTranslator(locale);
-  return {
+  return pageMetadata({
+    locale,
+    path: "/blog",
     title: t("Journal — CMSMotive"),
     description: t("Read CMSMotive articles on TYPO3, accessibility and design systems."),
-    robots: { index: true, follow: true },
-    alternates: {
-      languages: { de: localizePath("/blog", "de"), en: localizePath("/blog", "en"), tr: localizePath("/blog", "tr"), "x-default": "/blog" },
-    },
-  };
+  });
 }
 
 export default async function BlogPage({ params }: Props) {
@@ -50,9 +50,15 @@ export default async function BlogPage({ params }: Props) {
   });
 
   const [featured, ...rest] = posts;
+  const origin = await siteOrigin();
+  const breadcrumbs = breadcrumbSchema(origin, [
+    { name: t("Home"), url: href("/") },
+    { name: t("Journal"), url: absoluteUrl(origin, href("/blog")) },
+  ]);
 
   return (
     <SiteFrame locale={locale} path="/blog" current="/blog">
+      {breadcrumbs ? <JsonLd data={breadcrumbs} /> : null}
       <section className="journal-hero" aria-labelledby="journal-title">
         <div className="container">
           <div className="crumbs">

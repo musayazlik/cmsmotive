@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { trackPageView } from "@/lib/analytics";
 import { LOCALE_TAGS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator } from "@/lib/i18n/translate";
+import { absoluteUrl, breadcrumbSchema, organizationRef, pageMetadata, siteOrigin } from "@/lib/seo";
 import { SiteFrame } from "../../_components/site-chrome";
+import { JsonLd } from "../../_components/json-ld";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,7 @@ async function loadPost(slug: string) {
   return prisma.post.findFirst({
     where: { slug, status: "published" },
     include: {
-      cover: { select: { url: true, fileName: true } },
+      cover: { select: { url: true, fileName: true, width: true, height: true } },
       category: { select: { name: true } },
       author: { select: { name: true } },
     },
@@ -26,15 +28,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = getTranslator(locale as Locale);
   const post = await loadPost(slug);
   if (!post) return { title: t("Article not found — CMSMotive") };
-  const path = `/blog/${post.slug}`;
-  return {
+  const cover = post.cover;
+  return pageMetadata({
+    locale: locale as Locale,
+    path: `/blog/${post.slug}`,
     title: `${post.title} — CMSMotive`,
     description: post.excerpt,
-    robots: { index: true, follow: true },
-    alternates: {
-      languages: { de: localizePath(path, "de"), en: localizePath(path, "en"), tr: localizePath(path, "tr"), "x-default": path },
-    },
-  };
+    image: cover ? { url: cover.url, width: cover.width ?? undefined, height: cover.height ?? undefined } : null,
+    type: "article",
+    publishedTime: post.publishedAt,
+    modifiedTime: post.updatedAt,
+    authors: post.author?.name ? [post.author.name] : undefined,
+  });
 }
 
 /** Post bodies are stored once, in the language they were written in; the page around them follows the URL. */
@@ -48,20 +53,64 @@ export default async function BlogPostPage({ params }: Props) {
   const post = await loadPost(slug);
   if (!post) notFound();
 
-  const others = await prisma.post.findMany({
-    where: { status: "published", slug: { not: slug } },
-    orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
-    take: 2,
-    select: {
-      slug: true,
-      title: true,
-      readingTime: true,
-      cover: { select: { url: true } },
-      category: { select: { name: true } },
-    },
-  });
+  const [candidates, recent, categories, viewRows] = await Promise.all([
+    // Ranking pool for "Popular content": the journal's own order (featured first, then newest).
+    prisma.post.findMany({
+      where: { status: "published", slug: { not: slug } },
+      orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
+      take: 12,
+      select: {
+        slug: true,
+        title: true,
+        readingTime: true,
+        cover: { select: { url: true } },
+        category: { select: { name: true } },
+      },
+    }),
+    prisma.post.findMany({
+      where: { status: "published", slug: { not: slug } },
+      orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+      take: 4,
+      select: { slug: true, title: true, publishedAt: true, createdAt: true, category: { select: { name: true } } },
+    }),
+    prisma.category.findMany({
+      where: { posts: { some: { status: "published" } } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true, _count: { select: { posts: { where: { status: "published" } } } } },
+    }),
+    // Per-slug view totals rank the popular list; static-site slugs fall away with the post match.
+    prisma.pageViewDaily.groupBy({ by: ["slug"], _sum: { views: true } }),
+  ]);
+
+  const views = new Map(viewRows.map((row) => [row.slug, row._sum.views ?? 0]));
+  // Stable sort keeps the journal order (featured first) on equal views.
+  const popular = [...candidates].sort((a, b) => (views.get(b.slug) ?? 0) - (views.get(a.slug) ?? 0)).slice(0, 3);
+  const shortDate = (value: Date) =>
+    value.toLocaleDateString(LOCALE_TAGS[locale], { day: "numeric", month: "short", year: "numeric" });
 
   const category = post.category?.name ?? t("Journal");
+  const origin = await siteOrigin();
+  const url = absoluteUrl(origin, href(`/blog/${post.slug}`));
+  const jsonLd = [
+    {
+      "@type": "BlogPosting",
+      headline: post.title,
+      description: post.excerpt,
+      url,
+      mainEntityOfPage: url,
+      ...(post.cover ? { image: [absoluteUrl(origin, post.cover.url)] } : {}),
+      datePublished: (post.publishedAt ?? post.updatedAt).toISOString(),
+      dateModified: post.updatedAt.toISOString(),
+      author: post.author?.name ? { "@type": "Person", name: post.author.name } : organizationRef(origin),
+      publisher: organizationRef(origin),
+      ...(post.category ? { articleSection: post.category.name } : {}),
+    },
+    breadcrumbSchema(origin, [
+      { name: t("Home"), url: href("/") },
+      { name: t("Journal"), url: href("/blog") },
+      { name: post.title, url },
+    ]),
+  ].filter((entry) => entry !== null);
   const published = (post.publishedAt ?? post.updatedAt).toLocaleDateString(LOCALE_TAGS[locale], {
     month: "long",
     day: "numeric",
@@ -70,39 +119,38 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <SiteFrame locale={locale} path={`/blog/${post.slug}`} current="/blog">
-      <div className="container blog-detail-shell">
-        <div className="crumbs">
-          <a href={href("/")}>{t("Home")}</a>
-          <span>/</span>
-          <a href={href("/blog")}>{t("Journal")}</a>
-          <span>/</span>
-          <span>{category}</span>
+      <JsonLd data={jsonLd} />
+      <section className="blog-hero" aria-labelledby="post-title">
+        {post.cover ? (
+          // eslint-disable-next-line @next/next/no-img-element -- covers live on arbitrary UploadThing hosts
+          <img className="blog-hero-bg" src={post.cover.url} alt="" fetchPriority="high" />
+        ) : null}
+        <div className="container blog-hero-inner">
+          <div className="crumbs">
+            <a href={href("/")}>{t("Home")}</a>
+            <span>/</span>
+            <a href={href("/blog")}>{t("Journal")}</a>
+            <span>/</span>
+            <span>{category}</span>
+          </div>
+          <div className="blog-hero-copy">
+            <span className="eyebrow light">{category}</span>
+            <h1 id="post-title">{post.title}</h1>
+            <p className="blog-hero-intro">{post.excerpt}</p>
+            <div className="blog-hero-meta">
+              <span>{post.author?.name ?? t("CMSMotive Editorial")}</span>
+              <span>{published}</span>
+              <span>{t("{n} min read", { n: post.readingTime })}</span>
+            </div>
+          </div>
         </div>
+      </section>
+
+      <div className="container blog-detail-shell">
         <div className="blog-detail-grid">
           <div className="blog-detail-main">
             <article className="content-article">
-              <header className="article-header">
-                <span className="eyebrow">{category}</span>
-                <h1>{post.title}</h1>
-                <p className="intro">{post.excerpt}</p>
-                <div className="article-meta">
-                  {post.author?.name ?? t("CMSMotive Editorial")} &nbsp; · &nbsp; {published} &nbsp; · &nbsp;{" "}
-                  {t("{n} min read", { n: post.readingTime })}
-                </div>
-              </header>
-              {post.cover ? (
-                <figure>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- covers live on arbitrary UploadThing hosts */}
-                  <img
-                    src={post.cover.url}
-                    width={1536}
-                    height={1024}
-                    alt={t("Cover image for article: {title}", { title: post.title })}
-                  />
-                  <figcaption>{post.cover.fileName}</figcaption>
-                </figure>
-              ) : null}
-              {/* Post bodies are authored in the admin tiptap editor — trusted HTML. */}
+              {/* The title, excerpt and cover live in the hero above; the body stays authored HTML. */}
               <div className="article-copy" dangerouslySetInnerHTML={{ __html: post.content }} />
             </article>
 
@@ -162,37 +210,74 @@ export default async function BlogPostPage({ params }: Props) {
             </section>
           </div>
 
-          <aside className="blog-detail-aside" aria-label={t("Popular articles")}>
-            <div className="popular-panel">
+          <aside className="blog-detail-aside" aria-label={t("From the journal")}>
+            <div className="blog-widget">
               <span className="eyebrow">{t("From the journal")}</span>
-              <h2>{t("More articles")}</h2>
-              <div className="popular-list">
-                {others.length === 0 ? (
-                  <p className="comment-empty">{t("More stories are in the works.")}</p>
-                ) : (
-                  others.map((other) => (
-                    <a className="popular-item" href={href(`/blog/${other.slug}`)} key={other.slug}>
-                      {other.cover ? (
+              <h2>{t("Popular content")}</h2>
+              {popular.length === 0 ? (
+                <p className="blog-widget-empty">{t("More stories are in the works.")}</p>
+              ) : (
+                <div className="popular-list">
+                  {popular.map((item) => (
+                    <a
+                      className={item.cover ? "popular-item" : "popular-item no-cover"}
+                      href={href(`/blog/${item.slug}`)}
+                      key={item.slug}
+                    >
+                      {item.cover ? (
                         // eslint-disable-next-line @next/next/no-img-element -- covers live on arbitrary UploadThing hosts
-                        <img src={other.cover.url} width={96} height={72} loading="lazy" alt="" />
+                        <img src={item.cover.url} width={96} height={72} loading="lazy" alt="" />
                       ) : null}
                       <span>
                         <small>
-                          {other.category?.name ?? t("Journal")} · {t("{n} min read", { n: other.readingTime })}
+                          {item.category?.name ?? t("Journal")} · {t("{n} min read", { n: item.readingTime })}
                         </small>
-                        <strong>{other.title}</strong>
+                        <strong>{item.title}</strong>
                         <span className="popular-arrow" aria-hidden="true">
                           ↗
                         </span>
                       </span>
                     </a>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
               <a className="popular-all" href={href("/blog")}>
                 {t("Explore the journal")} <span aria-hidden="true">↗</span>
               </a>
             </div>
+
+            {categories.length > 0 ? (
+              <div className="blog-widget">
+                <span className="eyebrow">{t("Browse")}</span>
+                <h2>{t("Categories")}</h2>
+                <div className="blog-widget-list">
+                  {categories.map((entry) => (
+                    <div className="category-row" key={entry.id}>
+                      <span className="category-dot" style={{ background: entry.color }} aria-hidden="true" />
+                      <strong>{entry.name}</strong>
+                      <span className="category-count">{entry._count.posts}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {recent.length > 0 ? (
+              <div className="blog-widget">
+                <span className="eyebrow">{t("Latest")}</span>
+                <h2>{t("Recent posts")}</h2>
+                <div className="blog-widget-list">
+                  {recent.map((item) => (
+                    <a className="recent-row" href={href(`/blog/${item.slug}`)} key={item.slug}>
+                      <time dateTime={(item.publishedAt ?? item.createdAt).toISOString()}>
+                        {shortDate(item.publishedAt ?? item.createdAt)}
+                      </time>
+                      <strong>{item.title}</strong>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </aside>
         </div>
         <div className="blog-detail-back">

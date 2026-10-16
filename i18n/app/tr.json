@@ -14,6 +14,12 @@
   "Comments in this preview are saved only in this browser.": "Bu önizlemedeki yorumlar yalnızca bu tarayıcıda saklanır.",
   "More articles": "Diğer yazılar",
   "More stories are in the works.": "Yeni yazılar hazırlanıyor.",
+  "Popular content": "Popüler içerikler",
+  "Browse": "Göz at",
+  "Categories": "Kategoriler",
+  "Latest": "En yeni",
+  "Recent posts": "Son yazılar",
+  "Admin panel": "Yönetim paneli",
   "The page you are looking for does not exist or has moved.": "Aradığınız sayfa mevcut değil veya taşınmış.",
   "Available now": "Şimdi kullanılabilir",
   "Available": "Kullanılabilir",
@@ -145,5 +151,7 @@
   "TYPO3 theme": "TYPO3 teması",
   "TYPO3 extension": "TYPO3 eklentisi",
   "Explore extension": "Eklentiyi keşfedin",
-  "Use case and scope outlined.": "Kullanım senaryosu ve kapsam belirlendi."
+  "Use case and scope outlined.": "Kullanım senaryosu ve kapsam belirlendi.",
+  "Rated 5 out of 5": "5 üzerinden 5 puan",
+  "Rated 4 out of 5": "5 üzerinden 4 puan"
 }

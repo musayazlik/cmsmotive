@@ -114,6 +114,12 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
     }
   }
 
+  // A post that goes live — now or on schedule — needs a category and at
+  // least one tag; drafts stay unrestricted.
+  if (input.status !== "draft" && (!categoryId || tagIds.length === 0)) {
+    return { ok: false, error: "Add a category and at least one tag before publishing this post." };
+  }
+
   try {
     const finalSlug = await uniqueSlug("post", slug, input.id);
     // Nested deleteMany is only valid on update — a fresh create has
@@ -184,8 +190,15 @@ export async function setPostStatus(id: string, status: PostStatus): Promise<Act
   }
 
   try {
-    const existing = await prisma.post.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.post.findUnique({
+      where: { id },
+      select: { id: true, categoryId: true, _count: { select: { tags: true } } },
+    });
     if (!existing) return { ok: false, error: "Post could not be found." };
+    // Same publishing rule as savePost: no going live without a category and a tag.
+    if (status === "published" && (!existing.categoryId || existing._count.tags === 0)) {
+      return { ok: false, error: "Add a category and at least one tag before publishing this post." };
+    }
 
     await prisma.post.update({
       where: { id },

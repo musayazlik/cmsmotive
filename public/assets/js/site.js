@@ -410,10 +410,14 @@ const price = document.querySelector('#theme-price');
 const version = document.querySelector('#theme-version');
 if (search && industry && price && version) {
   const products = [...document.querySelectorAll('[data-product]')];
+  // "Coming soon" cards pad the grid (lib/catalog.ts); they only make sense in the unfiltered list.
+  const placeholders = [...document.querySelectorAll('.product-grid [data-placeholder]')];
   const count = document.querySelector('#filter-count');
   const empty = document.querySelector('#empty-state');
   const update = () => {
     const query = search.value.trim().toLocaleLowerCase(SITE_LANG);
+    const filtering = query !== '' || [industry, price, version].some(control => control.value !== 'all');
+    placeholders.forEach(placeholder => { placeholder.hidden = filtering; });
     let visible = 0;
     products.forEach(product => {
       // Match the English data attributes and the visible, translated card text.
@@ -427,7 +431,7 @@ if (search && industry && price && version) {
       if (show) visible++;
     });
     count.textContent = siteT(visible === 1 ? '{count} theme shown' : '{count} themes shown', { count: visible });
-    empty.classList.toggle('show', visible === 0);
+    empty.classList.toggle('show', visible === 0 && filtering);
   };
   [search, industry, price, version].forEach(control => control.addEventListener(control === search ? 'input' : 'change', update));
   document.querySelector('#clear-filters')?.addEventListener('click', () => {

@@ -12,7 +12,13 @@
     <link rel="icon" type="image/png" href="assets/icons/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+    />
     <link rel="stylesheet" href="assets/css/site.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CMSMotive" />
     <meta property="og:title" content="TYPO3 extensions — CMSMotive" />
     <meta
       property="og:description"
@@ -20,8 +26,12 @@
     />
     <meta
       property="og:image"
-      content="assets/images/nordform-architecture.webp"
+      content="assets/images/og/nordform-architecture.jpg"
     />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@cmsmotive" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -213,7 +223,7 @@
           ></a>
         </div>
       </section>
-      <section class="section" data-catalog-section="extensions">
+      <section class="section">
         <div class="container">
           <div class="section-heading" data-reveal>
             <div>
@@ -228,10 +238,12 @@
             </div>
           </div>
           <div class="article-grid">
-            <!-- catalog:extensions ids -->
+            <!-- catalog:extensions ids min=6 -->
             <article class="article-card">
               <span class="badge indigo">Roadmap concept</span>
-              <h3>Editorial Workflow</h3>
+              <h3>
+                <a href="extension/editorial-workflow">Editorial Workflow</a>
+              </h3>
               <p>
                 Make review states, handoffs and publishing responsibilities
                 easier to understand across a content team.
@@ -246,7 +258,7 @@
             </article>
             <article class="article-card">
               <span class="badge indigo">Roadmap concept</span>
-              <h3>Structured SEO</h3>
+              <h3><a href="extension/structured-seo">Structured SEO</a></h3>
               <p>
                 Practical defaults for metadata, page previews and structured
                 content without an overloaded control panel.
@@ -261,7 +273,9 @@
             </article>
             <article class="article-card">
               <span class="badge indigo">Roadmap concept</span>
-              <h3>Content Utilities</h3>
+              <h3>
+                <a href="extension/content-utilities">Content Utilities</a>
+              </h3>
               <p>
                 Small, documented tools for the repetitive details that slow
                 real TYPO3 projects down.
@@ -273,6 +287,51 @@
                   width="16"
                   height="16"
               /></a>
+            </article>
+            <article class="article-card article-card-soon" data-placeholder>
+              <span class="badge soon-badge"
+                ><span class="soon-dot" aria-hidden="true"></span>Coming
+                soon</span
+              ><span class="soon-kicker">New extension</span
+              ><span class="skel skel-title" aria-hidden="true"></span
+              ><span class="skel-lines" aria-hidden="true"
+                ><span class="skel"></span><span class="skel"></span
+                ><span class="skel"></span
+              ></span>
+              <div class="soon-foot">
+                <span class="soon-status"><small>Status</small>In progress</span
+                ><span class="soon-progress" aria-hidden="true"><i></i></span>
+              </div>
+            </article>
+            <article class="article-card article-card-soon" data-placeholder>
+              <span class="badge soon-badge"
+                ><span class="soon-dot" aria-hidden="true"></span>Coming
+                soon</span
+              ><span class="soon-kicker">New extension</span
+              ><span class="skel skel-title" aria-hidden="true"></span
+              ><span class="skel-lines" aria-hidden="true"
+                ><span class="skel"></span><span class="skel"></span
+                ><span class="skel"></span
+              ></span>
+              <div class="soon-foot">
+                <span class="soon-status"><small>Status</small>In progress</span
+                ><span class="soon-progress" aria-hidden="true"><i></i></span>
+              </div>
+            </article>
+            <article class="article-card article-card-soon" data-placeholder>
+              <span class="badge soon-badge"
+                ><span class="soon-dot" aria-hidden="true"></span>Coming
+                soon</span
+              ><span class="soon-kicker">New extension</span
+              ><span class="skel skel-title" aria-hidden="true"></span
+              ><span class="skel-lines" aria-hidden="true"
+                ><span class="skel"></span><span class="skel"></span
+                ><span class="skel"></span
+              ></span>
+              <div class="soon-foot">
+                <span class="soon-status"><small>Status</small>In progress</span
+                ><span class="soon-progress" aria-hidden="true"><i></i></span>
+              </div>
             </article>
             <!-- /catalog:extensions -->
           </div>

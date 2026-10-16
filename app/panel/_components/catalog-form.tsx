@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import RichTextEditor from "./editor/rich-text-editor";
+import RichTextField from "./editor/rich-text-field";
 import ConfirmDialog from "./confirm-dialog";
 import { CoverUpload, GalleryUpload } from "./catalog-media";
 import { CompatibilityEditor, LicenceEditor, type CompatibilityDraft, type LicenceDraft } from "./catalog-detail-fields";
@@ -269,15 +269,14 @@ export default function CatalogForm({ variant, record }: Props) {
               </div>
             </div>
 
-            <div className="wfield-editor is-compact">
-              <p className="wsection-label">Description</p>
-              <RichTextEditor
-                id="c-description"
-                value={description}
-                onChange={setDescription}
-                placeholder="Describe what this product does, who it is for and what is included."
-              />
-            </div>
+            <RichTextField
+              id="c-description"
+              label="Description"
+              compact
+              value={description}
+              onChange={setDescription}
+              placeholder="Describe what this product does, who it is for and what is included."
+            />
 
             <CompatibilityEditor rows={compatibility} onChange={setCompatibility} />
             <CoverUpload endpoint={endpoint} value={cover} onChange={setCover} />

@@ -14,6 +14,12 @@
   "Comments in this preview are saved only in this browser.": "Kommentare in dieser Vorschau werden nur in diesem Browser gespeichert.",
   "More articles": "Weitere Artikel",
   "More stories are in the works.": "Weitere Artikel sind in Arbeit.",
+  "Popular content": "Beliebte Beiträge",
+  "Browse": "Stöbern",
+  "Categories": "Kategorien",
+  "Latest": "Neuestes",
+  "Recent posts": "Neueste Beiträge",
+  "Admin panel": "Admin-Panel",
   "The page you are looking for does not exist or has moved.": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
   "Available now": "Jetzt verfügbar",
   "Available": "Verfügbar",
@@ -145,5 +151,7 @@
   "TYPO3 theme": "TYPO3-Theme",
   "TYPO3 extension": "TYPO3-Erweiterung",
   "Explore extension": "Erweiterung entdecken",
-  "Use case and scope outlined.": "Anwendungsfall und Umfang skizziert."
+  "Use case and scope outlined.": "Anwendungsfall und Umfang skizziert.",
+  "Rated 5 out of 5": "Mit 5 von 5 Sternen bewertet",
+  "Rated 4 out of 5": "Mit 4 von 5 Sternen bewertet"
 }

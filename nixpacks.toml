@@ -1,7 +1,7 @@
-# Nixpacks defaults to Node 18. pnpm 11 (packageManager) needs Node >= 22.13,
-# but Nixpacks' Node 22 archive ships 22.11, so use its Node 24 archive.
-[variables]
-NIXPACKS_NODE_VERSION = "24"
+# Node 24 comes from .nvmrc. pnpm 11 (packageManager) needs Node >= 22.13, but
+# Nixpacks' Node 22 archive ships 22.11. NIXPACKS_NODE_VERSION is not enough:
+# Nixpacks picks the nixpkgs archive from engines/.nvmrc/.node-version only, so
+# with just the variable it asks the Node 18 archive for `nodejs_24`.
 
 # Nixpacks does not know pnpm 11 and falls back to the nix `pnpm-9_x` package,
 # which shadows the pnpm installed below and rejects pnpm-workspace.yaml

@@ -2,3 +2,18 @@
 # Prisma 7 all need Node 22+.
 [variables]
 NIXPACKS_NODE_VERSION = "22"
+
+# Nixpacks' default install phase pins corepack 0.24.1
+# (`npm install -g corepack@0.24.1 && corepack enable`), which cannot run
+# pnpm 10+: old corepack executes pnpm's ESM entrypoint through a VM without
+# a dynamic import callback, failing with:
+#   TypeError [ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING]
+# Install pnpm directly instead. Keep the version in sync with the
+# "packageManager" field in package.json.
+[phases.install]
+cmds = [
+  "npm install -g pnpm@11.7.0",
+  "pnpm i --frozen-lockfile",
+]
+# Parent dir so the pnpm store is cached regardless of store layout version.
+cacheDirectories = ["/root/.local/share/pnpm/store"]

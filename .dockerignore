@@ -1,0 +1,10 @@
+.git
+node_modules
+.next
+generated
+.vercel
+.pnpm-store
+.temp_files
+.wrongstack
+*.tsbuildinfo
+__pycache__

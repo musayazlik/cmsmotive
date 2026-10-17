@@ -846,3 +846,32 @@ html:not(:lang(en)) :is(h1,h2,h3,h4,h5,.lead,.eyebrow,.footer-label){-webkit-hyp
 /* Card titles link to their detail page (theme, extension, journal post). */
 .product-card h3 a,.article-card h3 a{color:inherit;transition:color .2s}
 .product-card h3 a:hover,.article-card h3 a:hover{color:var(--indigo)}
+
+/* Compact header and top bar (about 10-20% smaller than the rules above): logo, nav type,
+   header action and top-bar controls. The hero height follows the new header height;
+   site.js positions the mobile menu from the header's real size. */
+:root{--topbar-h:36px}
+.topbar{font-size:.7rem}
+.topbar-mail{gap:8px}
+.topbar-mail-icon{width:22px;height:22px;border-radius:6px}
+.topbar-mail-icon svg{width:13px;height:13px}
+.topbar-note{font-size:.62rem}
+.topbar-social a{width:28px;height:28px}
+.topbar-social svg{width:13px;height:13px}
+.lang-trigger,.topbar-admin{height:28px}
+.lang-trigger{font-size:.64rem}
+.topbar-admin{font-size:.6rem}
+.header-inner{min-height:68px;gap:22px}
+.logo-header img{height:56px}
+.desktop-nav{gap:26px}
+/* Nav links use the site face: they were DM Mono at weight 600, which is not loaded (400/500 only), so browsers faked the bold.
+   Manrope is linked as a variable font (wght 400..800), so in-between weights such as the header button's 650 render for real. */
+.desktop-nav .nav-link{font-family:Manrope,'Segoe UI',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:-.008em}
+.header-actions .btn{min-height:44px;padding:4px 4px 4px 16px;gap:14px;font-size:.8rem;font-weight:650}
+.header-actions .btn .btn-icon{width:34px;height:34px}
+.header-actions .btn .btn-icon img{width:15px;height:15px}
+.hero{min-height:calc(100vh - 68px - var(--topbar-h));min-height:calc(100svh - 68px - var(--topbar-h))}
+@media(max-width:1100px){.desktop-nav{gap:18px}.desktop-nav .nav-link{font-size:.82rem}.logo-header img{height:52px}}
+@media(max-width:900px){.header-inner{min-height:64px}.hero{min-height:calc(100vh - 64px - var(--topbar-h));min-height:calc(100svh - 64px - var(--topbar-h))}}
+@media(max-width:620px){.logo-header img{height:50px}}
+@media(max-width:520px){:root{--topbar-h:34px}.topbar-social a,.topbar-admin{width:26px;height:26px}}

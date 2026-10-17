@@ -14,7 +14,7 @@ import { hasPanelSession } from "@/lib/public-session";
  */
 
 /** Manrope and DM Mono, as linked from the static pages' head (build.py FONTS_CSS); site.css no longer imports them. */
-const FONTS_CSS = "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap";
+const FONTS_CSS = "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400..800&display=swap";
 
 const NAV = [
   { href: "/themes", label: "Themes" },

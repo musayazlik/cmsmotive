@@ -18,7 +18,6 @@
     "i18n:check": "tsx scripts/i18n-legacy.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "@tiptap/extension-highlight": "^3.31.3",
@@ -45,8 +44,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-email": "^6.11.0",
-    "uploadthing": "^7.7.4",
-    "zod": "^4.6.5"
+    "uploadthing": "^7.7.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

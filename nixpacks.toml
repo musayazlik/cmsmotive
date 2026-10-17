@@ -18,7 +18,9 @@ nixPkgs = ["nodejs_24", "openssl"]
 # "packageManager" field in package.json.
 [phases.install]
 cmds = [
-  "npm install -g pnpm@11.7.0",
+  # npm's default global prefix is not on PATH here; /usr/local/bin is, for
+  # the build phase and for `pnpm start` at runtime.
+  "npm install -g --prefix /usr/local pnpm@11.7.0",
   "pnpm i --frozen-lockfile",
 ]
 # Parent dir so the pnpm store is cached regardless of store layout version.

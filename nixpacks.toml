@@ -1,7 +1,13 @@
-# Nixpacks defaults to Node 18, but pnpm 11 (packageManager), Next 16 and
-# Prisma 7 all need Node 22+.
+# Nixpacks defaults to Node 18. pnpm 11 (packageManager) needs Node >= 22.13,
+# but Nixpacks' Node 22 archive ships 22.11, so use its Node 24 archive.
 [variables]
-NIXPACKS_NODE_VERSION = "22"
+NIXPACKS_NODE_VERSION = "24"
+
+# Nixpacks does not know pnpm 11 and falls back to the nix `pnpm-9_x` package,
+# which shadows the pnpm installed below and rejects pnpm-workspace.yaml
+# ("packages field missing or empty"). Install only Node and OpenSSL from nix.
+[phases.setup]
+nixPkgs = ["nodejs_24", "openssl"]
 
 # Nixpacks' default install phase pins corepack 0.24.1
 # (`npm install -g corepack@0.24.1 && corepack enable`), which cannot run

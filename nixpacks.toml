@@ -1,0 +1,4 @@
+# Nixpacks defaults to Node 18, but pnpm 11 (packageManager), Next 16 and
+# Prisma 7 all need Node 22+.
+[variables]
+NIXPACKS_NODE_VERSION = "22"

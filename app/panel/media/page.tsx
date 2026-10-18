@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { getEmbeddedUsage, NO_EMBEDS, type EmbeddedUsage } from "@/lib/media-usage";
 import { prisma } from "@/lib/prisma";
 import { utapi, UT_MAX_FILES, UT_PAGE_SIZE } from "@/lib/utapi";
 import MediaList from "./_components/media-list";
@@ -32,7 +33,7 @@ async function listStorageFiles() {
  * header paints immediately.
  */
 async function MediaLibrary() {
-  const [storage, assets] = await Promise.all([
+  const [storage, assets, embedded] = await Promise.all([
     listStorageFiles().then(
       (result) => ({ result, error: null as string | null }),
       (error: unknown) => {
@@ -53,6 +54,11 @@ async function MediaLibrary() {
         uploadedBy: { select: { name: true } },
         _count: { select: { themeCovers: true, extensionCovers: true, postCovers: true, themeGallery: true, extensionGallery: true } },
       },
+    }),
+    // Images placed inside post bodies and descriptions have no relation; they are found by key.
+    getEmbeddedUsage().catch((error: unknown) => {
+      console.error("media library: embedded usage failed", error);
+      return new Map<string, EmbeddedUsage>();
     }),
   ]);
 
@@ -101,6 +107,7 @@ async function MediaLibrary() {
           extensions: asset?._count.extensionCovers ?? 0,
           posts: asset?._count.postCovers ?? 0,
           gallery: (asset?._count.themeGallery ?? 0) + (asset?._count.extensionGallery ?? 0),
+          embedded: embedded.get(file.key) ?? NO_EMBEDS,
         },
         uploader: asset?.uploadedBy?.name ?? null,
       });
@@ -124,6 +131,7 @@ async function MediaLibrary() {
         extensions: asset._count.extensionCovers,
         posts: asset._count.postCovers,
         gallery: asset._count.themeGallery + asset._count.extensionGallery,
+        embedded: embedded.get(asset.key) ?? NO_EMBEDS,
       },
       uploader: asset.uploadedBy?.name ?? null,
     });

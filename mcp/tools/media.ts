@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Prisma } from "@/generated/prisma/client";
 import { z } from "zod";
+import { getEmbeddedUsage, NO_EMBEDS, type EmbeddedUsage } from "@/lib/media-usage";
 import { prisma } from "@/lib/prisma";
 import { resolveMcpActor } from "../context";
 import {
@@ -33,7 +34,10 @@ const mediaSelect = {
   },
 } as const;
 
-function mapMedia(asset: Prisma.MediaAssetGetPayload<{ select: typeof mediaSelect }>) {
+function mapMedia(
+  asset: Prisma.MediaAssetGetPayload<{ select: typeof mediaSelect }>,
+  embedded: Map<string, EmbeddedUsage>,
+) {
   const { _count, ...row } = asset;
   return {
     ...row,
@@ -43,6 +47,8 @@ function mapMedia(asset: Prisma.MediaAssetGetPayload<{ select: typeof mediaSelec
       extensions: _count.extensionCovers,
       posts: _count.postCovers,
       gallery: _count.themeGallery + _count.extensionGallery,
+      // Placed inside post bodies / theme and extension descriptions.
+      embedded: embedded.get(asset.key) ?? NO_EMBEDS,
     },
   };
 }
@@ -85,7 +91,7 @@ export function registerMediaTools(server: McpServer) {
             : {}),
         };
 
-        const [total, assets] = await Promise.all([
+        const [total, assets, embedded] = await Promise.all([
           prisma.mediaAsset.count({ where }),
           prisma.mediaAsset.findMany({
             where,
@@ -94,10 +100,11 @@ export function registerMediaTools(server: McpServer) {
             take: args.pageSize,
             select: mediaSelect,
           }),
+          getEmbeddedUsage(),
         ]);
 
         return {
-          assets: assets.map(mapMedia),
+          assets: assets.map((asset) => mapMedia(asset, embedded)),
           total,
           page: args.page,
           pageSize: args.pageSize,
@@ -121,7 +128,7 @@ export function registerMediaTools(server: McpServer) {
           select: mediaSelect,
         });
         if (!asset) throw new ToolError("Media asset not found.");
-        return mapMedia(asset);
+        return mapMedia(asset, await getEmbeddedUsage());
       }),
   );
 
@@ -169,7 +176,7 @@ export function registerMediaTools(server: McpServer) {
     {
       title: "Delete a media asset",
       description:
-        "Delete a file from UploadThing storage and its MediaAsset record. Gallery rows that used the file are removed and covers are cleared.",
+        "Delete a file from UploadThing storage and its MediaAsset record. Gallery rows that used the file are removed and covers are cleared. Images placed inside post or description text (usage.embedded) are not removed from that text and show as broken images — check usage first.",
       inputSchema: {
         id: z.string().optional().describe("MediaAsset id."),
         key: z.string().optional().describe("UploadThing key, for files without a tracked row."),

@@ -8,10 +8,13 @@
 export type MediaSource = "tracked" | "untracked" | "missing";
 
 export type MediaUsage = {
+  /** Covers. */
   themes: number;
   extensions: number;
   posts: number;
   gallery: number;
+  /** Placed inside post bodies and theme/extension descriptions. */
+  embedded: { posts: number; themes: number; extensions: number };
 };
 
 export type MediaRow = {
@@ -121,10 +124,13 @@ export const SOURCE_BADGES: Record<MediaSource, string> = {
 /** "Used in" summary for the table cell; empty string when orphaned. */
 export function usageSummary(usage: MediaUsage): string[] {
   const parts: string[] = [];
-  if (usage.themes > 0) parts.push(`Themes ×${usage.themes}`);
-  if (usage.extensions > 0) parts.push(`Extensions ×${usage.extensions}`);
-  if (usage.posts > 0) parts.push(`Posts ×${usage.posts}`);
+  if (usage.posts > 0) parts.push(`Post cover ×${usage.posts}`);
+  if (usage.embedded.posts > 0) parts.push(`In posts ×${usage.embedded.posts}`);
+  if (usage.themes > 0) parts.push(`Theme cover ×${usage.themes}`);
+  if (usage.extensions > 0) parts.push(`Extension cover ×${usage.extensions}`);
   if (usage.gallery > 0) parts.push(`Galleries ×${usage.gallery}`);
+  if (usage.embedded.themes > 0) parts.push(`In themes ×${usage.embedded.themes}`);
+  if (usage.embedded.extensions > 0) parts.push(`In extensions ×${usage.embedded.extensions}`);
   return parts;
 }
 

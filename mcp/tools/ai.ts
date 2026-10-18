@@ -109,7 +109,8 @@ async function generateImage(
     images: input.sourceUrl ? [await sourceAsDataUrl(input.sourceUrl)] : undefined,
   });
   const mime = dataUrl.match(/^data:([^;]+);/)?.[1] ?? "image/png";
-  const base = slugify(input.fileBase).slice(0, 40) || "ai-image";
+  // Long enough for a 40-character title plus a suffix such as "-inline-2".
+  const base = slugify(input.fileBase).slice(0, 60) || "ai-image";
   let media = await uploadMediaRecord(
     { fileName: `${base}-ai${editing ? "-edit" : ""}.${mime.split("/")[1] || "png"}`, dataUrl },
     actorId,
@@ -212,7 +213,8 @@ export function registerAiTools(server: McpServer) {
           throw new ToolError("The content model returned no title or body. Try again or pick another model under Settings → AI.");
         }
         const warnings = [...written.warnings];
-        const base = written.title;
+        // The title part is shortened first so suffixes like "-inline-1" survive and file names stay distinct.
+        const base = slugify(written.title).slice(0, 40);
 
         // Images are extras: a failed one is reported, the post is still saved.
         let markdown = written.content;

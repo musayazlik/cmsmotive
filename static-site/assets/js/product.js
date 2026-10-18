@@ -17,6 +17,7 @@
       sending: 'Sending…',
       submit: 'Submit review',
       success: 'Thank you! Your review has been received and will appear here once it has been approved.',
+      published: 'Thank you! Your review has been published.',
       errors: {
         'missing-rating': 'Please choose a star rating.',
         'invalid-identity': 'Please enter your full name and a valid email address.',
@@ -39,6 +40,7 @@
       sending: 'Wird gesendet …',
       submit: 'Bewertung senden',
       success: 'Vielen Dank! Ihre Bewertung ist eingegangen und erscheint hier, sobald sie freigegeben wurde.',
+      published: 'Vielen Dank! Ihre Bewertung wurde veröffentlicht.',
       errors: {
         'missing-rating': 'Bitte wählen Sie eine Sternebewertung.',
         'invalid-identity': 'Bitte geben Sie Ihren vollständigen Namen und eine gültige E-Mail-Adresse ein.',
@@ -61,6 +63,7 @@
       sending: 'Gönderiliyor…',
       submit: 'Değerlendirmeyi gönder',
       success: 'Teşekkürler! Değerlendirmeniz alındı; onaylandıktan sonra burada yayınlanacak.',
+      published: 'Teşekkürler! Değerlendirmeniz yayınlandı.',
       errors: {
         'missing-rating': 'Lütfen bir yıldız puanı seçin.',
         'invalid-identity': 'Lütfen adınızı soyadınızı ve geçerli bir e-posta adresi girin.',
@@ -344,7 +347,13 @@
       if (hint) hint.textContent = '';
       updateCounter();
       requestKey = randomUUID();
-      showStatus(T.success, 'success');
+      // Auto-approved reviews (Settings → Reviews) are live at once.
+      if (result.status === 'approved') {
+        showStatus(T.published, 'success');
+        loadReviews();
+      } else {
+        showStatus(T.success, 'success');
+      }
     } catch (error) {
       console.error('reviews: submit failed', error);
       showStatus(T.errors.unavailable, 'error');

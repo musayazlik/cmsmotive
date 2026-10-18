@@ -1,5 +1,8 @@
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/** Every catalogue validator returns either a message for the user or parsed data. */
+export type ValidationResult<T> = { error: string } | { data: T };
+
 export const THEME_STATUSES = ["concept", "in-development", "published"] as const;
 export const EXTENSION_STATUSES = ["concept", "planning", "in-development", "published"] as const;
 
@@ -19,7 +22,7 @@ export const MAX_GALLERY = 12;
 export const MAX_PRICE = 100000;
 
 /** Reads the public sort `position` of a theme or extension payload (empty = 0). */
-export function validatePosition(body: Record<string, unknown>): { error: string } | { data: number } {
+export function validatePosition(body: Record<string, unknown>): ValidationResult<number> {
   const position = body.position === undefined || body.position === null || body.position === "" ? 0 : Number(body.position);
   if (!Number.isInteger(position) || position < 0 || position > 9999) {
     return { error: "Sort order must be a whole number between 0 and 9999." };
@@ -31,7 +34,9 @@ export function validatePosition(body: Record<string, unknown>): { error: string
  * Reads the catalogue fields of a theme payload: `price` in whole euros
  * (empty or null = not set yet, 0 = free) and the public sort `position`.
  */
-export function validateListing(body: Record<string, unknown>) {
+export function validateListing(
+  body: Record<string, unknown>,
+): ValidationResult<{ price: number | null; position: number }> {
   const raw = body.price;
   let price: number | null = null;
   if (raw !== null && raw !== undefined && raw !== "") {
@@ -74,7 +79,17 @@ const trimmed = (value: unknown) => (typeof value === "string" ? value.trim() : 
  * intro, the highlight lines, the compatibility table and the buy panel links.
  * Empty strings become null so the page can fall back to its defaults.
  */
-export function validateDetail(body: Record<string, unknown>) {
+export type DetailFields = {
+  tagline: string | null;
+  intro: string | null;
+  highlights: string[];
+  compatibility: CompatibilityRow[];
+  ctaLabel: string | null;
+  ctaUrl: string | null;
+  demoUrl: string | null;
+};
+
+export function validateDetail(body: Record<string, unknown>): ValidationResult<DetailFields> {
   const tagline = trimmed(body.tagline);
   if (tagline.length > DETAIL_LIMITS.tagline) return { error: `The tagline can be at most ${DETAIL_LIMITS.tagline} characters.` };
   const intro = trimmed(body.intro);
@@ -145,7 +160,7 @@ export function readLicences(value: unknown): Licence[] {
 }
 
 /** Licence options for a theme's buy panel; rows without a name and price are dropped. */
-export function validateLicences(body: Record<string, unknown>): { error: string } | { data: Licence[] } {
+export function validateLicences(body: Record<string, unknown>): ValidationResult<Licence[]> {
   const rows = Array.isArray(body.licences) ? body.licences : [];
   const licences: Licence[] = [];
   for (const row of rows) {
@@ -181,7 +196,16 @@ const isChangeKind = (value: unknown): value is ChangeKind =>
  * Reads a changelog entry payload. `product` is "theme:<id>" or
  * "extension:<id>"; the caller checks that the record exists.
  */
-export function validateChangelog(body: Record<string, unknown>) {
+export type ChangelogFields = {
+  themeId: string | null;
+  extensionId: string | null;
+  version: string;
+  title: string;
+  releasedAt: Date;
+  changes: ChangeItem[];
+};
+
+export function validateChangelog(body: Record<string, unknown>): ValidationResult<ChangelogFields> {
   const product = trimmed(body.product);
   const match = product.match(/^(theme|extension):(\S+)$/);
   if (!match) return { error: "Choose the theme or extension this entry belongs to." };
@@ -248,8 +272,17 @@ export type EditableTheme = {
   galleryIds: string[];
 };
 
+export type CoreFields = {
+  name: string;
+  slug: string;
+  summary: string;
+  description: string;
+  coverId: string | null;
+  galleryIds: string[];
+};
+
 /** Validates the shared shape used by both theme and extension payloads. */
-export function validateCore(body: Record<string, unknown>) {
+export function validateCore(body: Record<string, unknown>): ValidationResult<CoreFields> {
   const text = (key: string) => (typeof body[key] === "string" ? (body[key] as string).trim() : "");
 
   const name = text("name");

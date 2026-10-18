@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendContactAckEmail, sendContactEmail } from "@/lib/plunk";
+import { getEmailSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -24,12 +25,14 @@ export async function POST(request: Request) {
   }
 
   const inquiry = await prisma.contactInquiry.create({ data });
-  // The auto-reply is a courtesy: if it fails, the submission still proceeds
-  // normally and only the log records it.
-  try {
-    await sendContactAckEmail({ to: data.email, name: data.name, agency: data.agency, message: data.message });
-  } catch (error) {
-    console.error("contact: acknowledgement email failed", error);
+  // The auto-reply is a courtesy (switched in Settings → Email): if it fails,
+  // the submission still proceeds normally and only the log records it.
+  if ((await getEmailSettings()).contactAutoReply) {
+    try {
+      await sendContactAckEmail({ to: data.email, name: data.name, agency: data.agency, message: data.message });
+    } catch (error) {
+      console.error("contact: acknowledgement email failed", error);
+    }
   }
   try {
     await sendContactEmail(data);

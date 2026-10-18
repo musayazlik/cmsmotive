@@ -27,9 +27,6 @@ export const REVIEW_CAPTCHA_ACTION = "product_review";
 
 export const REVIEW_LIMITS = { nameMin: 2, nameMax: 80, emailMax: 254, bodyMin: 10, bodyMax: 2000 } as const;
 
-/** Reviews one e-mail address may send per hour, across all products. */
-export const REVIEWS_PER_HOUR = 3;
-
 /** "Musa Yazlık" -> "Musa Y.": public pages never show a full surname. */
 export function publicAuthorName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

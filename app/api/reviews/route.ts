@@ -1,13 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { recaptchaSiteKey, verifyRecaptcha } from "@/lib/recaptcha";
 import { isLocale } from "@/lib/i18n/config";
-import {
-  REVIEW_CAPTCHA_ACTION,
-  REVIEW_LIMITS,
-  REVIEWS_PER_HOUR,
-  isReviewProductType,
-  publicAuthorName,
-} from "@/lib/reviews";
+import { sendNotificationEmail } from "@/lib/plunk";
+import { REVIEW_CAPTCHA_ACTION, REVIEW_LIMITS, isReviewProductType, publicAuthorName } from "@/lib/reviews";
+import { getEmailSettings, getReviewSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -81,7 +77,10 @@ export async function GET(request: Request) {
   );
 }
 
-/** Guest review submission: validated, captcha-checked, stored as pending. */
+/**
+ * Guest review submission: validated, captcha-checked and stored as pending,
+ * or published straight away when Settings → Reviews auto-approves.
+ */
 export async function POST(request: Request) {
   let input: Record<string, unknown>;
   try {
@@ -119,13 +118,19 @@ export async function POST(request: Request) {
     return fail("invalid-body", "Your review must be between 10 and 2,000 characters.", 400);
   }
 
+  const settings = await getReviewSettings();
   const remoteIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const captcha = await verifyRecaptcha(text("captchaToken"), REVIEW_CAPTCHA_ACTION, remoteIp);
+  const captcha = await verifyRecaptcha(text("captchaToken"), REVIEW_CAPTCHA_ACTION, {
+    remoteIp,
+    minScore: settings.minCaptchaScore,
+  });
   if (!captcha.ok) {
     if (captcha.reason === "not-configured") console.error("reviews: RECAPTCHA_SECRET_KEY is not set");
     return fail("captcha", "Google reCAPTCHA could not verify you. Please try again.", 400);
   }
 
+  const status = settings.autoApprove ? "approved" : "pending";
+  let created = false;
   try {
     await prisma.$transaction(async (tx) => {
       // Serializes submissions per address so the hourly limit cannot be raced.
@@ -135,10 +140,22 @@ export async function POST(request: Request) {
       const recent = await tx.productReview.count({
         where: { authorEmail: email, createdAt: { gte: new Date(Date.now() - 3_600_000) } },
       });
-      if (recent >= REVIEWS_PER_HOUR) throw new Error("rate-limit");
+      if (recent >= settings.perHour) throw new Error("rate-limit");
       await tx.productReview.create({
-        data: { ...target, productSlug: product, authorName: name, authorEmail: email, rating, body, locale, requestKey },
+        data: {
+          ...target,
+          productSlug: product,
+          authorName: name,
+          authorEmail: email,
+          rating,
+          body,
+          locale,
+          requestKey,
+          status,
+          ...(settings.autoApprove ? { moderatedAt: new Date() } : {}),
+        },
       });
+      created = true;
     });
   } catch (error) {
     if (error instanceof Error && error.message === "rate-limit") {
@@ -148,5 +165,25 @@ export async function POST(request: Request) {
     return fail("server", "Your review could not be saved. Please try again.", 500);
   }
 
-  return Response.json({ ok: true });
+  if (created && (await getEmailSettings()).notifyReviews) {
+    // A courtesy for the moderators: a failed mail never fails the submission.
+    await sendNotificationEmail({
+      subject: `New ${rating}★ review for ${product}${status === "pending" ? " — awaiting moderation" : ""}`,
+      heading: "New product review",
+      rows: [
+        ["Product", `${typeof input.type === "string" && input.type ? input.type : "theme"} / ${product}`],
+        ["Rating", `${rating} / 5`],
+        ["Name", name],
+        ["Email", email],
+        ["Status", status],
+        ["Review", body],
+      ],
+      replyTo: email,
+      actionPath: "/panel/reviews",
+      actionText: "Open reviews",
+    }).catch((error) => console.error("reviews: notification email failed", error));
+  }
+
+  // product.js shows "published" or "awaiting approval" from the status.
+  return Response.json({ ok: true, status });
 }

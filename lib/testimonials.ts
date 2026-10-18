@@ -1,12 +1,13 @@
 import { prisma } from "./prisma";
 import { publicAuthorName } from "./reviews";
+import { getReviewSettings } from "./settings";
 
 /**
  * Home page social proof from real customer words only. The early-access
  * section (static-site/build.py early_voices()) marks its cards with
  * `<!-- voices:reviews limit=3 min=3 -->…<!-- /voices:reviews -->`; this swaps
- * them for the newest approved product reviews rated 4 or 5 (moderated under
- * /panel/reviews) and keeps "open beta seat" cards for the rest, up to `min`.
+ * them for the newest approved product reviews at or above the minimum rating
+ * of Settings → Reviews (moderated under /panel/reviews) and keeps "open beta seat" cards for the rest, up to `min`.
  * Without approved reviews, or without a database, build.py's seats stay.
  *
  * Runs before translation like lib/catalog.ts, so the fixed card copy is
@@ -61,8 +62,10 @@ export async function injectTestimonials(html: string): Promise<string> {
 
   let reviews: Review[];
   try {
+    const settings = await getReviewSettings();
+    if (!settings.showcase) return html;
     const recent = await prisma.productReview.findMany({
-      where: { status: "approved", rating: { gte: 4 } },
+      where: { status: "approved", rating: { gte: settings.showcaseMinRating } },
       orderBy: { createdAt: "desc" },
       // Room for short reviews that are skipped below.
       take: limit * 4,

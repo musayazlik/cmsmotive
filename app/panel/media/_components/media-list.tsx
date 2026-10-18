@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
+import RowActions from "@/app/panel/_components/row-actions";
 import Select from "@/app/panel/_components/ui/select";
+import { useToast } from "@/app/panel/_components/ui/toast";
 import MediaUpload from "./media-upload";
 import { deleteMedia } from "../_actions";
 import {
@@ -89,8 +91,8 @@ export default function MediaList({
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sort, setSort] = useState<SortKey>("newest");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const { toast, showToast } = useToast();
   const [pendingDelete, setPendingDelete] = useState<MediaRow | null>(null);
 
   const counts = useMemo(
@@ -149,10 +151,9 @@ export default function MediaList({
   async function copyUrl(file: MediaRow) {
     try {
       await navigator.clipboard.writeText(file.url);
-      setCopiedId(file.id);
-      setTimeout(() => setCopiedId((current) => (current === file.id ? null : current)), 1600);
+      showToast("URL copied to the clipboard.", "success");
     } catch {
-      setError("The URL could not be copied to the clipboard.");
+      showToast("The URL could not be copied to the clipboard.");
     }
   }
 
@@ -272,7 +273,7 @@ export default function MediaList({
                     <td>
                       <div className="wtable-user">
                         <MediaThumb file={file} />
-                        <div>
+                        <div className="wmedia-name">
                           <strong title={file.name}>{file.name}</strong>
                           <small>{file.mimeType || "unknown type"}</small>
                         </div>
@@ -280,10 +281,13 @@ export default function MediaList({
                     </td>
                     <td className="wtable-date">{formatBytes(file.size)}</td>
                     <td>
-                      <span className={SOURCE_BADGES[file.source]}>{SOURCE_LABELS[file.source]}</span>
-                      {file.status && file.status !== "Uploaded" ? (
-                        <span className="wbadge wbadge-pending">{file.status}</span>
-                      ) : null}
+                      <span className="wchip-row">
+                        <span className={SOURCE_BADGES[file.source]}>{SOURCE_LABELS[file.source]}</span>
+                        {/* UploadThing's own state (e.g. "Deletion Pending"), only when it adds something. */}
+                        {file.source !== "missing" && file.status && file.status !== "Uploaded" ? (
+                          <span className="wbadge wbadge-pending">{file.status}</span>
+                        ) : null}
+                      </span>
                     </td>
                     <td>
                       {usageSummary(file.usage).length === 0 ? (
@@ -302,24 +306,24 @@ export default function MediaList({
                       {formatDate(file.uploadedAt)}
                     </td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <button type="button" className="wbtn wbtn-ghost wbtn-sm" disabled={file.source === "missing"} onClick={() => copyUrl(file)}>
-                          {copiedId === file.id ? "Copied" : "Copy URL"}
-                        </button>
-                        {file.source !== "missing" ? (
-                          <a className="wbtn wbtn-ghost wbtn-sm" href={file.url} target="_blank" rel="noreferrer">
-                            Open ↗
-                          </a>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="wbtn wbtn-danger-ghost wbtn-sm"
-                          disabled={busyId === file.id}
-                          onClick={() => setPendingDelete(file)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <RowActions
+                        label={file.name}
+                        actions={[
+                          ...(file.source !== "missing"
+                            ? [
+                                { label: "Open", href: file.url, external: true },
+                                { label: "Copy URL", onSelect: () => copyUrl(file) },
+                              ]
+                            : []),
+                          {
+                            label: "Delete",
+                            danger: true,
+                            disabled: busyId === file.id,
+                            separated: file.source !== "missing",
+                            onSelect: () => setPendingDelete(file),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))
@@ -352,6 +356,7 @@ export default function MediaList({
         onConfirm={confirmDelete}
         onClose={() => setPendingDelete(null)}
       />
+      {toast}
     </>
   );
 }

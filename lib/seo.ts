@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { LOCALES, LOCALE_TAGS, localizePath, type Locale } from "./i18n/config";
+import { DEFAULT_TITLE_SUFFIX, type SeoSettings } from "./seo-settings-shared";
+import { getSeoSettings, getSiteSettings } from "./settings";
+import type { SiteSettings } from "./site-settings-shared";
 
 /**
  * Search and link-preview metadata for the public site.
@@ -12,18 +15,9 @@ import { LOCALES, LOCALE_TAGS, localizePath, type Locale } from "./i18n/config";
  *   absolute share images and JSON-LD read from the page itself, so the
  *   structured data always matches the copy in the page's language.
  * - app/sitemap.ts and app/robots.ts use siteOrigin() for absolute URLs.
+ * - The site name, X handle, contact address and social profiles come from
+ *   Settings → General (getSiteSettings()).
  */
-
-export const SITE_NAME = "CMSMotive";
-const TWITTER_SITE = "@cmsmotive";
-const CONTACT_EMAIL = "hello@cmsmotive.de";
-/** Profiles linked from the top bar (build.py TOPBAR). */
-const SAME_AS = [
-  "https://www.linkedin.com/company/cmsmotive",
-  "https://github.com/cmsmotive",
-  "https://x.com/cmsmotive",
-  "https://www.youtube.com/@cmsmotive",
-];
 
 type ShareImage = { url: string; width?: number; height?: number; alt?: string };
 
@@ -61,8 +55,18 @@ export function languageAlternates(path: string): Record<string, string> {
 }
 
 /** Prefers the JPEG share copy of a bundled page image; other images are used as they are. */
-export function shareImage(image: ShareImage | null | undefined): ShareImage {
-  if (!image) return DEFAULT_SHARE_IMAGE;
+/**
+ * Titles are written with the default " — CMSMotive" suffix (React pages,
+ * translations and the static pages alike); Settings → SEO swaps it for its
+ * own suffix, or drops it.
+ */
+export function withTitleSuffix(title: string, suffix: string): string {
+  const base = title.replace(/\s*[—–|-]\s*CMSMotive\s*$/, "");
+  return base === title && suffix === DEFAULT_TITLE_SUFFIX ? title : `${base}${suffix}`;
+}
+
+export function shareImage(image: ShareImage | null | undefined, fallbackUrl?: string): ShareImage {
+  if (!image) return fallbackUrl ? { url: fallbackUrl } : DEFAULT_SHARE_IMAGE;
   const bundled = image.url.match(/^\/assets\/images\/([\w-]+)\.webp$/);
   if (bundled && SHARE_COPIES.has(bundled[1])) return { url: `/assets/images/og/${bundled[1]}.jpg`, width: 1200, height: 630, alt: image.alt };
   return image;
@@ -82,18 +86,26 @@ type PageMetadataInput = {
 };
 
 /** Indexable page metadata: canonical, hreflang, Open Graph and Twitter card. Relative URLs resolve against `metadataBase`. */
-export function pageMetadata({ locale, path, title, description, image, type = "website", publishedTime, modifiedTime, authors }: PageMetadataInput): Metadata {
+export async function pageMetadata({ locale, path, title: rawTitle, description, image, type = "website", publishedTime, modifiedTime, authors }: PageMetadataInput): Promise<Metadata> {
+  const [site, seo] = await Promise.all([getSiteSettings(), getSeoSettings()]);
   const url = localizePath(path, locale);
-  const share = shareImage(image);
+  const share = shareImage(image, seo.shareImageUrl);
+  const title = withTitleSuffix(rawTitle, seo.titleSuffix);
+  const verification = {
+    ...(seo.googleVerification ? { google: seo.googleVerification } : {}),
+    ...(seo.yandexVerification ? { yandex: seo.yandexVerification } : {}),
+    ...(seo.bingVerification ? { other: { "msvalidate.01": seo.bingVerification } } : {}),
+  };
   return {
     title,
     description,
-    robots: { index: true, follow: true },
+    robots: { index: seo.indexing, follow: seo.indexing },
+    ...(Object.keys(verification).length ? { verification } : {}),
     alternates: { canonical: url, languages: languageAlternates(path) },
     openGraph: {
       type,
       url,
-      siteName: SITE_NAME,
+      siteName: site.siteName,
       title,
       description,
       locale: ogLocale(locale),
@@ -103,7 +115,7 @@ export function pageMetadata({ locale, path, title, description, image, type = "
         ? { publishedTime: publishedTime?.toISOString(), modifiedTime: modifiedTime?.toISOString(), authors }
         : {}),
     },
-    twitter: { card: "summary_large_image", site: TWITTER_SITE, title, description, images: [share.url] },
+    twitter: { card: "summary_large_image", ...(site.twitterHandle ? { site: site.twitterHandle } : {}), title, description, images: [share.url] },
   };
 }
 
@@ -117,22 +129,22 @@ export function serializeJsonLd(data: JsonLd | JsonLd[]) {
   return JSON.stringify(payload).replace(/</g, "\\u003c");
 }
 
-export function organizationSchema(origin: string, description?: string): JsonLd {
+export function organizationSchema(origin: string, site: SiteSettings, description?: string): JsonLd {
   return {
     "@type": "Organization",
     "@id": `${origin}/#organization`,
-    name: SITE_NAME,
+    name: site.siteName,
     url: `${origin}/`,
     logo: { "@type": "ImageObject", url: `${origin}/assets/images/logo.png`, width: 2172, height: 724 },
-    email: CONTACT_EMAIL,
-    sameAs: SAME_AS,
+    ...(site.contactEmail ? { email: site.contactEmail } : {}),
+    ...(site.socialProfiles.length ? { sameAs: site.socialProfiles } : {}),
     ...(description ? { description } : {}),
   };
 }
 
 /** The publisher/brand reference used inside other entities. */
-export function organizationRef(origin: string): JsonLd {
-  return { "@type": "Organization", "@id": `${origin}/#organization`, name: SITE_NAME, url: `${origin}/` };
+export function organizationRef(origin: string, site: SiteSettings): JsonLd {
+  return { "@type": "Organization", "@id": `${origin}/#organization`, name: site.siteName, url: `${origin}/` };
 }
 
 /** Breadcrumb trail; every step but the last needs a URL (steps without one are left out). */
@@ -153,6 +165,10 @@ export function breadcrumbSchema(origin: string, steps: { name: string; url?: st
 /* ------------------------------------------------- static-site pages (HTML) */
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", shy: "" };
+
+function escapeAttribute(value: string) {
+  return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
+}
 
 /** Visible text of an HTML fragment: tags dropped, entities decoded, whitespace collapsed. */
 function htmlText(fragment: string) {
@@ -223,16 +239,23 @@ function productListSchema(html: string, origin: string): JsonLd | null {
   };
 }
 
-type LegacyPage = { origin: string; locale: Locale; /** Unprefixed public path (`/`, `/themes`). */ pagePath: string };
+type LegacyPage = {
+  origin: string;
+  locale: Locale;
+  /** Unprefixed public path (`/`, `/themes`). */
+  pagePath: string;
+  site: SiteSettings;
+  seo: SeoSettings;
+};
 
 /** JSON-LD for a static-site page, read from its (translated) markup. */
-function legacyStructuredData(html: string, { origin, locale, pagePath }: LegacyPage, url: string): JsonLd[] {
+function legacyStructuredData(html: string, { origin, locale, pagePath, site }: LegacyPage, url: string): JsonLd[] {
   const data: JsonLd[] = [];
   if (pagePath === "/") {
-    data.push(organizationSchema(origin, metaContent(html, "description")), {
+    data.push(organizationSchema(origin, site, metaContent(html, "description")), {
       "@type": "WebSite",
       "@id": `${origin}/#website`,
-      name: SITE_NAME,
+      name: site.siteName,
       url: absoluteUrl(origin, localizePath("/", locale)),
       inLanguage: LOCALE_TAGS[locale],
       publisher: { "@id": `${origin}/#organization` },
@@ -257,12 +280,37 @@ function legacyStructuredData(html: string, { origin, locale, pagePath }: Legacy
 export function addLegacySeo(html: string, page: LegacyPage): string {
   const { origin, locale, pagePath } = page;
   const url = absoluteUrl(origin, localizePath(pagePath, locale));
-  const out = html.replace(
-    /(<meta\b[^>]*\b(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*\bcontent=["'])([^"']+)/gi,
-    (_match, start: string, value: string) => `${start}${absoluteUrl(origin, value)}`,
-  );
+  const out = html
+    .replace(
+      /(<meta\b[^>]*\b(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*\bcontent=["'])([^"']+)/gi,
+      (_match, start: string, value: string) => `${start}${absoluteUrl(origin, value)}`,
+    )
+    // The pages carry the build-time identity; Settings → General overrides it.
+    .replace(
+      /(<meta\b[^>]*\bproperty=["']og:site_name["'][^>]*\bcontent=["'])[^"']*/i,
+      (_match, start: string) => `${start}${escapeAttribute(page.site.siteName)}`,
+    )
+    .replace(/<meta\b[^>]*\bname=["']twitter:site["'][^>]*>/i, (tag) =>
+      page.site.twitterHandle
+        ? tag.replace(/\bcontent=["'][^"']*["']/i, `content="${escapeAttribute(page.site.twitterHandle)}"`)
+        : "",
+    )
+    // Settings → SEO: title suffix, and noindex replaces any robots tag the page ships.
+    .replace(/(<title>)([^<]*)(<\/title>)/i, (_match, open: string, title: string, close: string) =>
+      `${open}${escapeAttribute(withTitleSuffix(htmlText(title), page.seo.titleSuffix))}${close}`,
+    )
+    .replace(
+      /(<meta\b[^>]*\b(?:property|name)=["'](?:og:title|twitter:title)["'][^>]*\bcontent=["'])([^"']*)/gi,
+      (_match, start: string, value: string) => `${start}${escapeAttribute(withTitleSuffix(htmlText(value), page.seo.titleSuffix))}`,
+    )
+    .replace(/<meta\b[^>]*\bname=["']robots["'][^>]*>/gi, (tag) => (page.seo.indexing ? tag : ""));
+  const { seo } = page;
   const structured = legacyStructuredData(out, page, url);
   const head = [
+    seo.indexing ? "" : `<meta name="robots" content="noindex, nofollow">`,
+    seo.googleVerification ? `<meta name="google-site-verification" content="${escapeAttribute(seo.googleVerification)}">` : "",
+    seo.bingVerification ? `<meta name="msvalidate.01" content="${escapeAttribute(seo.bingVerification)}">` : "",
+    seo.yandexVerification ? `<meta name="yandex-verification" content="${escapeAttribute(seo.yandexVerification)}">` : "",
     `<link rel="canonical" href="${url}">`,
     ...LOCALES.map((code) => `<link rel="alternate" hreflang="${code}" href="${absoluteUrl(origin, localizePath(pagePath, code))}">`),
     `<link rel="alternate" hreflang="x-default" href="${absoluteUrl(origin, pagePath)}">`,

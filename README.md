@@ -15,6 +15,55 @@ Plunk için `PLUNK_SECRET_KEY` gizli anahtar, `PLUNK_FROM_EMAIL` ise Plunk üzer
 
 Şema değişikliklerinde `pnpm db:migrate --name <değişiklik-adı>` komutunu kullanın. `pnpm build` Prisma istemcisini yeniden üretir ve Next.js uygulamasını derler.
 
+## MCP server
+
+Panelin tüm işlevleri MCP üzerinden de kullanılabilir: blog yazıları, kategori ve etiketler, temalar, eklentiler, güncelleme geçmişi, medya, ürün yorumları, gelen kutusu, kullanıcılar, ayarlar ve istatistikler. Her iki taşıma da aynı araçları sunar (`mcp/create-server.ts`, `mcp/tools/`). Ayarlar panelde **Settings → MCP** sekmesinden yönetilir (`/panel/settings?tab=mcp`). Yazma işlemleri orada seçilen yönetici hesabına atfedilir; seçim yoksa en eski admin/superadmin hesabı kullanılır. Hesap admin değilse araçlar çalışmaz.
+
+### stdio (yerel istemciler)
+
+`pnpm mcp` sunucuyu standart giriş/çıkış üzerinden başlatır. Claude Desktop `claude_desktop_config.json` örneği (yolu kendi proje dizininizle değiştirin):
+
+```json
+{
+  "mcpServers": {
+    "cmsmotive": {
+      "command": "pnpm",
+      "args": ["--dir", "C:/Users/kullanici/Projects/cmsmotive", "mcp"]
+    }
+  }
+}
+```
+
+Windows'ta `pnpm` bir `.cmd` dosyası olduğundan istemci doğrudan çalıştıramazsa `"command": "cmd", "args": ["/c", "pnpm", "--dir", "C:/...", "mcp"]` kullanın. Aynı yapı Cursor, opencode ve stdio destekleyen diğer istemcilerde de geçerlidir.
+
+### HTTP
+
+Settings → MCP sekmesinde HTTP uç noktasını açın ve bir erişim token'ı oluşturun. Token yalnızca oluşturulduğu anda bir kez gösterilir; veritabanında sadece SHA-256 özeti tutulur. Yeniden oluşturmak eski token'ı hemen geçersiz kılar. Uç nokta kapalıysa ya da token yoksa `/api/mcp` 503 döner. İstekler `Authorization: Bearer <token>` başlığı ister; hatalı token 401, admin olmayan MCP kullanıcısı 403 döner. Uç nokta durumsuzdur: her `POST` bağımsızdır, `GET`/`DELETE` 405 döner.
+
+```bash
+curl -X POST http://localhost:3000/api/mcp \
+  -H "Authorization: Bearer $CMSMOTIVE_MCP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"client","version":"1.0.0"}}}'
+```
+
+Üretimde uç noktayı yalnızca HTTPS üzerinden açın ve token'ı gizli tutun. Araç grupları: `blog_posts_*`, `blog_categories_*`, `blog_tags_*`, `themes_*`, `extensions_*`, `changelog_*`, `media_*`, `reviews_*`, `inbox_*`, `users_*`, `settings_*`, `stats_overview`, `stats_daily_reads`, `stats_system`, `stats_mail`, `notifications_list`, `account_info`, `ai_generate_image` (OpenRouter ile görsel üretir ya da mevcut bir görseli talimata göre düzenler, sonucu medya kütüphanesine kaydeder). Oturum sahibinin kendi parolasını değiştirmesi MCP araçlarına dahil edilmedi.
+
+## Telegram botu
+
+Panel, Telegram üzerinden doğal dille yönetilebilir: yazı taslağı oluşturma ve yayınlama, kapak görselini AI ile üretme/düzenleme, yorum moderasyonu vb. Bot, MCP sunucusunun tüm araçlarını süreç içinde kullanan bir OpenRouter ajanıdır (`telegram/agent.ts`); bu yüzden `OPENROUTER_API_KEY` gerekir ve ajan modeli araç çağırmayı (tool calling) desteklemelidir.
+
+1. @BotFather ile bir bot oluşturun (`/newbot`) ve token'ı **Settings → Telegram** sekmesine yapıştırın. Token `getMe` ile doğrulanır ve veritabanında saklanır; panelde yalnızca son 4 karakteri görünür.
+2. Site HTTPS üzerinden çalışıyorsa webhook (`/api/telegram/webhook`) gizli bir `secret_token` ile otomatik kaydedilir. Yerelde (`http://localhost`) Telegram webhook çağıramaz; bunun yerine `pnpm telegram:poll` çalıştırın (kayıtlı bir webhook varsa `--force` ile kaldırılır, üretime dönerken botu panelden yeniden bağlayın).
+3. **Link my Telegram** ile tek kullanımlık, 15 dakika geçerli bir bağlantı oluşturun ve Telegram'da açın. Bot yalnızca bağlanmış hesaplara cevap verir ve her hesap için onu bağlayan panel admini adına çalışır.
+
+İki model kullanılır: **sohbet modeli** (Settings → Telegram; isteği anlar ve araçları çağırır, tool calling desteklemeli) ve **içerik modeli** (Settings → AI'daki metin modeli; yazıyı `ai_write_post` / `ai_rewrite_post` araçlarıyla asıl yazan model — paneldeki AI asistanıyla aynı prompt'lar, `lib/ai-writer.ts`). Kapak görselleri Settings → AI'daki görsel modeliyle üretilir.
+
+Araştırma (Settings → AI → Research): açıkken yazı iki adımda üretilir. Önce bir araştırma modeli web'de arar (varsayılan `perplexity/sonar-pro`; seçenekler: diğer Perplexity modelleri, örn. `sonar-deep-research`, ya da içerik modelinin kendi web araması — Gemini'de Google Search) ve her bilgiyi kaynak numarasıyla not eder. Sonra içerik modeli yalnızca bu notlardan yazar; metindeki `[n]` atıfları kaynağa link olur ve yazının sonuna yalnızca atıf yapılan kaynaklardan oluşan numaralı bir kaynakça (Kaynakça / Sources / Quellen) eklenir. Araştırma hiç kaynak bulamazsa yazı oluşturulmaz. Ayar açıkken MCP/Telegram araştırmayı kapatamaz; panelin AI asistanı da aynı akışı kullanır (`lib/ai-writer.ts`).
+
+Onay akışı: okuma, AI ile taslak yazma, görsel üretme ve taslak olarak yazı oluşturma doğrudan çalışır. Diğer tüm değişiklikler (düzenleme, yayınlama, silme, kategori/etiket oluşturma, ayarlar) sohbette ✅/✖️ onayı bekler; aynı adımdaki değişiklikler tek seferde sorulur. Ajanın oluşturduğu veya değiştirdiği her yazı için bir kart gelir: 7 gün geçerli imzalı önizleme linki (`/blog/<slug>?preview=…`, giriş gerektirmez, `lib/post-preview.ts`), panel linki ve **🚀 Publish** / **🗑 Discard** butonları. Yayına alma yalnızca bu butonla ya da açık bir "yayına al" isteği + onayla olur. Sohbetin son 30 mesajı `Setting` tablosunda tutulur, böylece "bu kapağı biraz daha koyu yap" gibi devam istekleri çalışır; `/new` geçmişi siler. Fotoğraf gönderildiğinde medya kütüphanesine yüklenir ve ajan onu kapak olarak ya da düzenleme kaynağı olarak kullanabilir.
+
 ## Yapı
 
 - `app/legacy/[locale]/[slug]/route.ts`: mevcut genel HTML sayfaları (`next.config.ts` içindeki rewrite'lar `static-site/*.html` dosyalarını her dil için uzantısız URL'lere bağlar; yeni sayfa ekledikten sonra `pnpm dev`'i yeniden başlatın)

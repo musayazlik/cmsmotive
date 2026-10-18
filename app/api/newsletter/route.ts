@@ -1,4 +1,6 @@
+import { sendNotificationEmail } from "@/lib/plunk";
 import { prisma } from "@/lib/prisma";
+import { getEmailSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -26,11 +28,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    const existing = await prisma.newsletterSubscriber.findUnique({ where: { email }, select: { email: true } });
     await prisma.newsletterSubscriber.upsert({
       where: { email },
       update: { firstName, lastName },
       create: { email, firstName, lastName },
     });
+    if (!existing && (await getEmailSettings()).notifySubscribers) {
+      await sendNotificationEmail({
+        subject: `New newsletter subscriber: ${firstName} ${lastName}`,
+        heading: "New newsletter subscriber",
+        rows: [["Name", `${firstName} ${lastName}`], ["Email", email]],
+      }).catch((error) => console.error("newsletter: notification email failed", error));
+    }
     return Response.json({ ok: true });
   } catch (error) {
     console.error("newsletter signup failed", error);

@@ -1,14 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { utapi } from "@/lib/utapi";
 import { requireAdmin } from "@/lib/admin-guard";
-import {
-  chatCompletion,
-  imageGeneration,
-  isOpenRouterConfigured,
-  type ChatCitation,
-} from "@/lib/openrouter";
+import { insertInlineImages, writePost } from "@/lib/ai-writer";
+import { getAiSettings } from "@/lib/settings";
+import { imageGeneration, isOpenRouterConfigured } from "@/lib/openrouter";
 import { slugify } from "@/lib/slug";
-import { EXCERPT_MAX, TITLE_MAX } from "@/app/panel/blog/_lib";
 import {
   AI_DEPTHS,
   AI_LANGUAGES,
@@ -18,65 +14,6 @@ import {
 } from "@/app/panel/blog/_ai";
 
 export const runtime = "nodejs";
-
-const DEPTH_WORDS: Record<AiGenerateRequest["depth"], string> = {
-  concise: "roughly 400 words",
-  standard: "roughly 800 words",
-  "in-depth": "roughly 1400 words",
-};
-
-/** Every generated post must be structured into at least this many sections. */
-const MIN_SUBHEADINGS = 5;
-
-const SOURCES_HEADING: Record<AiGenerateRequest["language"], string> = {
-  en: "Sources",
-  de: "Quellen",
-  tr: "Kaynaklar",
-};
-
-/** `##`/`###` headings at line starts — `#` is reserved for the post title. */
-function countSubheadings(markdown: string): number {
-  return (markdown.match(/^#{2,3}\s+\S/gm) ?? []).length;
-}
-
-/** Appends the web sources the model grounded on as the closing section. */
-function appendSources(markdown: string, citations: ChatCitation[], heading: string): string {
-  if (citations.length === 0) return markdown;
-  const lines = citations.slice(0, 10).map(({ url, title }) => {
-    const label = (title ?? new URL(url).hostname).replace(/[[\]]/g, "").trim();
-    return `- [${label}](${url})`;
-  });
-  return `${markdown}\n\n## ${heading}\n\n${lines.join("\n")}`;
-}
-
-/**
- * Spots inline images at section boundaries: before the 2nd and 4th
- * `##` subheading, so the opening and the first section stay text-only.
- */
-function insertInlineImages(markdown: string, images: { url: string; alt: string }[]): string {
-  if (images.length === 0) return markdown;
-  const lines = markdown.split("\n");
-  const headingIndexes = lines.reduce<number[]>((found, line, index) => {
-    if (line.startsWith("## ")) found.push(index);
-    return found;
-  }, []);
-  const targets = [headingIndexes[1], headingIndexes[3]].filter((index) => index !== undefined);
-  for (const [offset, target] of targets.reverse().entries()) {
-    const image = images[targets.length - 1 - offset];
-    if (!image) continue;
-    lines.splice(target, 0, "", `![${image.alt.replace(/[[\]]/g, "").trim()}](${image.url})`, "");
-  }
-  return lines.join("\n");
-}
-
-/** Models sometimes wrap JSON in prose or fences; the object is what counts. */
-function extractJson(raw: string): Record<string, unknown> {
-  const cleaned = raw.replace(/```(?:json)?/gi, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end <= start) throw new Error("The model response did not contain JSON.");
-  return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
-}
 
 /** Validates the body so a bad client cannot reach the OpenRouter calls. */
 function parseRequest(body: Record<string, unknown>): AiGenerateRequest | string {
@@ -120,50 +57,6 @@ function parseRequest(body: Record<string, unknown>): AiGenerateRequest | string
     categories: list(body.categories),
     tags: list(body.tags),
   };
-}
-
-function buildSystemPrompt(request: AiGenerateRequest): string {
-  const languageName = { en: "English", de: "German", tr: "Turkish" }[request.language];
-  return [
-    `You write blog content for CMSMotive, a vendor of themes and extensions for TYPO3, the enterprise CMS.`,
-    `The audience is agencies, developers and marketing teams evaluating TYPO3 products.`,
-    `Write in ${languageName}. Style: ${request.style}. Depth: ${request.depth} (${DEPTH_WORDS[request.depth]}).`,
-    request.webSearch
-      ? "Web search results are available — ground facts, product names and versions in them and stay current."
-      : "Do not invent statistics, dates or product versions you are unsure about.",
-    `Return ONLY a minified JSON object — no markdown fences, no commentary — containing only these requested keys:`,
-    request.fields.title
-      ? `"title": SEO headline, at most ${TITLE_MAX} characters, no surrounding quotes`
-      : "",
-    request.fields.description
-      ? `"description": meta description, at most ${EXCERPT_MAX} characters, states the promise of the post`
-      : "",
-    request.fields.content
-      ? `"content": the post body in markdown — short intro paragraph, then AT LEAST ${MIN_SUBHEADINGS} ## subheadings (### for subsections, never #), short paragraphs, bullet lists where they help, closing takeaway${
-          request.webSearch ? ". Do not add a sources or references list yourself — sources are appended automatically" : ""
-        }`
-      : "",
-    request.fields.contentImages
-      ? `"imagePrompts": exactly 2 strings, each a concrete visual scene (max 12 words) illustrating a different section of the post, suitable as image-generation prompts`
-      : "",
-    request.fields.category
-      ? `"category": the one category name that best matches what the content is actually about — reuse a provided category when it truly fits, otherwise coin a short new category name (1-3 words) naming the content's subject`
-      : "",
-    request.fields.tags
-      ? `"tags": up to 5 short lowercase tags, preferring the provided ones`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function buildUserPrompt(request: AiGenerateRequest): string {
-  return [
-    `Topic / brief: ${request.topic}`,
-    request.categories.length > 0 ? `Existing categories: ${request.categories.join(", ")}` : "There are no categories yet.",
-    request.tags.length > 0 ? `Existing tags: ${request.tags.join(", ")}` : "There are no tags yet.",
-    "Write the JSON object now.",
-  ].join("\n");
 }
 
 /** Turns a generated data URL into a tracked MediaAsset. */
@@ -218,85 +111,16 @@ export async function POST(request: Request) {
   let imagePromptCandidates: string[] = [];
 
   try {
-    const completion = await chatCompletion({
-      model: request_.model,
-      system: buildSystemPrompt(request_),
-      user: buildUserPrompt(request_),
-      webSearch: request_.webSearch,
-      signal: request.signal,
-    });
+    const { researchModel, inlineCitations } = await getAiSettings();
+    const written = await writePost({ ...request_, researchModel, inlineCitations }, request.signal);
     request.signal.throwIfAborted();
-    let generated = extractJson(completion.content);
-    let citations = completion.citations;
-    if (request_.fields.contentImages && Array.isArray(generated.imagePrompts)) {
-      imagePromptCandidates = generated.imagePrompts
-        .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-        .slice(0, 2);
-    }
-
-    // The 5-section minimum is worth one explicit retry: models under-deliver
-    // structure on the first pass more often than not.
-    if (
-      request_.fields.content &&
-      typeof generated.content === "string" &&
-      countSubheadings(generated.content) < MIN_SUBHEADINGS
-    ) {
-      try {
-        const retry = await chatCompletion({
-          model: request_.model,
-          system: buildSystemPrompt(request_),
-          user: [
-            buildUserPrompt(request_),
-            `Your draft did not meet the structure requirement. Rewrite the full post with at least ${MIN_SUBHEADINGS} ## subheadings.`,
-          ].join("\n"),
-          webSearch: request_.webSearch,
-          signal: request.signal,
-        });
-        const retryGenerated = extractJson(retry.content);
-        if (
-          typeof retryGenerated.content === "string" &&
-          countSubheadings(retryGenerated.content) >= countSubheadings(generated.content)
-        ) {
-          generated = retryGenerated;
-          citations = retry.citations;
-        }
-      } catch (error) {
-        if (request.signal.aborted) throw error;
-        // keep the first draft; the warning below still reports the shortfall
-      }
-    }
-
-    if (request_.fields.title && typeof generated.title === "string") {
-      result.title = generated.title.trim().slice(0, TITLE_MAX);
-    }
-    if (request_.fields.description && typeof generated.description === "string") {
-      result.description = generated.description.trim().slice(0, EXCERPT_MAX);
-    }
-    if (request_.fields.content && typeof generated.content === "string") {
-      let content = generated.content.trim();
-      const subheadings = countSubheadings(content);
-      if (subheadings < MIN_SUBHEADINGS) {
-        result.warnings.push(
-          `The draft has only ${subheadings} of ${MIN_SUBHEADINGS} subheadings — consider adding more sections.`,
-        );
-      }
-      if (request_.webSearch) {
-        content = appendSources(content, citations, SOURCES_HEADING[request_.language]);
-      }
-      result.content = content;
-    }
-    if (request_.fields.category) {
-      const category = typeof generated.category === "string" ? generated.category.trim().slice(0, 60) : "";
-      result.category = category || null;
-    }
-    if (request_.fields.tags) {
-      const tags = Array.isArray(generated.tags) ? generated.tags : [];
-      result.tags = tags
-        .filter((tag): tag is string => typeof tag === "string")
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-        .slice(0, 6);
-    }
+    imagePromptCandidates = written.imagePrompts;
+    result.warnings.push(...written.warnings);
+    if (written.title !== undefined) result.title = written.title;
+    if (written.description !== undefined) result.description = written.description;
+    if (written.content !== undefined) result.content = written.content;
+    if (written.category !== undefined) result.category = written.category;
+    result.tags = written.tags;
   } catch (error) {
     if (request.signal.aborted) return new Response(null, { status: 499 });
     console.error("ai generate: text failed", error);
@@ -321,7 +145,7 @@ export async function POST(request: Request) {
             `Inline blog illustration: ${description}. Context: ${result.title ?? request_.topic}.`,
             "Clean, modern flat vector illustration, 16:9 composition.",
             "Brand palette: indigo #4353e8 and lime #c6f36a accents on a light #f7f8f5 background.",
-            "No text, no letters, no watermarks.",
+            "The image must contain no text at all: no titles, words, letters, numbers, labels, logos or watermarks.",
           ].join(" "),
           signal: request.signal,
         });
@@ -345,10 +169,11 @@ export async function POST(request: Request) {
       const dataUrl = await imageGeneration({
         model: request_.imageModel,
         prompt: [
-          `Blog cover illustration for an article about: ${result.title ?? request_.topic}.`,
+          // A described scene, not the quoted title: image models paint quoted titles onto the picture.
+          `Wordless conceptual blog cover. Visual metaphor, shown only through objects, people and shapes, for: ${(result.description ?? result.title ?? request_.topic).replace(/["“”]/g, "")}.`,
           "Clean, modern flat vector illustration, generous negative space, 16:9 composition.",
           "Brand palette: indigo #4353e8 and lime #c6f36a accents on a light #f7f8f5 background.",
-          "No text, no letters, no watermarks.",
+          "The image must contain no text at all: no titles, words, letters, numbers, labels, logos or watermarks.",
         ].join(" "),
         signal: request.signal,
       });

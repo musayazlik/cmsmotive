@@ -1,5 +1,15 @@
 import { cache } from "react";
+import { DEFAULT_AI_SETTINGS, type AiSettings } from "@/lib/ai-settings-shared";
+import {
+  DEFAULT_EMAIL_SETTINGS,
+  FALLBACK_CONTACT_RECIPIENT,
+  type EmailSettings,
+} from "@/lib/email-settings-shared";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from "@/lib/review-settings-shared";
+import { DEFAULT_SEO_SETTINGS, type SeoSettings } from "@/lib/seo-settings-shared";
+import { readSettingsGroup, writeSettingsGroup } from "@/lib/settings-store";
+import { DEFAULT_SITE_SETTINGS, type SiteSettings } from "@/lib/site-settings-shared";
 import {
   DEFAULT_UPLOAD_SETTINGS,
   WEBP_QUALITY_MAX,
@@ -47,4 +57,26 @@ export async function saveUploadSettings(settings: UploadSettings): Promise<void
       create: { key: KEY_QUALITY, value: String(settings.webpQuality) },
     }),
   ]);
+}
+
+/* ------------------------------------------------ JSON-encoded setting groups */
+
+export const getSiteSettings = cache(() => readSettingsGroup("site", DEFAULT_SITE_SETTINGS));
+export const saveSiteSettings = (settings: SiteSettings) => writeSettingsGroup("site", settings);
+
+export const getSeoSettings = cache(() => readSettingsGroup("seo", DEFAULT_SEO_SETTINGS));
+export const saveSeoSettings = (settings: SeoSettings) => writeSettingsGroup("seo", settings);
+
+export const getReviewSettings = cache(() => readSettingsGroup("reviews", DEFAULT_REVIEW_SETTINGS));
+export const saveReviewSettings = (settings: ReviewSettings) => writeSettingsGroup("reviews", settings);
+
+export const getEmailSettings = cache(() => readSettingsGroup("email", DEFAULT_EMAIL_SETTINGS));
+export const saveEmailSettings = (settings: EmailSettings) => writeSettingsGroup("email", settings);
+
+export const getAiSettings = cache(() => readSettingsGroup("ai", DEFAULT_AI_SETTINGS));
+export const saveAiSettings = (settings: AiSettings) => writeSettingsGroup("ai", settings);
+
+/** The inbox that receives inquiries and notifications: the setting, the environment, then the fallback. */
+export function contactRecipient(settings: EmailSettings): string {
+  return settings.contactRecipient || process.env.PLUNK_CONTACT_TO_EMAIL || FALLBACK_CONTACT_RECIPIENT;
 }

@@ -5,6 +5,7 @@ import { isLocale } from "@/lib/i18n/config";
 import { localizeLegacyHtml } from "@/lib/i18n/legacy";
 import { injectCatalog } from "@/lib/catalog";
 import { addLegacySeo, siteOrigin } from "@/lib/seo";
+import { getSeoSettings, getSiteSettings } from "@/lib/settings";
 import { injectTestimonials } from "@/lib/testimonials";
 import { hasPanelSession } from "@/lib/public-session";
 
@@ -29,7 +30,8 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     const pagePath = slug === "index" ? "/" : `/${slug}`;
     // Search tags and JSON-LD are read from the translated page, so they match its language.
     const localized = localizeLegacyHtml(html, locale, pagePath);
-    const response = htmlResponse(addLegacySeo(localized, { origin: await siteOrigin(), locale, pagePath }));
+    const [site, seo, origin] = await Promise.all([getSiteSettings(), getSeoSettings(), siteOrigin()]);
+    const response = htmlResponse(addLegacySeo(localized, { origin, locale, pagePath, site, seo }));
     response.headers.set("Content-Language", locale);
     return response;
   } catch (error) {

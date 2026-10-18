@@ -14,6 +14,8 @@ export type AiModelInfo = {
   priceIn: number | null;
   priceOut: number | null;
   free: boolean;
+  /** Supports tool calling (Telegram agent). */
+  tools?: boolean;
 };
 
 export const AI_STYLES = ["informative", "conversational", "persuasive", "technical"] as const;

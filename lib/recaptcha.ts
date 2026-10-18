@@ -6,7 +6,6 @@
  */
 
 const VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
-const MIN_SCORE = 0.5;
 
 export type RecaptchaResult = { ok: true } | { ok: false; reason: string };
 
@@ -15,7 +14,13 @@ export function recaptchaSiteKey(): string | null {
   return process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || null;
 }
 
-export async function verifyRecaptcha(token: string, action: string, remoteIp?: string): Promise<RecaptchaResult> {
+/** `minScore` is the lowest accepted score; reviews read it from Settings → Reviews. */
+export async function verifyRecaptcha(
+  token: string,
+  action: string,
+  options: { remoteIp?: string; minScore: number },
+): Promise<RecaptchaResult> {
+  const { remoteIp, minScore } = options;
   const secret = process.env.RECAPTCHA_SECRET_KEY;
   if (!secret) return { ok: false, reason: "not-configured" };
   if (!token) return { ok: false, reason: "missing-token" };
@@ -34,7 +39,7 @@ export async function verifyRecaptcha(token: string, action: string, remoteIp?: 
     const result = (await response.json()) as { success?: boolean; score?: number; action?: string; "error-codes"?: string[] };
     if (!result.success) return { ok: false, reason: result["error-codes"]?.join(",") || "verification-failed" };
     if (result.action !== action) return { ok: false, reason: "action-mismatch" };
-    if (typeof result.score !== "number" || result.score < MIN_SCORE) return { ok: false, reason: "low-score" };
+    if (typeof result.score !== "number" || result.score < minScore) return { ok: false, reason: "low-score" };
     return { ok: true };
   } catch (error) {
     console.error("recaptcha: verification request failed", error);

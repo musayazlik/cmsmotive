@@ -6,7 +6,7 @@ import CheckBox from "@/app/panel/_components/ui/checkbox";
 import { saveUploadSettingsAction } from "../_actions";
 import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN, type UploadSettings } from "@/lib/upload-settings-shared";
 
-export default function SettingsForm({ settings }: { settings: UploadSettings }) {
+export default function MediaSettingsForm({ settings }: { settings: UploadSettings }) {
   const router = useRouter();
   const [convertWebp, setConvertWebp] = useState(settings.convertWebp);
   const [webpQuality, setWebpQuality] = useState(settings.webpQuality);

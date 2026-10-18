@@ -5,29 +5,42 @@ import { trackPageView } from "@/lib/analytics";
 import { LOCALE_TAGS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator } from "@/lib/i18n/translate";
 import { absoluteUrl, breadcrumbSchema, organizationRef, pageMetadata, siteOrigin } from "@/lib/seo";
+import { isValidPostPreview } from "@/lib/post-preview";
+import { getSiteSettings } from "@/lib/settings";
 import { SiteFrame } from "../../_components/site-chrome";
 import { JsonLd } from "../../_components/json-ld";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ locale: string; slug: string }> };
+type Props = {
+  params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ preview?: string; exp?: string }>;
+};
 
-async function loadPost(slug: string) {
-  return prisma.post.findFirst({
-    where: { slug, status: "published" },
+/**
+ * The published post, or an unpublished one opened with a signed preview
+ * link (lib/post-preview.ts) — then `preview` is true.
+ */
+async function loadPost(slug: string, search: { preview?: string; exp?: string }) {
+  const post = await prisma.post.findFirst({
+    where: { slug },
     include: {
       cover: { select: { url: true, fileName: true, width: true, height: true } },
       category: { select: { name: true } },
       author: { select: { name: true } },
     },
   });
+  if (!post) return null;
+  if (post.status === "published") return { ...post, preview: false };
+  return isValidPostPreview(post.id, search.preview, search.exp) ? { ...post, preview: true } : null;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   const t = getTranslator(locale as Locale);
-  const post = await loadPost(slug);
+  const post = await loadPost(slug, await searchParams);
   if (!post) return { title: t("Article not found — CMSMotive") };
+  if (post.preview) return { title: `Draft: ${post.title}`, robots: { index: false, follow: false } };
   const cover = post.cover;
   return pageMetadata({
     locale: locale as Locale,
@@ -43,15 +56,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /** Post bodies are stored once, in the language they were written in; the page around them follows the URL. */
-export default async function BlogPostPage({ params }: Props) {
+export default async function BlogPostPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const locale = (await params).locale as Locale;
   const t = getTranslator(locale);
   const href = (path: string) => localizePath(path, locale);
-  trackPageView(slug);
-
-  const post = await loadPost(slug);
+  const post = await loadPost(slug, await searchParams);
   if (!post) notFound();
+  if (!post.preview) trackPageView(slug);
 
   const [candidates, recent, categories, viewRows] = await Promise.all([
     // Ranking pool for "Popular content": the journal's own order (featured first, then newest).
@@ -89,7 +101,7 @@ export default async function BlogPostPage({ params }: Props) {
     value.toLocaleDateString(LOCALE_TAGS[locale], { day: "numeric", month: "short", year: "numeric" });
 
   const category = post.category?.name ?? t("Journal");
-  const origin = await siteOrigin();
+  const [origin, site] = await Promise.all([siteOrigin(), getSiteSettings()]);
   const url = absoluteUrl(origin, href(`/blog/${post.slug}`));
   const jsonLd = [
     {
@@ -101,8 +113,8 @@ export default async function BlogPostPage({ params }: Props) {
       ...(post.cover ? { image: [absoluteUrl(origin, post.cover.url)] } : {}),
       datePublished: (post.publishedAt ?? post.updatedAt).toISOString(),
       dateModified: post.updatedAt.toISOString(),
-      author: post.author?.name ? { "@type": "Person", name: post.author.name } : organizationRef(origin),
-      publisher: organizationRef(origin),
+      author: post.author?.name ? { "@type": "Person", name: post.author.name } : organizationRef(origin, site),
+      publisher: organizationRef(origin, site),
       ...(post.category ? { articleSection: post.category.name } : {}),
     },
     breadcrumbSchema(origin, [
@@ -119,7 +131,7 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <SiteFrame locale={locale} path={`/blog/${post.slug}`} current="/blog">
-      <JsonLd data={jsonLd} />
+      {post.preview ? null : <JsonLd data={jsonLd} />}
       <section className="blog-hero" aria-labelledby="post-title">
         {post.cover ? (
           // eslint-disable-next-line @next/next/no-img-element -- covers live on arbitrary UploadThing hosts
@@ -149,6 +161,14 @@ export default async function BlogPostPage({ params }: Props) {
       <div className="container blog-detail-shell">
         <div className="blog-detail-grid">
           <div className="blog-detail-main">
+            {post.preview ? (
+              <p
+                role="status"
+                style={{ margin: "0 0 24px", padding: "12px 16px", borderRadius: 10, background: "#fff2df", border: "1px solid #f7d8aa", color: "#7a4300", fontWeight: 600 }}
+              >
+                Draft preview — this post is not published. The link expires after seven days.
+              </p>
+            ) : null}
             <article className="content-article">
               {/* The title, excerpt and cover live in the hero above; the body stays authored HTML. */}
               <div className="article-copy" dangerouslySetInnerHTML={{ __html: post.content }} />

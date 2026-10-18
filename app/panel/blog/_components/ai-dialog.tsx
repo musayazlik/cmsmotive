@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { marked } from "marked";
 import CheckBox from "@/app/panel/_components/ui/checkbox";
 import Select from "@/app/panel/_components/ui/select";
@@ -22,6 +22,8 @@ import {
   type AiStyle,
 } from "../_ai";
 import type { CoverRef } from "../_lib";
+import ModelPicker from "./model-picker";
+import { DEFAULT_IMAGE_MODELS, DEFAULT_TEXT_MODELS, pickModel, type AiSettings } from "@/lib/ai-settings-shared";
 
 /** Everything the dialog produced, resolved to form-ready values. */
 export type AiApplyPayload = {
@@ -73,133 +75,12 @@ const DEPTH_NOTES: Record<AiDepth, string> = {
   "in-depth": "Thorough coverage, about 1,400 words.",
 };
 
-/** Preferred defaults, tried in order; falls back to the first free model. */
-const DEFAULT_TEXT_MODELS = [
-  "openai/gpt-5-mini",
-  "google/gemini-3.1-flash-lite",
-  "google/gemini-2.5-flash",
-  "openai/gpt-4o-mini",
-];
-const DEFAULT_IMAGE_MODELS = [
-  "google/gemini-3.1-flash-lite-image",
-  "google/gemini-3.1-flash-image",
-  "google/gemini-2.5-flash-image",
-];
-
-function defaultModelId(models: AiModelInfo[], preferred: string[]): string {
-  for (const id of preferred) {
-    if (models.some((model) => model.id === id)) return id;
-  }
-  return models.find((model) => model.free)?.id ?? models[0]?.id ?? "";
-}
-
-function formatContext(context: number | null): string {
-  if (!context) return "";
-  return context >= 1000 ? `${Math.round(context / 1000)}k context` : `${context} context`;
-}
-
 /** Same conversion the editor uses for pasted markdown. */
 function markdownToHtml(text: string): string {
   const html = marked.parse(text, { async: false }) as string;
   return html.replace(/<h([1-6])>/g, (_, level: string) => `<h${Math.min(4, Math.max(2, Number(level)))}>`);
 }
 
-/** Collapsed trigger + searchable list; native selects choke on 300+ models. */
-function ModelPicker({
-  label,
-  models,
-  value,
-  onChange,
-}: {
-  label: string;
-  models: AiModelInfo[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [filter, setFilter] = useState("");
-  const selected = models.find((model) => model.id === value) ?? null;
-
-  const filtered = useMemo(() => {
-    const query = filter.trim().toLowerCase();
-    if (!query) return models;
-    return models.filter((model) => model.id.toLowerCase().includes(query) || model.name.toLowerCase().includes(query));
-  }, [filter, models]);
-
-  return (
-    <div className="wfield">
-      <div className="wfield-inline-head">
-        <label>{label}</label>
-      </div>
-      <div className="wai-model">
-        <button
-          type="button"
-          className="wai-model-trigger"
-          onClick={() => setExpanded((current) => !current)}
-          aria-expanded={expanded}
-          disabled={models.length === 0}
-        >
-          <span>
-            <strong>{selected?.name ?? "Choose a model"}</strong>
-            <small>
-              {selected
-                ? `${selected.id}${selected.context ? ` · ${formatContext(selected.context)}` : ""}`
-                : `${models.length} model${models.length === 1 ? "" : "s"} available`}
-            </small>
-          </span>
-          <span aria-hidden="true" className="wai-model-chevron">
-            {expanded ? "▴" : "▾"}
-          </span>
-        </button>
-
-        {expanded ? (
-          <div className="wai-model-list">
-            <div className="wai-model-search">
-              <label className="visually-hidden" htmlFor={`wai-filter-${label}`}>
-                Filter models
-              </label>
-              <input
-                id={`wai-filter-${label}`}
-                type="search"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                placeholder="Filter by name or id…"
-                autoFocus
-              />
-            </div>
-            {filtered.map((model) => (
-              <button
-                type="button"
-                key={model.id}
-                className={`wai-model-option ${model.id === value ? "is-selected" : ""}`}
-                aria-pressed={model.id === value}
-                onClick={() => {
-                  onChange(model.id);
-                  setExpanded(false);
-                  setFilter("");
-                }}
-              >
-                <span>
-                  <strong>{model.name}</strong>
-                  <small>
-                    {model.id}
-                    {model.context ? ` · ${formatContext(model.context)}` : ""}
-                  </small>
-                </span>
-                {model.free ? (
-                  <span className="wai-free">FREE</span>
-                ) : model.priceIn !== null ? (
-                  <span className="wai-price">${model.priceIn.toFixed(2)}/1M</span>
-                ) : null}
-              </button>
-            ))}
-            {filtered.length === 0 ? <p className="wai-model-empty">No models match the filter.</p> : null}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 export default function AiDialog({ open, onClose, initialTopic, categoryOptions, tagOptions, onApply }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -224,6 +105,8 @@ export default function AiDialog({ open, onClose, initialTopic, categoryOptions,
   const [textModelId, setTextModelId] = useState("");
   const [imageModelId, setImageModelId] = useState("");
   const [result, setResult] = useState<AiGenerateResult | null>(null);
+  // Settings → AI defaults are applied once; later openings keep the user's picks.
+  const defaultsApplied = useRef(false);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -270,9 +153,19 @@ export default function AiDialog({ open, onClose, initialTopic, categoryOptions,
         }
         const text = payload.text as AiModelInfo[];
         const image = payload.image as AiModelInfo[];
+        const defaults = payload.defaults as AiSettings | undefined;
         setModels({ text, image });
-        setTextModelId((current) => current || defaultModelId(text, DEFAULT_TEXT_MODELS));
-        setImageModelId((current) => current || defaultModelId(image, DEFAULT_IMAGE_MODELS));
+        const preferredText = defaults?.textModel ? [defaults.textModel, ...DEFAULT_TEXT_MODELS] : DEFAULT_TEXT_MODELS;
+        const preferredImage = defaults?.imageModel ? [defaults.imageModel, ...DEFAULT_IMAGE_MODELS] : DEFAULT_IMAGE_MODELS;
+        setTextModelId((current) => current || pickModel(text, preferredText));
+        setImageModelId((current) => current || pickModel(image, preferredImage));
+        if (defaults && !defaultsApplied.current) {
+          defaultsApplied.current = true;
+          setStyle(defaults.style);
+          setDepth(defaults.depth);
+          setLanguage(defaults.language);
+          setWebSearch(defaults.webSearch);
+        }
       } catch {
         if (!cancelled) {
           setModelsError("Could not reach the server.");
@@ -540,8 +433,8 @@ export default function AiDialog({ open, onClose, initialTopic, categoryOptions,
               className="wai-web-search"
               checked={webSearch}
               onChange={setWebSearch}
-              label="Let the model search the web"
-              note="Checks current sources before writing. Useful for dates, versions and links; adds a small cost per request."
+              label="Research the web first"
+              note="A research model (Settings → AI) searches the web; the post cites its sources and ends with a numbered bibliography. Adds a small cost and up to a few minutes."
             />
 
             {error ? (

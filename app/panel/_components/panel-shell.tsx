@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "@/app/panel/_components/panel-navigation";
+import { usePathname } from "@/app/panel/_components/panel-navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import SignOutButton from "../sign-out-button";
 import PanelHeader from "./panel-header";
+import SupportChat from "./support-chat";
 
 type NavItem = {
   href: string;
@@ -35,7 +36,6 @@ const PANEL_NAV: NavItem[] = [
   },
   { href: "/panel/media", index: "09", label: "Media" },
   { href: "/panel/settings", index: "10", label: "Settings" },
-  { href: "/docs", index: "11", label: "Documentation" },
 ];
 
 /** Sidebar badges: count, and the screen-reader wording for one / many. */
@@ -69,7 +69,7 @@ export default function PanelShell({
   const pathname = usePathname();
   const firstName = user.name.trim().split(/\s+/)[0] || "there";
   const section = sectionFor(pathname);
-  const crumb = section ? section.label.toUpperCase() : "WORKSPACE";
+  const crumb = section?.label ?? (pathname === "/panel/account" ? "My account" : "Workspace");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Only the navigation scrolls (logo and account stay put). Keep the active
@@ -91,7 +91,6 @@ export default function PanelShell({
       <aside className="workspace-sidebar">
         <Link className="workspace-logo" href="/" aria-label="CMSMotive home">
           <Image src="/assets/images/logo.png" alt="CMSMotive" width={144} height={48} priority />
-          <span className="workspace-logo-tag">YÖNETİM PANELİ</span>
         </Link>
         <div className="workspace-sidebar-scroll" ref={scrollRef}>
           <div className="workspace-sidebar-label">YOUR WORKSPACE / 01</div>
@@ -145,6 +144,8 @@ export default function PanelShell({
         <PanelHeader crumb={crumb} user={user} />
         <div className="workspace-content">{children}</div>
       </main>
+
+      <SupportChat firstName={firstName} />
     </div>
   );
 }

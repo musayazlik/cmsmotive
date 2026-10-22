@@ -1,3 +1,4 @@
+import Link from "@/app/panel/_components/panel-navigation";
 import Image from "next/image";
 import { requirePanelUser } from "@/lib/panel-auth";
 import {
@@ -153,9 +154,9 @@ export default async function PanelOverviewPage() {
             <span className="status-title" id="status-storage">
               STORAGE / UPLOADTHING
             </span>
-            <a className="status-link" href="/panel/media">
+            <Link className="status-link" href="/panel/media">
               Media ↗
-            </a>
+            </Link>
           </header>
           {storage ? (
             <>
@@ -213,16 +214,16 @@ export default async function PanelOverviewPage() {
           <p>Everything you need to learn more about the products and start a conversation.</p>
         </div>
         <div className="workspace-resource-grid">
-          <a href="/panel/users">
+          <Link href="/panel/users">
             <span>01 / MANAGE</span>
             <strong>Users</strong>
             <i aria-hidden="true">↗</i>
-          </a>
-          <a href="/panel/themes">
+          </Link>
+          <Link href="/panel/themes">
             <span>02 / EDIT</span>
             <strong>Themes</strong>
             <i aria-hidden="true">↗</i>
-          </a>
+          </Link>
           <a href="/contact">
             <span>03 / CONNECT</span>
             <strong>Talk to us</strong>

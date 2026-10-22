@@ -2,9 +2,27 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
 import { sendAccountEmail } from "@/lib/plunk";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { getAdminAccessSettings } from "@/lib/admin-access";
+import { validAdminEntry } from "@/lib/admin-entry";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-in/email" || typeof ctx.body?.email !== "string") return;
+      const { panelPath } = await getAdminAccessSettings();
+      if (panelPath === "/panel" || validAdminEntry(ctx.headers, panelPath)) return;
+      const user = await prisma.user.findUnique({
+        where: { email: ctx.body.email.trim().toLowerCase() }, select: { role: true },
+      });
+      if (user?.role === "admin" || user?.role === "superadmin") {
+        // Match the provider's credential failure and hashing cost; do not disclose an admin account or its entry path.
+        await ctx.context.password.hash(typeof ctx.body.password === "string" ? ctx.body.password : "");
+        throw new APIError("UNAUTHORIZED", { message: "Invalid email or password", code: "INVALID_EMAIL_OR_PASSWORD" });
+      }
+    }),
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,

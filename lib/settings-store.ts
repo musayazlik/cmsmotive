@@ -8,12 +8,23 @@ import { prisma } from "@/lib/prisma";
  * value of the wrong type falls back to the field's default.
  */
 
-type Json = string | number | boolean | null | string[];
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 export type SettingsGroup = Record<string, Json>;
 
 function sameShape(value: unknown, fallback: Json): boolean {
-  if (Array.isArray(fallback)) return Array.isArray(value) && value.every((item) => typeof item === "string");
+  if (Array.isArray(fallback)) {
+    // A non-empty string default pins the items to strings (path lists,
+    // profile URLs); an empty default may hold either strings or plain
+    // objects (custom meta tags), but never a mixture.
+    if (!Array.isArray(value)) return false;
+    if (fallback.length && typeof fallback[0] === "string") return value.every((item) => typeof item === "string");
+    const kinds = new Set(value.map((item) => (Array.isArray(item) ? "array" : item === null ? "null" : typeof item)));
+    return kinds.size === 1 && (kinds.has("string") || kinds.has("object"));
+  }
   if (fallback === null) return value === null || typeof value === "string";
+  if (typeof fallback === "object" && fallback !== null) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
   return typeof value === typeof fallback;
 }
 

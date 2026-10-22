@@ -1,6 +1,7 @@
 "use client";
 
 import TextField from "@/app/panel/_components/ui/text-field";
+import Switch from "@/app/panel/_components/ui/switch";
 import { SITE_LIMITS, type SiteSettings } from "@/lib/site-settings-shared";
 import { saveSiteSettingsAction } from "../_actions";
 import { SettingsFoot, useSettingsForm } from "./settings-kit";
@@ -38,6 +39,16 @@ export default function GeneralSettingsForm({ settings }: { settings: SiteSettin
           value={values.contactEmail}
           onChange={(value) => set("contactEmail", value)}
           note="Listed on the Organization in structured data. Contact form mail goes to the inbox under Email."
+        />
+      </div>
+
+      <div className="wsettings-section">
+        <p className="wsection-label">Accounts</p>
+        <Switch
+          checked={values.allowSignup}
+          onChange={(checked) => set("allowSignup", checked)}
+          label="New accounts can sign up"
+          note="Off: the register page redirects to sign-in, the sign-in page hides the create-account link, and the auth API rejects sign-ups. Existing accounts keep signing in; accounts created from the panel still work."
         />
       </div>
 

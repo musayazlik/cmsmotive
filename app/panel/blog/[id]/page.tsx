@@ -1,3 +1,4 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import PostForm from "../_components/post-form";
@@ -7,6 +8,7 @@ import type { SelectOption } from "@/app/panel/_components/ui/select";
 export const dynamic = "force-dynamic";
 
 export default async function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePanelUser();
   const { id } = await params;
 
   const [post, categories, tags, mediaAssets] = await Promise.all([

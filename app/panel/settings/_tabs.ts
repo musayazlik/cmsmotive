@@ -10,10 +10,21 @@ export const SETTINGS_TABS = [
       "How the site introduces itself to search engines and link previews: the name, X account, contact address and social profiles in Open Graph, X cards and structured data.",
   },
   {
+    id: "security",
+    label: "Security",
+    intro: "Choose a private address for team access and review the protections around administrator sign-in.",
+  },
+  {
     id: "seo",
     label: "SEO",
     intro:
-      "Search engine visibility: indexing and robots.txt, the title suffix, the fallback link-preview image and the verification codes for Google, Bing and Yandex.",
+      "Search engine visibility: indexing and robots.txt, custom header meta tags, the title suffix, the fallback link-preview image and the verification codes for Google, Bing and Yandex.",
+  },
+  {
+    id: "maintenance",
+    label: "Maintenance",
+    intro:
+      "Welcome visitors with a maintenance page and collect email signups for your return. Your panel and signed-in access stay available.",
   },
   {
     id: "reviews",

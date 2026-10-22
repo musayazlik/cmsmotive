@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/app/panel/_components/panel-navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import CheckBox from "@/app/panel/_components/ui/checkbox";
 import TextField from "@/app/panel/_components/ui/text-field";

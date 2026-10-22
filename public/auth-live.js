@@ -1,4 +1,6 @@
-const mode = window.location.pathname.split('/').pop();
+const mode = document.body.dataset.authMode || window.location.pathname.split('/').pop();
+const authRoot = document.body.dataset.authRoot || '/auth';
+const authTarget = document.body.dataset.authTarget || '/';
 const form = document.querySelector('[data-auth-form]');
 const params = new URLSearchParams(window.location.search);
 
@@ -64,7 +66,7 @@ form?.addEventListener('submit', async (event) => {
         name: String(fields.get('name') || '').trim(),
         email,
         password,
-        callbackURL: '/panel',
+        callbackURL: '/',
       });
       sessionStorage.setItem('cmsmotive:verification-email', email);
       window.location.assign(`/auth/verify-email?email=${encodeURIComponent(email)}`);
@@ -73,24 +75,27 @@ form?.addEventListener('submit', async (event) => {
         email: String(fields.get('email') || '').trim(),
         password,
         rememberMe: fields.get('remember') === 'on',
-        callbackURL: '/panel',
+        callbackURL: authTarget,
       });
-      window.location.assign('/panel');
+      const destination = await fetch('/api/auth-target', { credentials: 'same-origin', cache: 'no-store' });
+      if (!destination.ok) throw new Error('Your session could not be checked. Please try again.');
+      const account = await destination.json();
+      window.location.assign(account.target || '/');
     } else if (mode === 'forgot-password') {
       await authPost('request-password-reset', {
         email: String(fields.get('email') || '').trim(),
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}${authRoot}/reset-password`,
       });
       status('If an account exists for that address, a reset link is on its way.');
     } else if (mode === 'reset-password') {
       const token = params.get('token');
       if (!token) throw new Error('Open the link in your reset email first.');
       await authPost('reset-password', { newPassword: password, token });
-      window.location.assign('/auth/login?reset=success');
+      window.location.assign(`${authRoot}/login?reset=success`);
     } else if (mode === 'verify-email') {
       const email = params.get('email') || sessionStorage.getItem('cmsmotive:verification-email');
       if (!email) throw new Error('Enter your email from the registration page first.');
-      await authPost('send-verification-email', { email, callbackURL: '/panel' });
+      await authPost('send-verification-email', { email, callbackURL: authTarget });
       status('A new verification link has been sent.');
     }
   } catch (error) {

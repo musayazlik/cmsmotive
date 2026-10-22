@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "@/app/panel/_components/panel-navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useState } from "react";
 import RichTextField from "./editor/rich-text-field";
 import ConfirmDialog from "./confirm-dialog";
@@ -138,9 +139,9 @@ export default function CatalogForm({ variant, record }: Props) {
     <>
       <form className="wform-card" onSubmit={handleSubmit}>
         <div className="wpost-toolbar">
-          <a className="wbtn wbtn-ghost" href={listHref}>
+          <Link className="wbtn wbtn-ghost" href={listHref}>
             ← Back to {variant}s
-          </a>
+          </Link>
           {record ? (
             <div className="wpost-toolbar-actions">
               <a className="wbtn wbtn-ghost" href={`/${variant}/${record.slug}`} target="_blank" rel="noreferrer">
@@ -301,9 +302,9 @@ export default function CatalogForm({ variant, record }: Props) {
                 <button className="wbtn wbtn-primary wbtn-block" type="submit" disabled={saving}>
                   {saving ? "Saving…" : record ? "Save changes" : `Create ${variant}`}
                 </button>
-                <a className="wbtn wbtn-ghost wbtn-block" href={listHref}>
+                <Link className="wbtn wbtn-ghost wbtn-block" href={listHref}>
                   Cancel
-                </a>
+                </Link>
               </div>
               {record ? (
                 <dl className="wpub-status">
@@ -323,7 +324,7 @@ export default function CatalogForm({ variant, record }: Props) {
               <div className="wfield-card">
                 <p className="wsection-label">On the detail page</p>
                 <div className="wlinks">
-                  <a className="wlink-row" href={`/panel/changelog?product=${variant}:${record.id}`}>
+                  <Link className="wlink-row" href={`/panel/changelog?product=${variant}:${record.id}`}>
                     <span>
                       <strong>Changelog</strong>
                       <small>
@@ -331,15 +332,15 @@ export default function CatalogForm({ variant, record }: Props) {
                       </small>
                     </span>
                     <span aria-hidden="true">→</span>
-                  </a>
-                  <a className="wlink-row" href={`/panel/changelog/new?product=${variant}:${record.id}`}>
+                  </Link>
+                  <Link className="wlink-row" href={`/panel/changelog/new?product=${variant}:${record.id}`}>
                     <span>
                       <strong>Add a changelog entry</strong>
                       <small>Preselects {record.name}</small>
                     </span>
                     <span aria-hidden="true">+</span>
-                  </a>
-                  <a className="wlink-row" href={`/panel/reviews?product=${variant}:${record.id}`}>
+                  </Link>
+                  <Link className="wlink-row" href={`/panel/reviews?product=${variant}:${record.id}`}>
                     <span>
                       <strong>Reviews</strong>
                       <small>
@@ -347,7 +348,7 @@ export default function CatalogForm({ variant, record }: Props) {
                       </small>
                     </span>
                     <span aria-hidden="true">→</span>
-                  </a>
+                  </Link>
                 </div>
               </div>
             ) : null}

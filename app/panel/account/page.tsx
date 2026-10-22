@@ -1,3 +1,4 @@
+import Link from "@/app/panel/_components/panel-navigation";
 import { requirePanelUser } from "@/lib/panel-auth";
 import AccountForm from "./_components/account-form";
 
@@ -42,7 +43,7 @@ export default async function AccountPage() {
             </div>
           </div>
           <p className="wfield-hint-block">
-            Name and e-mail are managed in <a href="/panel/users">Users</a> — changing the e-mail there
+            Name and e-mail are managed in <Link href="/panel/users">Users</Link> — changing the e-mail there
             signs you in with the new address next time.
           </p>
         </div>

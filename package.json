@@ -17,6 +17,7 @@
     "mcp": "tsx mcp/stdio.ts",
     "telegram:poll": "tsx telegram/poll.ts",
     "typecheck": "tsc --noEmit",
+    "test:admin-access": "tsx --test tests/admin-access.test.ts",
     "i18n:check": "tsx scripts/i18n-legacy.ts"
   },
   "dependencies": {

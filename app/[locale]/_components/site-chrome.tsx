@@ -3,6 +3,7 @@ import Script from "next/script";
 import { LOCALES, LOCALE_LABELS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
 import { hasPanelSession } from "@/lib/public-session";
+import { getAdminAccessSettings } from "@/lib/admin-access";
 
 /**
  * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
@@ -61,7 +62,7 @@ function ArrowIcon() {
 
 /** Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py (site.js binds [data-lang-switch]).
  * Signed-in visitors also get the admin link (its static twin: lib/legacy.ts injectAdminPanelLink). */
-export function TopBar({ locale, t, path, showAdmin }: ChromeProps & { showAdmin?: boolean }) {
+export function TopBar({ locale, t, path, showAdmin, adminHref = "/panel" }: ChromeProps & { showAdmin?: boolean; adminHref?: string }) {
   return (
     <div className="topbar">
       <div className="container topbar-inner">
@@ -80,7 +81,7 @@ export function TopBar({ locale, t, path, showAdmin }: ChromeProps & { showAdmin
         </div>
         <div className="topbar-end">
           {showAdmin ? (
-            <a className="topbar-admin" href="/panel" aria-label={t("Admin panel")}>
+            <a className="topbar-admin" href={adminHref} aria-label={t("Admin panel")}>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
                 <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
@@ -273,6 +274,7 @@ export async function SiteFrame({
   const t = getTranslator(locale);
   // Signed-in visitors get the admin-panel shortcut in the top bar.
   const showAdmin = await hasPanelSession();
+  const adminHref = showAdmin ? (await getAdminAccessSettings()).panelPath : undefined;
   return (
     <>
       {/* React hoists these into <head>. */}
@@ -282,7 +284,7 @@ export async function SiteFrame({
       <a className="skip-link" href="#main">
         {t("Skip to content")}
       </a>
-      <TopBar locale={locale} t={t} path={path} showAdmin={showAdmin} />
+      <TopBar locale={locale} t={t} path={path} showAdmin={showAdmin} adminHref={adminHref} />
       <SiteHeader locale={locale} t={t} current={current} />
       <main id="main">{children}</main>
       <SiteFooter locale={locale} t={t} />

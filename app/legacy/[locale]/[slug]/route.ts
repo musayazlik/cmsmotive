@@ -8,6 +8,8 @@ import { addLegacySeo, siteOrigin } from "@/lib/seo";
 import { getSeoSettings, getSiteSettings } from "@/lib/settings";
 import { injectTestimonials } from "@/lib/testimonials";
 import { hasPanelSession } from "@/lib/public-session";
+import { getAdminAccessSettings } from "@/lib/admin-access";
+import { getTranslator } from "@/lib/i18n/translate";
 
 export const runtime = "nodejs";
 
@@ -24,14 +26,21 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
   try {
     // Product grids and review quotes come from the database before the page is translated.
     const base = await injectTestimonials(await injectCatalog(await readLegacyPage(`${slug}.html`)));
-    // Signed-in visitors get the admin-panel link; injected before translation so it localizes too.
-    const html = (await hasPanelSession()) ? injectAdminPanelLink(base) : base;
     trackPageView(slug);
     const pagePath = slug === "index" ? "/" : `/${slug}`;
     // Search tags and JSON-LD are read from the translated page, so they match its language.
-    const localized = localizeLegacyHtml(html, locale, pagePath);
+    let localized = localizeLegacyHtml(base, locale, pagePath);
+    // Inject after URL localization: private admin paths never get a public language prefix.
+    const showAdmin = await hasPanelSession();
+    if (showAdmin) {
+      localized = injectAdminPanelLink(localized, (await getAdminAccessSettings()).panelPath, getTranslator(locale)("Admin panel"));
+    }
     const [site, seo, origin] = await Promise.all([getSiteSettings(), getSeoSettings(), siteOrigin()]);
     const response = htmlResponse(addLegacySeo(localized, { origin, locale, pagePath, site, seo }));
+    if (showAdmin) {
+      response.headers.set("Cache-Control", "private, no-store");
+      response.headers.set("Vary", "Cookie");
+    }
     response.headers.set("Content-Language", locale);
     return response;
   } catch (error) {

@@ -1,9 +1,11 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import ChangelogForm from "../_components/changelog-form";
 import { productOptions } from "../_products";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewChangelogEntryPage({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
+  await requirePanelUser();
   const [{ product }, products] = await Promise.all([searchParams, productOptions()]);
 
   return (

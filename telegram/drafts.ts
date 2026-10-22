@@ -1,5 +1,6 @@
 import { postPreviewPath } from "@/lib/post-preview";
 import { prisma } from "@/lib/prisma";
+import { getAdminAccessSettings } from "@/lib/admin-access";
 import { deletePostRecord, setPostStatusRecord } from "@/mcp/lib/posts";
 import { sendText, type InlineKeyboard } from "./api";
 
@@ -37,7 +38,7 @@ export async function sendPostCard(chat: Chat, postId: string) {
   });
   if (!post) return;
 
-  const panel = `${chat.origin}/panel/blog/${post.id}`;
+  const panel = `${chat.origin}${(await getAdminAccessSettings()).panelPath}/blog/${post.id}`;
   if (post.status === "published") {
     await sendText(chat.token, chat.chatId, `🟢 **Live:** [${post.title}](${chat.origin}/blog/${post.slug}) · [Panel](${panel})`);
     return;

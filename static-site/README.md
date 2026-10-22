@@ -34,9 +34,7 @@ The theme catalogue has working client-side search, filters and a reset action. 
 
 ## Visual assets
 
-The updated CMSMotive mark began as a built-in ImageGen logo exploration. Its original transparent PNG is saved at `assets/images/logo-concept-v2.png` and appears in the closing CTA. A clean, flat SVG adaptation at `assets/icons/logo-mark-v2.svg` is paired with the CMSMotive wordmark in the header and footer and used alone as the favicon. The previous SVG is retained as `assets/icons/logo-mark.svg`. The mark is separate from the TYPO3 logo.
-
-Final logo prompt: "Create a distinctive geometric CMSMotive M monogram from interlocking folded ribbon forms with a small modular aperture; premium European developer-product identity; deep cobalt indigo #4353E8 with a small acid-lime #C6F36A accent; centered, transparent background, no typography, container, gradient, glow or shadow." ImageGen provided the form; the SVG removes the glow that persisted in the raster generation.
+The official CMSMotive wordmark is `assets/images/logo.png`, with `assets/images/logo-dark.png` for dark backgrounds. Use these existing assets for site branding and preserve their 3:1 aspect ratio. `assets/icons/favicon.png` uses the matching official symbol. Earlier logo explorations are retained as unused source assets and must not be used in the interface. The CMSMotive identity is separate from the TYPO3 logo.
 
 `assets/images/og/` holds 1200×630 JPEG copies of the page photographs for link previews (`og:image`), cropped from the WebP originals with sharp, because not every platform shows WebP previews.
 

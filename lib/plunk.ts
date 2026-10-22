@@ -1,6 +1,8 @@
 import { renderContactAckEmail } from "@/emails/contact-ack";
 import { siteOrigin } from "@/lib/seo";
 import { contactRecipient, getEmailSettings } from "@/lib/settings";
+import { getAdminAccessSettings } from "@/lib/admin-access";
+import { panelHref } from "@/lib/admin-access-shared";
 
 type Message = { to: string; subject: string; actionUrl: string; actionText: string };
 
@@ -117,7 +119,7 @@ export async function sendNotificationEmail(message: {
   actionText?: string;
 }) {
   const action = message.actionPath
-    ? { url: `${await siteOrigin()}${message.actionPath}`, text: message.actionText ?? "Open the panel" }
+    ? { url: `${await siteOrigin()}${panelHref(message.actionPath, (await getAdminAccessSettings()).panelPath)}`, text: message.actionText ?? "Open the panel" }
     : undefined;
   await send({
     to: contactRecipient(await getEmailSettings()),

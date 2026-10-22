@@ -1,8 +1,10 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import CatalogList from "../_components/catalog-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function ThemesPage() {
+  await requirePanelUser();
 
   return (
     <>

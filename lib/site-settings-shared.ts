@@ -12,6 +12,12 @@ export type SiteSettings = {
   contactEmail: string;
   /** Profile URLs listed as the organization's `sameAs`. */
   socialProfiles: string[];
+  /**
+   * Whether new accounts can register themselves. Off: the register page
+   * redirects to sign-in, the sign-in page hides the create-account link and
+   * the auth API rejects sign-ups. Existing accounts keep working.
+   */
+  allowSignup: boolean;
 };
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -24,6 +30,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "https://x.com/cmsmotive",
     "https://www.youtube.com/@cmsmotive",
   ],
+  allowSignup: false,
 };
 
 export const SITE_LIMITS = { siteName: 60, profiles: 8, profileUrl: 300 } as const;
@@ -73,6 +80,7 @@ export function validateSiteSettings(input: Record<string, unknown>): { error: s
       twitterHandle: handleMatch ? `@${handleMatch[1]}` : "",
       contactEmail,
       socialProfiles,
+      allowSignup: input.allowSignup === true,
     },
   };
 }

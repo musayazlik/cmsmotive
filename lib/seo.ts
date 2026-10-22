@@ -65,6 +65,16 @@ export function withTitleSuffix(title: string, suffix: string): string {
   return base === title && suffix === DEFAULT_TITLE_SUFFIX ? title : `${base}${suffix}`;
 }
 
+/**
+ * The home page title from Settings → SEO: the built-in copy is replaced by
+ * the configured base before the suffix is (re)applied. Unlike
+ * withTitleSuffix this never skips, so switching to the default suffix while
+ * a custom home title is set still appends " — CMSMotive".
+ */
+function homeTitleWithSuffix(base: string, suffix: string): string {
+  return `${base.replace(/\s*[—–|-]\s*CMSMotive\s*$/, "")}${suffix}`;
+}
+
 export function shareImage(image: ShareImage | null | undefined, fallbackUrl?: string): ShareImage {
   if (!image) return fallbackUrl ? { url: fallbackUrl } : DEFAULT_SHARE_IMAGE;
   const bundled = image.url.match(/^\/assets\/images\/([\w-]+)\.webp$/);
@@ -280,6 +290,12 @@ function legacyStructuredData(html: string, { origin, locale, pagePath, site }: 
 export function addLegacySeo(html: string, page: LegacyPage): string {
   const { origin, locale, pagePath } = page;
   const url = absoluteUrl(origin, localizePath(pagePath, locale));
+  // Settings → SEO home page fields only apply to the home page ("/" in every language).
+  const home = pagePath === "/";
+  const homeCopy = {
+    titleBase: home && page.seo.homeTitle ? page.seo.homeTitle : null,
+    description: home && page.seo.homeDescription ? page.seo.homeDescription : null,
+  };
   const out = html
     .replace(
       /(<meta\b[^>]*\b(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*\bcontent=["'])([^"']+)/gi,
@@ -295,13 +311,34 @@ export function addLegacySeo(html: string, page: LegacyPage): string {
         ? tag.replace(/\bcontent=["'][^"']*["']/i, `content="${escapeAttribute(page.site.twitterHandle)}"`)
         : "",
     )
-    // Settings → SEO: title suffix, and noindex replaces any robots tag the page ships.
-    .replace(/(<title>)([^<]*)(<\/title>)/i, (_match, open: string, title: string, close: string) =>
-      `${open}${escapeAttribute(withTitleSuffix(htmlText(title), page.seo.titleSuffix))}${close}`,
+    // Settings → SEO: home page title and description, title suffix, and
+    // noindex replaces any robots tag the page ships.
+    .replace(/<title>([^<]*)<\/title>/i, (_match, title: string) => {
+      const base = homeCopy.titleBase ?? htmlText(title);
+      return `<title>${escapeAttribute(homeTitleWithSuffix(base, page.seo.titleSuffix))}</title>`;
+    })
+    .replace(
+      /(<meta\b[^>]*\bproperty=["']og:title["'][^>]*\bcontent=["'])([^"']*)/i,
+      (_match, start: string, value: string) =>
+        `${start}${escapeAttribute(homeCopy.titleBase ? homeTitleWithSuffix(homeCopy.titleBase, page.seo.titleSuffix) : withTitleSuffix(htmlText(value), page.seo.titleSuffix))}`,
     )
     .replace(
-      /(<meta\b[^>]*\b(?:property|name)=["'](?:og:title|twitter:title)["'][^>]*\bcontent=["'])([^"']*)/gi,
-      (_match, start: string, value: string) => `${start}${escapeAttribute(withTitleSuffix(htmlText(value), page.seo.titleSuffix))}`,
+      /(<meta\b[^>]*\bname=["']twitter:title["'][^>]*\bcontent=["'])([^"']*)/i,
+      (_match, start: string, value: string) =>
+        `${start}${escapeAttribute(homeCopy.titleBase ? homeTitleWithSuffix(homeCopy.titleBase, page.seo.titleSuffix) : withTitleSuffix(htmlText(value), page.seo.titleSuffix))}`,
+    )
+    .replace(
+      /(<meta\b[^>]*\bname=["']description["'][^>]*\bcontent=["'])([^"']*)/i,
+      (_match, start: string, value: string) =>
+        `${start}${escapeAttribute(homeCopy.description ?? htmlText(value))}`,
+    )
+    .replace(
+      /(<meta\b[^>]*\bproperty=["']og:description["'][^>]*\bcontent=["'])([^"']*)/i,
+      (_match, start: string, value: string) => `${start}${escapeAttribute(homeCopy.description ?? htmlText(value))}`,
+    )
+    .replace(
+      /(<meta\b[^>]*\bname=["']twitter:description["'][^>]*\bcontent=["'])([^"']*)/i,
+      (_match, start: string, value: string) => `${start}${escapeAttribute(homeCopy.description ?? htmlText(value))}`,
     )
     .replace(/<meta\b[^>]*\bname=["']robots["'][^>]*>/gi, (tag) => (page.seo.indexing ? tag : ""));
   const { seo } = page;
@@ -311,6 +348,12 @@ export function addLegacySeo(html: string, page: LegacyPage): string {
     seo.googleVerification ? `<meta name="google-site-verification" content="${escapeAttribute(seo.googleVerification)}">` : "",
     seo.bingVerification ? `<meta name="msvalidate.01" content="${escapeAttribute(seo.bingVerification)}">` : "",
     seo.yandexVerification ? `<meta name="yandex-verification" content="${escapeAttribute(seo.yandexVerification)}">` : "",
+    // Settings → SEO header tags, exactly as saved (name= or property=).
+    ...seo.customMetas.map((meta) =>
+      meta.attr === "property"
+        ? `<meta property="${escapeAttribute(meta.name)}" content="${escapeAttribute(meta.content)}">`
+        : `<meta name="${escapeAttribute(meta.name)}" content="${escapeAttribute(meta.content)}">`,
+    ),
     `<link rel="canonical" href="${url}">`,
     ...LOCALES.map((code) => `<link rel="alternate" hreflang="${code}" href="${absoluteUrl(origin, localizePath(pagePath, code))}">`),
     `<link rel="alternate" hreflang="x-default" href="${absoluteUrl(origin, pagePath)}">`,

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
+import { getAdminAccessSettings } from "@/lib/admin-access";
+import { panelHref } from "@/lib/admin-access-shared";
 
 export const runtime = "nodejs";
 
@@ -24,7 +26,8 @@ export async function GET() {
   const { failure } = await requireAdmin();
   if (failure) return failure;
 
-  const [unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] = await Promise.all([
+  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] = await Promise.all([
+    getAdminAccessSettings(),
     prisma.user.count({ where: { emailVerified: false } }),
     prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
     prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null, emailSent: false } }),
@@ -87,8 +90,8 @@ export async function GET() {
   }
 
   return Response.json({
-    notifications: items,
+    notifications: items.map((item) => ({ ...item, href: panelHref(item.href, panelPath) })),
     total: items.reduce((sum, item) => sum + item.count, 0),
     actionable: items.filter((item) => item.actionable).reduce((sum, item) => sum + item.count, 0),
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }

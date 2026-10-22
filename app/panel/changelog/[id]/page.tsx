@@ -1,3 +1,4 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { readChanges } from "@/lib/changelog";
@@ -8,6 +9,7 @@ import type { ChangelogRecord } from "../_lib";
 export const dynamic = "force-dynamic";
 
 export default async function EditChangelogEntryPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePanelUser();
   const { id } = await params;
   const [entry, products] = await Promise.all([prisma.changelogEntry.findUnique({ where: { id } }), productOptions()]);
   if (!entry) notFound();

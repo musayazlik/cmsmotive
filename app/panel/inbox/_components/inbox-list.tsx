@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { setInquiryArchived, setInquiryRead } from "../_actions";
 import { formatInquiryDate, type InquiryRow } from "../_lib";
 

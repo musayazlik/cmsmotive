@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useUploadThing } from "@/lib/uploadthing";
 import { useUploadSettings } from "@/app/panel/_components/upload-settings";
 import { optimizeAllForUpload } from "@/lib/webp";

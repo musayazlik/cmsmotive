@@ -1,3 +1,4 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import { isReviewStatus, productPath } from "@/lib/reviews";
 import ReviewList from "./_components/review-list";
@@ -12,6 +13,7 @@ const productSelect = { select: { id: true, name: true, slug: true } } as const;
 
 /** `?product=theme:<id>` (linked from a theme's edit page) opens the list filtered to that product. */
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
+  await requirePanelUser();
   const { product } = await searchParams;
   const [reviews, themes, extensions] = await Promise.all([
     prisma.productReview.findMany({

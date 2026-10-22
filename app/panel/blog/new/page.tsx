@@ -1,3 +1,4 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import PostForm from "../_components/post-form";
 import type { CoverRef } from "../_lib";
@@ -6,6 +7,7 @@ import type { SelectOption } from "@/app/panel/_components/ui/select";
 export const dynamic = "force-dynamic";
 
 export default async function NewPostPage() {
+  await requirePanelUser();
   const [categories, tags, mediaAssets] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.tag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),

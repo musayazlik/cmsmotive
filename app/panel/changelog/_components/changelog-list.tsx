@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "@/app/panel/_components/panel-navigation";
 import { useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { Select } from "../../_components/ui";
@@ -140,9 +141,9 @@ export default function ChangelogList({ products, initialProduct = "" }: { produ
               />
               <span>per page</span>
             </span>
-            <a className="wbtn wbtn-primary wbtn-add" href={newHref}>
+            <Link className="wbtn wbtn-primary wbtn-add" href={newHref}>
               <span aria-hidden="true">+</span> New entry
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -204,9 +205,9 @@ export default function ChangelogList({ products, initialProduct = "" }: { produ
                     </td>
                     <td className="wtable-actions-col">
                       <div className="wtable-actions">
-                        <a className="wbtn wbtn-ghost wbtn-sm" href={`/panel/changelog/${row.id}`}>
+                        <Link className="wbtn wbtn-ghost wbtn-sm" href={`/panel/changelog/${row.id}`}>
                           Edit
-                        </a>
+                        </Link>
                         <button className="wbtn wbtn-ghost wbtn-sm wbtn-danger-ghost" type="button" onClick={() => setPendingDelete(row)}>
                           Delete
                         </button>

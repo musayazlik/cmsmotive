@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/app/panel/_components/panel-navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useEffect, useRef, useState } from "react";
 import CoverField from "./cover-field";
 import ColorField from "./color-field";

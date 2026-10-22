@@ -1,4 +1,7 @@
 import { ADMIN_ROLES } from "@/lib/admin-guard";
+import { requirePanelUser } from "@/lib/panel-auth";
+import { getAdminAccessSettings } from "@/lib/admin-access";
+import SecuritySettingsForm from "./_components/security-settings-form";
 import { getMcpSettings } from "@/lib/mcp-settings";
 import { isOpenRouterConfigured } from "@/lib/openrouter";
 import { isPlunkConfigured } from "@/lib/plunk";
@@ -10,6 +13,7 @@ import {
   contactRecipient,
   getAiSettings,
   getEmailSettings,
+  getMaintenanceSettings,
   getReviewSettings,
   getSeoSettings,
   getSiteSettings,
@@ -19,6 +23,7 @@ import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared
 import AiSettingsForm from "./_components/ai-settings-form";
 import EmailSettingsForm from "./_components/email-settings-form";
 import GeneralSettingsForm from "./_components/general-settings-form";
+import MaintenanceSettingsForm from "./_components/maintenance-settings-form";
 import McpSettingsForm from "./_components/mcp-settings-form";
 import MediaSettingsForm from "./_components/media-settings-form";
 import ReviewSettingsForm from "./_components/review-settings-form";
@@ -30,6 +35,7 @@ import { resolveSettingsTab, type SettingsTabId } from "./_tabs";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  await requirePanelUser();
   const tab = resolveSettingsTab((await searchParams).tab);
 
   return (
@@ -55,6 +61,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
 async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
   switch (tab) {
+    case "security":
+      return <SecuritySettingsForm settings={await getAdminAccessSettings()} origin={await siteOrigin()} />;
     case "general":
       return <GeneralSettingsForm settings={await getSiteSettings()} />;
     case "seo":
@@ -72,6 +80,8 @@ async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
           recaptchaConfigured={Boolean(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY)}
         />
       );
+    case "maintenance":
+      return <MaintenanceSettingsForm settings={await getMaintenanceSettings()} />;
     case "email":
       return <EmailPanel />;
     case "ai":

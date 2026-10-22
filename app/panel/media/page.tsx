@@ -1,3 +1,4 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import { Suspense } from "react";
 import { getEmbeddedUsage, NO_EMBEDS, type EmbeddedUsage } from "@/lib/media-usage";
 import { prisma } from "@/lib/prisma";
@@ -147,7 +148,8 @@ async function MediaLibrary() {
   );
 }
 
-export default function MediaPage() {
+export default async function MediaPage() {
+  await requirePanelUser();
   return (
     <>
       <div className="workspace-eyebrow">

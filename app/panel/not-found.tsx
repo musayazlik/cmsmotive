@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/app/panel/_components/panel-navigation";
 
 /** Unmatched URLs inside the workspace, still wrapped in the panel shell. */
 export default function PanelNotFound() {

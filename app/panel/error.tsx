@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "@/app/panel/_components/panel-navigation";
 import { useEffect } from "react";
 
 /**
@@ -32,9 +33,9 @@ export default function PanelError({
         <button type="button" className="wbtn wbtn-primary" onClick={reset}>
           Try again
         </button>
-        <a className="wbtn wbtn-ghost" href="/panel">
+        <Link className="wbtn wbtn-ghost" href="/panel">
           Back to overview
-        </a>
+        </Link>
       </div>
     </div>
   );

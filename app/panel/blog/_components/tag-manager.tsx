@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useEffect, useRef, useState } from "react";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import { deleteTag, saveTag } from "../_actions";

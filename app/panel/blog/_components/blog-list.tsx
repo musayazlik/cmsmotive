@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/app/panel/_components/panel-navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useMemo, useState } from "react";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import { deletePost, setPostStatus } from "../_actions";

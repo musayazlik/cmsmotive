@@ -27,7 +27,8 @@ const ADMIN_PANEL_ICON =
  * icons — the static-page twin of TopBar's `showAdmin` branch. Runs before
  * localization, so the label and aria-label translate with the page.
  */
-export function injectAdminPanelLink(html: string): string {
-  const link = `<a class="topbar-admin" href="/panel" aria-label="Admin panel">${ADMIN_PANEL_ICON}<span>Admin panel</span></a>`;
+export function injectAdminPanelLink(html: string, panelPath = "/panel", label = "Admin panel"): string {
+  const safeLabel = label.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+  const link = `<a class="topbar-admin" href="${panelPath}" aria-label="${safeLabel}">${ADMIN_PANEL_ICON}<span>${safeLabel}</span></a>`;
   return html.replace('<ul class="topbar-social"', `${link}<ul class="topbar-social"`);
 }

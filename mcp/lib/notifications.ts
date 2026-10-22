@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { getAdminAccessSettings } from "@/lib/admin-access";
+import { panelHref } from "@/lib/admin-access-shared";
 
 /**
  * Derived panel notifications, mirrored from GET /api/admin/notifications.
@@ -16,8 +18,9 @@ export type McpNotification = {
 };
 
 export async function listNotifications() {
-  const [unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] =
+  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] =
     await Promise.all([
+      getAdminAccessSettings(),
       prisma.user.count({ where: { emailVerified: false } }),
       prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
       prisma.contactInquiry.count({
@@ -83,7 +86,7 @@ export async function listNotifications() {
   }
 
   return {
-    notifications: items,
+    notifications: items.map((item) => ({ ...item, href: panelHref(item.href, panelPath) })),
     total: items.reduce((sum, item) => sum + item.count, 0),
     actionable: items.filter((item) => item.actionable).reduce((sum, item) => sum + item.count, 0),
   };

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/app/panel/_components/panel-navigation";
 import { SETTINGS_TABS, type SettingsTabId } from "../_tabs";
 
 /** Section switcher; each tab is a link so sections can be bookmarked and shared. */

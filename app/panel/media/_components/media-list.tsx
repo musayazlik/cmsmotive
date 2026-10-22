@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import RowActions from "@/app/panel/_components/row-actions";
 import Select from "@/app/panel/_components/ui/select";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import CheckBox from "@/app/panel/_components/ui/checkbox";
 import { saveUploadSettingsAction } from "../_actions";
 import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN, type UploadSettings } from "@/lib/upload-settings-shared";

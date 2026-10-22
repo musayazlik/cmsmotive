@@ -5,6 +5,7 @@ import {
   FALLBACK_CONTACT_RECIPIENT,
   type EmailSettings,
 } from "@/lib/email-settings-shared";
+import { DEFAULT_MAINTENANCE_SETTINGS, type MaintenanceSettings } from "@/lib/maintenance-settings-shared";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from "@/lib/review-settings-shared";
 import { DEFAULT_SEO_SETTINGS, type SeoSettings } from "@/lib/seo-settings-shared";
@@ -75,6 +76,9 @@ export const saveEmailSettings = (settings: EmailSettings) => writeSettingsGroup
 
 export const getAiSettings = cache(() => readSettingsGroup("ai", DEFAULT_AI_SETTINGS));
 export const saveAiSettings = (settings: AiSettings) => writeSettingsGroup("ai", settings);
+
+export const getMaintenanceSettings = cache(() => readSettingsGroup("maintenance", DEFAULT_MAINTENANCE_SETTINGS));
+export const saveMaintenanceSettings = (settings: MaintenanceSettings) => writeSettingsGroup("maintenance", settings);
 
 /** The inbox that receives inquiries and notifications: the setting, the environment, then the fallback. */
 export function contactRecipient(settings: EmailSettings): string {

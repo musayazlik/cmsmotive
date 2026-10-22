@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "@/app/panel/_components/panel-navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useState } from "react";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { DatePicker, Select, TextField, toISO } from "../../_components/ui";
@@ -94,9 +95,9 @@ export default function ChangelogForm({ products, record, initialProduct = "" }:
     <>
       <form className="wform-card" onSubmit={handleSubmit}>
         <div className="wpost-toolbar">
-          <a className="wbtn wbtn-ghost" href="/panel/changelog">
+          <Link className="wbtn wbtn-ghost" href="/panel/changelog">
             ← Back to changelog
-          </a>
+          </Link>
           {record ? (
             <div className="wpost-toolbar-actions">
               <button type="button" className="wbtn wbtn-danger-ghost" onClick={() => setConfirmDelete(true)} disabled={saving}>
@@ -238,9 +239,9 @@ export default function ChangelogForm({ products, record, initialProduct = "" }:
                 <button className="wbtn wbtn-primary wbtn-block" type="submit" disabled={saving}>
                   {saving ? "Saving…" : record ? "Save changes" : "Add to changelog"}
                 </button>
-                <a className="wbtn wbtn-ghost wbtn-block" href="/panel/changelog">
+                <Link className="wbtn wbtn-ghost wbtn-block" href="/panel/changelog">
                   Cancel
-                </a>
+                </Link>
               </div>
             </div>
           </div>

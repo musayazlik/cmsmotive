@@ -1,16 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { saveAdminAccessSettings } from "@/lib/admin-access";
+import { validateAdminAccessSettings } from "@/lib/admin-access-shared";
+import { adminEntryConfigured } from "@/lib/admin-entry";
 import { isAdminRole, requireAdmin } from "@/lib/admin-guard";
 import { issueMcpToken, revokeMcpToken, saveMcpAccess } from "@/lib/mcp-settings";
 import { prisma } from "@/lib/prisma";
 import { validateAiSettings } from "@/lib/ai-settings-shared";
 import { validateEmailSettings } from "@/lib/email-settings-shared";
 import { isPlunkConfigured, sendTestEmail } from "@/lib/plunk";
+import { validateMaintenanceSettings } from "@/lib/maintenance-settings-shared";
 import { validateReviewSettings } from "@/lib/review-settings-shared";
 import {
   saveAiSettings,
   saveEmailSettings,
+  saveMaintenanceSettings,
   saveReviewSettings,
   saveSeoSettings,
   saveSiteSettings,
@@ -32,6 +39,31 @@ import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared
 import type { ActionResult } from "@/app/panel/media/_lib";
 
 const FORBIDDEN = "You are not allowed to perform this action.";
+
+export async function saveAdminAccessSettingsAction(input: Record<string, unknown>): Promise<{ ok: true; panelPath: string } | { ok: false; error: string }> {
+  const { failure } = await requireAdmin();
+  if (failure) return { ok: false, error: FORBIDDEN };
+  const parsed = validateAdminAccessSettings(input ?? {});
+  if ("error" in parsed) return { ok: false, error: parsed.error };
+  if (parsed.data.panelPath !== "/panel" && !adminEntryConfigured()) {
+    return { ok: false, error: "Set a stable BETTER_AUTH_SECRET of at least 32 characters before enabling a private address." };
+  }
+  if (typeof input.currentPassword !== "string" || !input.currentPassword || input.currentPassword.length > 128) {
+    return { ok: false, error: "Confirm your current password to change the panel address." };
+  }
+  try {
+    await auth.api.verifyPassword({ body: { password: input.currentPassword }, headers: await headers() });
+  } catch {
+    return { ok: false, error: "Your password could not be verified. Sign in again or check your current password." };
+  }
+  try {
+    await saveAdminAccessSettings(parsed.data);
+    revalidatePath("/panel", "layout");
+    return { ok: true, panelPath: parsed.data.panelPath };
+  } catch {
+    return { ok: false, error: "The panel address could not be saved." };
+  }
+}
 
 /** Shared body of the JSON-group save actions: admin check, validation, write. */
 async function saveGroup<T>(
@@ -62,6 +94,10 @@ export async function saveSiteSettingsAction(input: Record<string, unknown>): Pr
 
 export async function saveSeoSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
   return saveGroup("seo", input, validateSeoSettings, saveSeoSettings);
+}
+
+export async function saveMaintenanceSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
+  return saveGroup("maintenance", input, validateMaintenanceSettings, saveMaintenanceSettings);
 }
 
 export async function saveReviewSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {

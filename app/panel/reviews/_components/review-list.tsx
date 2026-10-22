@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import type { ReviewStatus } from "@/lib/reviews";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { Select, type SelectOption } from "../../_components/ui";

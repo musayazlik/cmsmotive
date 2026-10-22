@@ -15,6 +15,16 @@ Plunk için `PLUNK_SECRET_KEY` gizli anahtar, `PLUNK_FROM_EMAIL` ise Plunk üzer
 
 Şema değişikliklerinde `pnpm db:migrate --name <değişiklik-adı>` komutunu kullanın. `pnpm build` Prisma istemcisini yeniden üretir ve Next.js uygulamasını derler.
 
+## Yönetim adresi ve güvenlik
+
+**Settings → Security** bölümünde panelin adresini değiştirebilirsiniz. Tek bir yol seçin veya **Generate a private path** ile rastgele bir adres üretin. Yeni giriş bağlantısını kopyalayın, mevcut şifrenizi doğrulayın ve kaydedin. Tarayıcı yeni panel adresine geçer; standart `/panel` yolları artık 404 döner. `/panel` değerini kaydetmek standart adrese geri döndürür.
+
+Özel adres etkin olduğunda yönetici şifre girişi, özel giriş sayfasının verdiği 20 dakikalık, HttpOnly ve imzalı giriş çerezini de gerektirir. Bu çerez adresi bildiğinizi gösterir; oturum veya yetki vermez. Better Auth şifreyi ve doğrulanmış e-postayı kontrol eder; panel sayfaları, API'ler ve sunucu işlemleri ayrıca veritabanındaki güncel yönetici rolünü kontrol eder. Normal üye girişi açık kalır ve özel panel adresini göstermez. Özel adres robots.txt'ye eklenmez; yönetici sayfaları önbelleğe alınmaz ve referrer göndermez.
+
+İmza için en az 32 karakterlik, kalıcı `BETTER_AUTH_SECRET` gerekir. Giriş denemeleri mevcut Better Auth ayarıyla IP başına dakikada 5 denemeyle sınırlıdır; bellek deposu süreç başınadır. Birden fazla uygulama örneğine geçilirse ortak bir rate-limit deposu kullanılmalıdır. Özel adres kaybedilirse sunucu/veritabanı yöneticisi `Setting` tablosundaki `security.panelPath` değerini JSON metni `"/panel"` olarak değiştirebilir; oturum ve rol kontrolleri devam eder.
+
+Yol doğrulama, bağlantı eşleme ve sahte/süresi dolmuş giriş çerezleri için testler: `pnpm test:admin-access`. Uygulama yaklaşımı [Next.js yetkilendirme rehberi](https://nextjs.org/docs/app/guides/authentication), [Better Auth hooks](https://www.better-auth.com/docs/concepts/hooks) ve [rate limit belgelerine](https://www.better-auth.com/docs/concepts/rate-limit) dayanır.
+
 ## MCP server
 
 Panelin tüm işlevleri MCP üzerinden de kullanılabilir: blog yazıları, kategori ve etiketler, temalar, eklentiler, güncelleme geçmişi, medya, ürün yorumları, gelen kutusu, kullanıcılar, ayarlar ve istatistikler. Her iki taşıma da aynı araçları sunar (`mcp/create-server.ts`, `mcp/tools/`). Ayarlar panelde **Settings → MCP** sekmesinden yönetilir (`/panel/settings?tab=mcp`). Yazma işlemleri orada seçilen yönetici hesabına atfedilir; seçim yoksa en eski admin/superadmin hesabı kullanılır. Hesap admin değilse araçlar çalışmaz.

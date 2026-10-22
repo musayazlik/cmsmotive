@@ -1,9 +1,11 @@
+import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import CatalogForm from "../../_components/catalog-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewThemePage() {
+  await requirePanelUser();
   const themeCount = await prisma.theme.count();
 
   return (

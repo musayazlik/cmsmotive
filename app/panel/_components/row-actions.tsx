@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "@/app/panel/_components/panel-navigation";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -131,7 +132,7 @@ export default function RowActions({ label, actions }: { label: string; actions:
               {visible.map((action) => {
                 const className = `wmenu-item${action.danger ? " wmenu-item-danger" : ""}`;
                 const item = action.href && !action.disabled ? (
-                  <a
+                  <Link
                     role="menuitem"
                     className={className}
                     href={action.href}
@@ -140,7 +141,7 @@ export default function RowActions({ label, actions }: { label: string; actions:
                   >
                     {action.label}
                     {action.external ? <span aria-hidden="true">↗</span> : null}
-                  </a>
+                  </Link>
                 ) : (
                   <button
                     type="button"

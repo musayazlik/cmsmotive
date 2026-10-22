@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "@/app/panel/_components/panel-navigation";
 import { useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "./confirm-dialog";
 import { MultiSelect, Select } from "./ui";
@@ -174,9 +175,9 @@ export default function CatalogList({ api, resourceKey, variant, createHref, cre
               />
               <span>per page</span>
             </span>
-            <a className="wbtn wbtn-primary wbtn-add" href={createHref}>
+            <Link className="wbtn wbtn-primary wbtn-add" href={createHref}>
               <span aria-hidden="true">+</span> {createLabel}
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -261,9 +262,9 @@ export default function CatalogList({ api, resourceKey, variant, createHref, cre
                     </td>
                     <td className="wtable-actions-col">
                       <div className="wtable-actions">
-                        <a className="wbtn wbtn-ghost wbtn-sm" href={`/panel/${resourceKey}/${row.id}`}>
+                        <Link className="wbtn wbtn-ghost wbtn-sm" href={`/panel/${resourceKey}/${row.id}`}>
                           Edit
-                        </a>
+                        </Link>
                         <button
                           className="wbtn wbtn-ghost wbtn-sm wbtn-danger-ghost"
                           type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import type { ActionResult } from "@/app/panel/media/_lib";
 
 /**
@@ -12,6 +12,7 @@ import type { ActionResult } from "@/app/panel/media/_lib";
 export function useSettingsForm<T extends Record<string, unknown>>(
   initial: T,
   action: (values: T) => Promise<ActionResult>,
+  options: { refresh?: boolean } = {},
 ) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
@@ -41,7 +42,7 @@ export function useSettingsForm<T extends Record<string, unknown>>(
         return;
       }
       setSaved(true);
-      router.refresh();
+      if (options.refresh !== false) router.refresh();
     });
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/app/panel/_components/panel-navigation";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import CheckBox from "@/app/panel/_components/ui/checkbox";
 import Select from "@/app/panel/_components/ui/select";

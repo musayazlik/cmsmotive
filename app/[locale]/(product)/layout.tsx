@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/lib/i18n/config";
+import CustomMetaTags from "../_components/custom-metas";
 import "../../../public/assets/css/site.css";
 import "../../../public/assets/css/product.css";
 
@@ -11,5 +12,10 @@ import "../../../public/assets/css/product.css";
  */
 export default async function ProductLayout({ children, params }: { children: ReactNode; params: Promise<{ locale: string }> }) {
   if (!isLocale((await params).locale)) notFound();
-  return children;
+  return (
+    <>
+      {children}
+      <CustomMetaTags />
+    </>
+  );
 }

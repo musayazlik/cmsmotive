@@ -40,7 +40,8 @@ type Props = {
 export default function DatePicker({
   value, onChange, label, hideLabel, hint, note, error, placeholder = "YYYY-MM-DD", disabled, id,
 }: Props) {
-  const fieldId = id ?? useId();
+  const autoId = useId();
+  const fieldId = id ?? autoId;
   const popId = `${fieldId}-cal`;
 
   const rootRef = useRef<HTMLDivElement>(null);

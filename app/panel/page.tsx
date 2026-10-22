@@ -7,8 +7,6 @@ import {
   getStorageStatus,
   getSystemStatus,
   type DailyReads,
-  type MailStatus,
-  type StorageStatus,
 } from "@/lib/status";
 import { formatBytes } from "./media/_lib";
 import SystemCharts from "./_components/system-charts";
@@ -184,9 +182,9 @@ export default async function PanelOverviewPage() {
             </span>
             <h2 id="feature-title">Nordform</h2>
             <p>Considered design foundations for ambitious TYPO3 projects.</p>
-            <a href="/theme/nordform">
+            <Link href="/theme/nordform">
               Explore the theme <span aria-hidden="true">↗</span>
-            </a>
+            </Link>
           </div>
           <Image src="/assets/images/hero-nordform-v2.webp" alt="Nordform architecture concept" width={1536} height={1024} />
         </section>
@@ -224,11 +222,11 @@ export default async function PanelOverviewPage() {
             <strong>Themes</strong>
             <i aria-hidden="true">↗</i>
           </Link>
-          <a href="/contact">
+          <Link href="/contact">
             <span>03 / CONNECT</span>
             <strong>Talk to us</strong>
             <i aria-hidden="true">↗</i>
-          </a>
+          </Link>
         </div>
       </section>
     </>

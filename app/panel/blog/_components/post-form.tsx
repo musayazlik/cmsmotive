@@ -2,11 +2,11 @@
 
 import Link from "@/app/panel/_components/panel-navigation";
 import { useRouter } from "@/app/panel/_components/panel-navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import CoverField from "./cover-field";
-import ColorField from "./color-field";
 import AiDialog, { type AiApplyPayload } from "./ai-dialog";
-import { deletePost, saveCategory, savePost, saveTag } from "../_actions";
+import { CategoryQuickDialog, TagQuickDialog } from "./taxonomy-quick-dialogs";
+import { deletePost, savePost } from "../_actions";
 import {
   EXCERPT_MAX,
   TITLE_MAX,
@@ -34,8 +34,6 @@ type Props = {
   media: CoverRef[];
 };
 
-const EMPTY_CATEGORY_FORM = { name: "", slug: "", description: "", color: "#4353e8" };
-const EMPTY_TAG_FORM = { name: "", slug: "" };
 const PUBLISH_OPTIONS: SelectOption[] = [
   { value: "draft", label: "Save as draft" },
   { value: "published", label: "Publish now" },
@@ -109,95 +107,13 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
   const [aiOpen, setAiOpen] = useState(false);
   const { toast, showToast } = useToast();
 
-  // create dialogs mirror the ones on the categories/tags pages
-  const categoryDialogRef = useRef<HTMLDialogElement>(null);
-  const tagDialogRef = useRef<HTMLDialogElement>(null);
+  // quick-create dialogs own their form state; the form only mounts them while open
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [categoryForm, setCategoryForm] = useState(EMPTY_CATEGORY_FORM);
-  const [tagForm, setTagForm] = useState(EMPTY_TAG_FORM);
-  const [categorySlugTouched, setCategorySlugTouched] = useState(false);
-  const [tagSlugTouched, setTagSlugTouched] = useState(false);
-  const [dialogBusy, setDialogBusy] = useState(false);
-  const [categoryDialogError, setCategoryDialogError] = useState("");
-  const [tagDialogError, setTagDialogError] = useState("");
-
-  useEffect(() => {
-    const dialog = categoryDialogRef.current;
-    if (!dialog) return;
-    if (categoryDialogOpen && !dialog.open) dialog.showModal();
-    if (!categoryDialogOpen && dialog.open) dialog.close();
-  }, [categoryDialogOpen]);
-
-  useEffect(() => {
-    const dialog = tagDialogRef.current;
-    if (!dialog) return;
-    if (tagDialogOpen && !dialog.open) dialog.showModal();
-    if (!tagDialogOpen && dialog.open) dialog.close();
-  }, [tagDialogOpen]);
 
   function handleTitleChange(next: string) {
     setTitle(next);
     if (!slugTouched) setSlug(slugify(next));
-  }
-
-  function openCategoryDialog() {
-    setCategoryForm(EMPTY_CATEGORY_FORM);
-    setCategorySlugTouched(false);
-    setCategoryDialogError("");
-    setCategoryDialogOpen(true);
-  }
-
-  function openTagDialog() {
-    setTagForm(EMPTY_TAG_FORM);
-    setTagSlugTouched(false);
-    setTagDialogError("");
-    setTagDialogOpen(true);
-  }
-
-  async function submitCategoryDialog() {
-    setDialogBusy(true);
-    setCategoryDialogError("");
-    const result = await saveCategory({
-      name: categoryForm.name,
-      slug: categoryForm.slug,
-      description: categoryForm.description,
-      color: categoryForm.color,
-    });
-    setDialogBusy(false);
-    if (!result.ok) {
-      setCategoryDialogError(result.error);
-      return;
-    }
-    setCategoryDialogOpen(false);
-    const { id, name } = result;
-    if (id && name) {
-      setCategoryOptions((prev) =>
-        prev.some((option) => option.value === id) ? prev : [...prev, { value: id, label: name }],
-      );
-      setCategoryId(id);
-    }
-    router.refresh();
-  }
-
-  async function submitTagDialog() {
-    setDialogBusy(true);
-    setTagDialogError("");
-    const result = await saveTag({ name: tagForm.name, slug: tagForm.slug });
-    setDialogBusy(false);
-    if (!result.ok) {
-      setTagDialogError(result.error);
-      return;
-    }
-    setTagDialogOpen(false);
-    const { id, name } = result;
-    if (id && name) {
-      setTagOptions((prev) =>
-        prev.some((option) => option.value === id) ? prev : [...prev, { value: id, label: name }],
-      );
-      setTagIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    }
-    router.refresh();
   }
 
   /** Apply the generated fields and persist the complete post as a draft. */
@@ -472,7 +388,7 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
                 emptyLabel="No category"
                 placeholder="No category"
               />
-              <button type="button" className="wbtn wbtn-primary wbtn-sm wbtn-block worg-action" onClick={openCategoryDialog}>
+              <button type="button" className="wbtn wbtn-primary wbtn-sm wbtn-block worg-action" onClick={() => setCategoryDialogOpen(true)}>
                 New category
               </button>
             </div>
@@ -487,7 +403,7 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
               emptyLabel="No tags yet — create one below."
               maxChips={4}
             />
-            <button type="button" className="wbtn wbtn-primary wbtn-sm wbtn-block worg-action" onClick={openTagDialog}>
+            <button type="button" className="wbtn wbtn-primary wbtn-sm wbtn-block worg-action" onClick={() => setTagDialogOpen(true)}>
               New tag
             </button>
 
@@ -518,163 +434,29 @@ export default function PostForm({ initial, categories, tags, media }: Props) {
         </div>
       </div>
 
-      <dialog
-        ref={categoryDialogRef}
-        className="wdialog"
-        onClose={() => setCategoryDialogOpen(false)}
-        onClick={(event) => {
-          if (event.target === categoryDialogRef.current) setCategoryDialogOpen(false);
-        }}
-      >
-        <div className="wdialog-head">
-          <div>
-            <span className="wdialog-eyebrow">Blog / Categories</span>
-            <h2>New category</h2>
-          </div>
-          <button type="button" className="wdialog-close" aria-label="Close" onClick={() => setCategoryDialogOpen(false)}>
-            ×
-          </button>
-        </div>
-        <div className="wdialog-body">
-          <div className="wform">
-            <div className="wfield">
-              <label htmlFor="category-name">Name</label>
-              <input
-                id="category-name"
-                type="text"
-                value={categoryForm.name}
-                maxLength={60}
-                onChange={(event) => {
-                  const name = event.target.value;
-                  setCategoryForm((prev) => ({ ...prev, name, slug: categorySlugTouched ? prev.slug : slugify(name) }));
-                }}
-                placeholder="Category name"
-              />
-            </div>
-            <div className="wfield">
-              <label htmlFor="category-slug">
-                Slug<span className="wfield-hint">edit for SEO control</span>
-              </label>
-              <input
-                id="category-slug"
-                type="text"
-                value={categoryForm.slug}
-                onChange={(event) => {
-                  setCategorySlugTouched(true);
-                  setCategoryForm((prev) => ({ ...prev, slug: event.target.value }));
-                }}
-                placeholder="category-slug"
-              />
-            </div>
-            <div className="wfield">
-              <label htmlFor="category-description">
-                Description<span className="wfield-hint">optional</span>
-              </label>
-              <textarea
-                id="category-description"
-                value={categoryForm.description}
-                maxLength={200}
-                rows={3}
-                onChange={(event) => setCategoryForm((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="Short description shown on category pages"
-              />
-            </div>
-            <ColorField
-              label="Color"
-              value={categoryForm.color}
-              onChange={(color) => setCategoryForm((prev) => ({ ...prev, color }))}
-            />
-            {categoryDialogError ? (
-              <p className="wdialog-error" role="alert">
-                {categoryDialogError}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <div className="wdialog-foot">
-          <button type="button" className="wbtn wbtn-ghost" onClick={() => setCategoryDialogOpen(false)} disabled={dialogBusy}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="wbtn wbtn-primary"
-            onClick={submitCategoryDialog}
-            disabled={dialogBusy || !categoryForm.name.trim()}
-          >
-            {dialogBusy ? "Saving…" : "Create category"}
-          </button>
-        </div>
-      </dialog>
+      {categoryDialogOpen ? (
+        <CategoryQuickDialog
+          onClose={() => setCategoryDialogOpen(false)}
+          onCreated={(id, name) => {
+            setCategoryOptions((prev) =>
+              prev.some((option) => option.value === id) ? prev : [...prev, { value: id, label: name }],
+            );
+            setCategoryId(id);
+          }}
+        />
+      ) : null}
 
-      <dialog
-        ref={tagDialogRef}
-        className="wdialog"
-        onClose={() => setTagDialogOpen(false)}
-        onClick={(event) => {
-          if (event.target === tagDialogRef.current) setTagDialogOpen(false);
-        }}
-      >
-        <div className="wdialog-head">
-          <div>
-            <span className="wdialog-eyebrow">Blog / Tags</span>
-            <h2>New tag</h2>
-          </div>
-          <button type="button" className="wdialog-close" aria-label="Close" onClick={() => setTagDialogOpen(false)}>
-            ×
-          </button>
-        </div>
-        <div className="wdialog-body">
-          <div className="wform">
-            <div className="wfield">
-              <label htmlFor="tag-name">Name</label>
-              <input
-                id="tag-name"
-                type="text"
-                value={tagForm.name}
-                maxLength={40}
-                onChange={(event) => {
-                  const name = event.target.value;
-                  setTagForm((prev) => ({ ...prev, name, slug: tagSlugTouched ? prev.slug : slugify(name) }));
-                }}
-                placeholder="Tag name"
-              />
-            </div>
-            <div className="wfield">
-              <label htmlFor="tag-slug">
-                Slug<span className="wfield-hint">edit for SEO control</span>
-              </label>
-              <input
-                id="tag-slug"
-                type="text"
-                value={tagForm.slug}
-                onChange={(event) => {
-                  setTagSlugTouched(true);
-                  setTagForm((prev) => ({ ...prev, slug: event.target.value }));
-                }}
-                placeholder="tag-slug"
-              />
-            </div>
-            {tagDialogError ? (
-              <p className="wdialog-error" role="alert">
-                {tagDialogError}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <div className="wdialog-foot">
-          <button type="button" className="wbtn wbtn-ghost" onClick={() => setTagDialogOpen(false)} disabled={dialogBusy}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="wbtn wbtn-primary"
-            onClick={submitTagDialog}
-            disabled={dialogBusy || !tagForm.name.trim()}
-          >
-            {dialogBusy ? "Saving…" : "Create tag"}
-          </button>
-        </div>
-      </dialog>
+      {tagDialogOpen ? (
+        <TagQuickDialog
+          onClose={() => setTagDialogOpen(false)}
+          onCreated={(id, name) => {
+            setTagOptions((prev) =>
+              prev.some((option) => option.value === id) ? prev : [...prev, { value: id, label: name }],
+            );
+            setTagIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={confirmDelete}

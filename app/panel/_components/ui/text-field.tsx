@@ -25,7 +25,8 @@ type Props = {
 
 export default function TextField(props: Props) {
   const { value, onChange, label, hideLabel, hint, note, error, disabled, type = "text", id, ...input } = props;
-  const fieldId = id ?? useId();
+  const autoId = useId();
+  const fieldId = id ?? autoId;
 
   return (
     <FieldShell id={fieldId} label={label} hideLabel={hideLabel} hint={hint} note={note} error={error} disabled={disabled}>

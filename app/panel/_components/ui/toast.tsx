@@ -17,7 +17,9 @@ export function Toast({ message, tone = "error", duration = 5000, onClose }: Toa
   // The parent may re-render while the toast is visible; the ref keeps those
   // renders from restarting the dismiss timer.
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => onCloseRef.current(), duration);

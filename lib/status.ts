@@ -49,8 +49,8 @@ const PLUNK_BASE = "https://next-api.useplunk.com";
 export async function getSystemStatus(): Promise<SystemStatus> {
   const cores = os.cpus().length || 1;
   const [load1] = os.loadavg();
-  let ramTotal = os.totalmem();
-  let ramUsed = ramTotal - os.freemem();
+  const ramTotal = os.totalmem();
+  const ramUsed = ramTotal - os.freemem();
   let diskTotal = 0;
   let diskUsed = 0;
   try {

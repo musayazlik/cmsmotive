@@ -27,7 +27,8 @@ export default function MultiSelect({
   value, onChange, options, label, hideLabel, hint, note, error, placeholder, emptyLabel, maxChips = 2, disabled, id,
 }: Props) {
   const normalized = useMemo(() => toOptions(options), [options]);
-  const fieldId = id ?? useId();
+  const autoId = useId();
+  const fieldId = id ?? autoId;
   const listId = `${fieldId}-list`;
 
   const rootRef = useRef<HTMLDivElement>(null);

@@ -124,6 +124,8 @@ export default function PanelHeader({
       headers: { "Content-Type": "application/json" },
       body: "{}",
     });
+    // Full reload on purpose: a client-side push would keep cached panel state around.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign("/");
   }
 

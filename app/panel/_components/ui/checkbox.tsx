@@ -15,7 +15,8 @@ type Props = {
 
 /** Custom-drawn checkbox so the panel controls all share one look. */
 export default function CheckBox({ checked, onChange, label, note, disabled, id, className }: Props) {
-  const fieldId = id ?? useId();
+  const autoId = useId();
+  const fieldId = id ?? autoId;
 
   return (
     <div className={["wcheck", className, disabled ? "is-disabled" : null].filter(Boolean).join(" ")}>

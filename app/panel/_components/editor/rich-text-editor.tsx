@@ -98,10 +98,14 @@ export default function RichTextEditor({ id, value, onChange, placeholder = "Sta
     onUpdate: ({ editor: instance }) => onChangeRef.current(instance.getHTML()),
   });
 
-  editorRef.current = editor;
-
   const media = useMediaUpload(editor, endpoint);
-  uploadRef.current = media.upload;
+
+  useEffect(() => {
+    // The editor's own handlers are created once; they reach the current
+    // instance and uploader through these refs after every commit.
+    editorRef.current = editor;
+    uploadRef.current = media.upload;
+  });
   const counts = useCounts(editor);
 
   // Keep the document in sync when the value changes outside the editor.

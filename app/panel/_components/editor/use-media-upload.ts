@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
 import { mediaKindOf, useOptimizedUpload, type MediaEndpoint, type UploadedMedia } from "../use-optimized-upload";
 
@@ -20,7 +20,9 @@ export function toMediaNodes(items: UploadedMedia[]): JSONContent[] {
  */
 export function useMediaUpload(editor: Editor | null, endpoint: MediaEndpoint) {
   const editorRef = useRef(editor);
-  editorRef.current = editor;
+  useEffect(() => {
+    editorRef.current = editor;
+  });
   const insertAt = useRef<number | null>(null);
 
   const uploader = useOptimizedUpload(endpoint, ["image", "video"], (files) => {

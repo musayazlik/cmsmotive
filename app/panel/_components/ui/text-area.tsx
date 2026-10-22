@@ -28,7 +28,8 @@ export default function TextArea(props: Props) {
     value, onChange, label, hideLabel, hint, note, error, disabled,
     maxLength, rows = 4, variant = "multi", id, ...rest
   } = props;
-  const fieldId = id ?? useId();
+  const autoId = useId();
+  const fieldId = id ?? autoId;
 
   return (
     <FieldShell

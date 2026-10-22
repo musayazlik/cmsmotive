@@ -1,29 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { marked } from "marked";
-import CheckBox from "@/app/panel/_components/ui/checkbox";
-import Select from "@/app/panel/_components/ui/select";
 import type { SelectOption } from "@/app/panel/_components/ui/select";
+import { markdownToHtml } from "@/app/panel/_components/editor/markdown";
 import { slugify } from "@/lib/slug";
 import { saveCategory, saveTag } from "../_actions";
-import {
-  AI_DEPTHS,
-  AI_DEPTH_LABELS,
-  AI_LANGUAGES,
-  AI_LANGUAGE_LABELS,
-  AI_STYLES,
-  AI_STYLE_LABELS,
-  type AiDepth,
-  type AiFields,
-  type AiGenerateResult,
-  type AiLanguage,
-  type AiModelInfo,
-  type AiStyle,
+import type {
+  AiDepth,
+  AiFields,
+  AiGenerateResult,
+  AiLanguage,
+  AiModelInfo,
+  AiStyle,
 } from "../_ai";
 import type { CoverRef } from "../_lib";
-import ModelPicker from "./model-picker";
 import { DEFAULT_IMAGE_MODELS, DEFAULT_TEXT_MODELS, pickModel, type AiSettings } from "@/lib/ai-settings-shared";
+import AiSetupView from "./ai-dialog-setup";
+import AiResultView from "./ai-dialog-result";
+import AiGeneratingView from "./ai-dialog-generating";
 
 /** Everything the dialog produced, resolved to form-ready values. */
 export type AiApplyPayload = {
@@ -52,36 +46,7 @@ type Props = {
   onApply: (payload: AiApplyPayload) => Promise<void>;
 };
 
-const FIELD_OPTIONS: { key: keyof AiFields; label: string; note: string }[] = [
-  { key: "title", label: "Title", note: "SEO headline, max 60 characters" },
-  { key: "description", label: "Description", note: "Meta description, max 160 characters" },
-  { key: "content", label: "Content", note: "Full post body with headings and lists" },
-  { key: "contentImages", label: "In-content images", note: "Illustrations placed between sections" },
-  { key: "cover", label: "Cover image", note: "AI-generated featured image" },
-  { key: "category", label: "Category", note: "Matched to the content — created when missing" },
-  { key: "tags", label: "Tags", note: "Existing tags plus new suggestions" },
-];
-
-const STYLE_NOTES: Record<AiStyle, string> = {
-  informative: "Clear, neutral and fact-focused.",
-  conversational: "Friendly and easy to read.",
-  persuasive: "Benefit-led and action-oriented.",
-  technical: "Precise with implementation detail.",
-};
-
-const DEPTH_NOTES: Record<AiDepth, string> = {
-  concise: "A quick overview, about 400 words.",
-  standard: "Balanced detail, about 800 words.",
-  "in-depth": "Thorough coverage, about 1,400 words.",
-};
-
-/** Same conversion the editor uses for pasted markdown. */
-function markdownToHtml(text: string): string {
-  const html = marked.parse(text, { async: false }) as string;
-  return html.replace(/<h([1-6])>/g, (_, level: string) => `<h${Math.min(4, Math.max(2, Number(level)))}>`);
-}
-
-
+/** The dialog shell: view state machine, generation request and draft saving. */
 export default function AiDialog({ open, onClose, initialTopic, categoryOptions, tagOptions, onApply }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const preparedDraft = useRef<{ result: AiGenerateResult; payload: AiApplyPayload } | null>(null);
@@ -305,7 +270,6 @@ export default function AiDialog({ open, onClose, initialTopic, categoryOptions,
   const canGenerate =
     Boolean(models) && !modelsError && anyField && topic.trim().length >= 3 && Boolean(textModelId) &&
     (!needsImageModel || Boolean(imageModelId));
-  const selectedFields = FIELD_OPTIONS.filter((option) => fields[option.key]);
 
   return (
     <dialog
@@ -334,215 +298,32 @@ export default function AiDialog({ open, onClose, initialTopic, categoryOptions,
 
       <div className="wdialog-body">
         {view === "setup" ? (
-          <div className="wform">
-            <div className="wfield">
-              <label htmlFor="wai-topic">Topic / brief</label>
-              <textarea
-                id="wai-topic"
-                rows={3}
-                value={topic}
-                maxLength={2000}
-                onChange={(event) => setTopic(event.target.value)}
-                placeholder="What should the post be about? Include the angle, audience and any must-mention details."
-              />
-              <p className="wfield-hint-block">
-                The more specific the brief, the better the output. Existing title is used as the starting
-                point.
-              </p>
-            </div>
-
-            <section className="wai-fieldset" aria-labelledby="wai-fields-heading">
-              <div className="wai-fieldset-head">
-                <div>
-                  <span className="wai-fieldset-kicker">Output / selection</span>
-                  <h3 id="wai-fields-heading">Fields to generate</h3>
-              <p>Generated content is saved automatically as a draft.</p>
-                </div>
-                <span className="wai-fields-count">{Object.values(fields).filter(Boolean).length} / {FIELD_OPTIONS.length} selected</span>
-              </div>
-              <div className="wai-fields">
-                {FIELD_OPTIONS.map((option) => {
-                  const noImageModels = (models?.image.length ?? 0) === 0;
-                  const needsImages = option.key === "cover" || option.key === "contentImages";
-                  const needsContent = option.key === "contentImages" && !fields.content;
-                  const disabled = Boolean(modelsError) || (needsImages && noImageModels) || needsContent;
-                  const note = needsContent
-                    ? "Select Content first"
-                    : needsImages && noImageModels
-                      ? "No image model available"
-                      : option.note;
-                  return (
-                    <CheckBox
-                      key={option.key}
-                      checked={fields[option.key]}
-                      disabled={disabled}
-                      label={option.label}
-                      note={note}
-                      onChange={(checked) => setFields((current) => ({ ...current, [option.key]: checked }))}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            {modelsError ? (
-              <p className="wdialog-error" role="alert">
-                {modelsError}
-              </p>
-            ) : null}
-
-            {models && models.text.length > 0 ? (
-              <ModelPicker label="Text model" models={models.text} value={textModelId} onChange={setTextModelId} />
-            ) : null}
-            {(fields.cover || fields.contentImages) && models && models.image.length > 0 ? (
-              <ModelPicker label="Image model" models={models.image} value={imageModelId} onChange={setImageModelId} />
-            ) : null}
-
-            <section className="wai-preferences" aria-labelledby="wai-preferences-heading">
-              <div className="wai-preferences-head">
-                <span className="wai-fieldset-kicker">Article / settings</span>
-                <h3 id="wai-preferences-heading">Shape the writing</h3>
-                <p>Choose the tone, length and language of the generated text.</p>
-              </div>
-              <div className="wai-row">
-                <Select
-                  label="Writing style"
-                  value={style}
-                  onChange={(next) => setStyle(next as AiStyle)}
-                  options={AI_STYLES.map((value) => ({ value, label: AI_STYLE_LABELS[value] }))}
-                  note={STYLE_NOTES[style]}
-                />
-                <Select
-                  label="Depth"
-                  value={depth}
-                  onChange={(next) => setDepth(next as AiDepth)}
-                  options={AI_DEPTHS.map((value) => ({ value, label: AI_DEPTH_LABELS[value] }))}
-                  note={DEPTH_NOTES[depth]}
-                />
-                <Select
-                  label="Language"
-                  value={language}
-                  onChange={(next) => setLanguage(next as AiLanguage)}
-                  options={AI_LANGUAGES.map((value) => ({ value, label: AI_LANGUAGE_LABELS[value] }))}
-                  note="Language used for the generated text."
-                />
-              </div>
-            </section>
-
-            <CheckBox
-              className="wai-web-search"
-              checked={webSearch}
-              onChange={setWebSearch}
-              label="Research the web first"
-              note="A research model (Settings → AI) searches the web; the post cites its sources and ends with a numbered bibliography. Adds a small cost and up to a few minutes."
-            />
-
-            {error ? (
-              <p className="wdialog-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
+          <AiSetupView
+            topic={topic}
+            onTopicChange={setTopic}
+            fields={fields}
+            onFieldChange={(key, checked) => setFields((current) => ({ ...current, [key]: checked }))}
+            models={models}
+            modelsError={modelsError}
+            textModelId={textModelId}
+            onTextModelChange={setTextModelId}
+            imageModelId={imageModelId}
+            onImageModelChange={setImageModelId}
+            style={style}
+            onStyleChange={setStyle}
+            depth={depth}
+            onDepthChange={setDepth}
+            language={language}
+            onLanguageChange={setLanguage}
+            webSearch={webSearch}
+            onWebSearchChange={setWebSearch}
+            error={error}
+          />
         ) : result ? (
-          <div className="wai-result">
-            {busy ? <p className="wai-save-state" role="status">Saving generated content as a draft…</p> : null}
-            {result.warnings.length > 0 ? (
-              <div className="wai-warning" role="status">
-                <span aria-hidden="true">⚠</span>
-                <div>
-                  {result.warnings.map((warning) => (
-                    <p key={warning}>{warning}</p>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {result.title !== undefined ? (
-              <div className="wai-result-block">
-                <span className="wai-result-label">Title · {result.title.length} chars</span>
-                <p className="wai-result-text">{result.title}</p>
-              </div>
-            ) : null}
-            {result.description !== undefined ? (
-              <div className="wai-result-block">
-                <span className="wai-result-label">Description · {result.description.length}/160 chars</span>
-                <p className="wai-result-text">{result.description}</p>
-              </div>
-            ) : null}
-            {result.cover ? (
-              <div className="wai-result-block">
-                <span className="wai-result-label">Cover image · uploaded to the media library</span>
-                {/* eslint-disable-next-line @next/next/no-img-element -- UploadThing hosts are arbitrary */}
-                <img className="wai-result-cover" src={result.cover.url} alt="Generated cover" />
-              </div>
-            ) : null}
-            {result.content !== undefined ? (
-              <div className="wai-result-block">
-                <span className="wai-result-label">
-                  Content · markdown, {result.content.split(/\s+/).length} words
-                  {(result.content.match(/!\[[^\]]*\]\(/g) ?? []).length > 0
-                    ? `, ${(result.content.match(/!\[[^\]]*\]\(/g) ?? []).length} inline images`
-                    : ""}
-                </span>
-                <p className="wai-result-text">{result.content}</p>
-              </div>
-            ) : null}
-            {result.category !== undefined ? (
-              <div className="wai-result-block">
-                <span className="wai-result-label">Category · created when new</span>
-                <p className="wai-result-text">{result.category ?? "None suggested."}</p>
-              </div>
-            ) : null}
-            {result.tags.length > 0 ? (
-              <div className="wai-result-block">
-                <span className="wai-result-label">Tags</span>
-                <p className="wai-result-tags">
-                  {result.tags.map((tag) => (
-                    <span key={tag} className="wbadge wbadge-verified">
-                      {tag}
-                    </span>
-                  ))}
-                </p>
-              </div>
-            ) : null}
-
-            {error ? (
-              <p className="wdialog-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
+          <AiResultView result={result} busy={busy} error={error} />
         ) : null}
 
-        {view === "generating" ? (
-          <div className="wai-working" role="status" aria-live="polite">
-            <div className="wai-working-visual" aria-hidden="true">
-              <div className="wai-working-halo" />
-              <div className="wai-working-sheet">
-                <div className="wai-working-sheet-top">
-                  <span>DRAFT / 01</span>
-                  <span className="wai-working-spark">✦</span>
-                </div>
-                <div className="wai-working-line wai-working-line-title" />
-                <div className="wai-working-line wai-working-line-long" />
-                <div className="wai-working-line wai-working-line-medium" />
-                <div className="wai-working-line wai-working-line-short" />
-                <div className="wai-working-sheet-foot"><i /><i /><i /></div>
-              </div>
-            </div>
-            <span className="wai-working-kicker"><i /> AI ASSISTANT / IN PROGRESS</span>
-            <h3>Building your draft<span aria-hidden="true">…</span></h3>
-            <p className="wai-working-description">
-              Your brief is being turned into a post{webSearch ? " with current web sources" : ""}.
-              You can cancel the generation and adjust your settings while it runs.
-            </p>
-            <div className="wai-working-fields" aria-label="Fields being generated">
-              <span>CREATING</span>
-              {selectedFields.map((field) => <span key={field.key}>{field.label}</span>)}
-            </div>
-            <div className="wai-working-progress" aria-hidden="true"><span /></div>
-          </div>
-        ) : null}
+        {view === "generating" ? <AiGeneratingView fields={fields} webSearch={webSearch} /> : null}
       </div>
 
       <footer className="wdialog-foot">
@@ -567,13 +348,7 @@ export default function AiDialog({ open, onClose, initialTopic, categoryOptions,
             <button type="button" className="wbtn wbtn-ghost" onClick={() => setView("setup")} disabled={busy}>
               Back to settings
             </button>
-            <button
-              type="button"
-              className="wbtn wbtn-ghost"
-              onClick={generate}
-              disabled={busy}
-              title="Run the generation again with the same settings"
-            >
+            <button type="button" className="wbtn wbtn-ghost" onClick={generate} disabled={busy} title="Run the generation again with the same settings">
               Regenerate
             </button>
             <button type="button" className="wbtn wbtn-primary" onClick={() => result && applyGenerated(result)} disabled={busy || !error}>

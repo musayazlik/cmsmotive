@@ -17,7 +17,8 @@ type Props = {
  * Same API and look as CheckBox, but drawn as a sliding track.
  */
 export default function Switch({ checked, onChange, label, note, disabled, id }: Props) {
-  const fieldId = id ?? useId();
+  const autoId = useId();
+  const fieldId = id ?? autoId;
 
   return (
     <div className={["wswitch", disabled ? "is-disabled" : null].filter(Boolean).join(" ")}>

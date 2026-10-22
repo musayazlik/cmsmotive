@@ -8,7 +8,7 @@ import {
   validateChangelog,
 } from "@/lib/catalog-guard";
 import { productExists, readChanges } from "@/lib/changelog";
-import { iso, runTool, ToolError } from "../lib/result";
+import { runTool, ToolError } from "../lib/result";
 
 const productSelect = { select: { id: true, name: true, slug: true } } as const;
 

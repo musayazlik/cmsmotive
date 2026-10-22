@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
 import { optimizeAllForUpload } from "@/lib/webp";
 import { useUploadSettings } from "./upload-settings";
@@ -35,7 +35,9 @@ export function useOptimizedUpload(endpoint: MediaEndpoint, accept: MediaKind[],
   const [error, setError] = useState("");
   const uploadSettings = useUploadSettings();
   const onUploadedRef = useRef(onUploaded);
-  onUploadedRef.current = onUploaded;
+  useEffect(() => {
+    onUploadedRef.current = onUploaded;
+  });
 
   const { startUpload } = useUploadThing(endpoint, {
     onUploadProgress: setProgress,

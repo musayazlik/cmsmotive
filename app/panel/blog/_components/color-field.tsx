@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 /** Curated categorical palette; the brand indigo leads. */
 const PRESETS = [
@@ -77,7 +77,9 @@ export default function ColorField({ label, value, onChange }: Props) {
   const [draft, setDraft] = useState(value);
   // Pointer handlers fire faster than re-renders; read the latest state from a ref.
   const hsvaRef = useRef(hsva);
-  hsvaRef.current = hsva;
+  useEffect(() => {
+    hsvaRef.current = hsva;
+  });
 
   function apply(next: Hsva) {
     setHsva(next);
@@ -116,7 +118,6 @@ export default function ColorField({ label, value, onChange }: Props) {
 
   function onTrackKeyDown(get: () => number, set: (next: number) => Hsva) {
     return (event: KeyboardEvent<HTMLDivElement>) => {
-      const current = hsvaRef.current;
       if (event.key === "ArrowLeft") apply(set(get() - 6));
       else if (event.key === "ArrowRight") apply(set(get() + 6));
       else return;
@@ -185,8 +186,8 @@ export default function ColorField({ label, value, onChange }: Props) {
           if (event.buttons & 1) hueHandlers(event);
         }}
         onKeyDown={onTrackKeyDown(
-          () => hsvaRef.current.h,
-          (h) => ({ ...hsvaRef.current, h: (h + 360) % 360 }),
+          () => hsva.h,
+          (h) => ({ ...hsva, h: (h + 360) % 360 }),
         )}
       >
         <span className="wcolor-thumb" style={{ left: `${(hsva.h / 360) * 100}%`, top: "50%" }} />
@@ -217,8 +218,8 @@ export default function ColorField({ label, value, onChange }: Props) {
           if (event.buttons & 1) alphaHandlers(event);
         }}
         onKeyDown={onTrackKeyDown(
-          () => hsvaRef.current.a * 360,
-          (hRaw) => ({ ...hsvaRef.current, a: clamp(hRaw / 360, 0, 1) }),
+          () => hsva.a * 360,
+          (hRaw) => ({ ...hsva, a: clamp(hRaw / 360, 0, 1) }),
         )}
       >
         <span className="wcolor-thumb" style={{ left: `${hsva.a * 100}%`, top: "50%" }} />

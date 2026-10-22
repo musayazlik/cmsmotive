@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import Link from "@/app/panel/_components/panel-navigation";
 import { useCallback, useEffect, useState } from "react";
 import ConfirmDialog from "../../_components/confirm-dialog";
@@ -204,14 +206,10 @@ export default function ChangelogList({ products, initialProduct = "" }: { produ
                       <span className="wtable-date">{stamp(row.createdAt)}</span>
                     </td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <Link className="wbtn wbtn-ghost wbtn-sm" href={`/panel/changelog/${row.id}`}>
-                          Edit
-                        </Link>
-                        <button className="wbtn wbtn-ghost wbtn-sm wbtn-danger-ghost" type="button" onClick={() => setPendingDelete(row)}>
-                          Delete
-                        </button>
-                      </div>
+                      <RowActions label={row.title} actions={[
+                        { label: "Edit", href: `/panel/changelog/${row.id}` },
+                        { label: "Delete", danger: true, separated: true, onSelect: () => setPendingDelete(row) },
+                      ]} />
                     </td>
                   </tr>
                 ))

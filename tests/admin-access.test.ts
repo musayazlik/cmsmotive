@@ -15,7 +15,7 @@ test("navigation preserves suffixes and never rewrites similarly named public pa
   for (const path of ["/panels", "/panelist", "/themes", "https://example.com/panel"]) assert.equal(panelHref(path, "/work-42"), path);
   assert.equal(internalPanelPath("/work-42/settings", "/work-42"), "/panel/settings");
   assert.equal(internalPanelPath("/work-420/settings", "/work-42"), "/work-420/settings");
-  assert.equal(adminLoginPath("/panel"), "/auth/login");
+  assert.equal(adminLoginPath("/panel"), "/auth/sign-in");
   assert.equal(adminLoginPath("/work-42"), "/work-42/login");
 });
 

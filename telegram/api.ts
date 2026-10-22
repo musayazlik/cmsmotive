@@ -100,6 +100,17 @@ export async function sendText(token: string, chatId: number, markdown: string, 
   }
 }
 
+/** Replaces the text and buttons of a message the bot sent, e.g. the next step of a question. */
+export async function editText(token: string, chatId: number, messageId: number, markdown: string, keyboard?: InlineKeyboard) {
+  const params = { chat_id: chatId, message_id: messageId, ...(keyboard ? { reply_markup: keyboard } : {}) };
+  try {
+    await telegram(token, "editMessageText", { ...params, text: markdownToTelegramHtml(markdown), parse_mode: "HTML" });
+  } catch (error) {
+    if (!(error instanceof TelegramError) || error.code !== 400) throw error;
+    await telegram(token, "editMessageText", { ...params, text: markdown });
+  }
+}
+
 export async function sendPhoto(token: string, chatId: number, url: string, caption?: string) {
   await telegram(token, "sendPhoto", {
     chat_id: chatId,

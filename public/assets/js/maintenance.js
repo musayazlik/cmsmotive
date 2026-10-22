@@ -58,3 +58,6 @@
     }
   }, 120_000);
 })();
+
+// Account notices remain visible when a sign-out returns to maintenance mode.
+import('/assets/js/account-feedback.js').then(({ initAccountFeedback }) => initAccountFeedback()).catch(() => {});

@@ -26,16 +26,21 @@ export async function GET() {
   const { failure } = await requireAdmin();
   if (failure) return failure;
 
-  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] = await Promise.all([
+  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions, pendingComments] = await Promise.all([
     getAdminAccessSettings(),
     prisma.user.count({ where: { emailVerified: false } }),
     prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
     prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null, emailSent: false } }),
     prisma.theme.count({ where: { status: { in: ["concept", "in-development"] } } }),
     prisma.extension.count({ where: { status: { in: ["concept", "planning", "in-development"] } } }),
+    prisma.postComment.count({ where: { status: "pending" } }),
   ]);
 
   const items: Notification[] = [];
+
+  if (pendingComments > 0) {
+    items.push({ id: "blog-comments-pending", tone: "info", title: `${pendingComments} blog comment${pendingComments === 1 ? "" : "s"} awaiting approval`, detail: "Review these comments before they appear on the blog.", href: "/panel/blog/comments", count: pendingComments, actionable: true });
+  }
 
   if (unverifiedUsers > 0) {
     items.push({

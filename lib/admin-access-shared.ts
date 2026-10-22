@@ -29,5 +29,5 @@ export function internalPanelPath(pathname: string, basePath: string): string {
 }
 
 export function adminLoginPath(basePath: string): string {
-  return basePath === "/panel" ? "/auth/login" : `${basePath}/login`;
+  return basePath === "/panel" ? "/auth/sign-in" : `${basePath}/login`;
 }

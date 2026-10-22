@@ -22,7 +22,7 @@ export function isLocale(value: string | null | undefined): value is Locale {
 }
 
 /** Paths that are never localized: assets, APIs, the account area and auth flows. */
-const UNLOCALIZED = /^\/(?:assets|api|auth|panel|_next|auth-live\.js)(?:\/|$)/;
+const UNLOCALIZED = /^\/(?:assets|api|auth|panel|_next)(?:\/|$)/;
 
 /** Splits `/en/themes` into `{ locale: "en", path: "/themes" }`; unprefixed paths are German. */
 export function splitLocale(pathname: string): { locale: Locale; path: string } {

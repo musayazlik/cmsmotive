@@ -288,6 +288,7 @@ model Post {
   categoryId  String?
   category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   tags        PostTag[]
+  comments    PostComment[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -295,6 +296,36 @@ model Post {
   @@index([categoryId])
   @@index([createdAt])
   @@map("Post")
+}
+
+/// Moderated blog discussion. Email and pending/rejected messages remain private.
+model PostComment {
+  id          String        @id @default(cuid())
+  postId      String
+  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     PostComment[] @relation("CommentReplies")
+  authorName  String
+  authorEmail String
+  body        String
+  /// pending | approved | rejected
+  status      String        @default("pending")
+  locale      String        @default("en")
+  requestKey  String        @unique
+  moderatedAt DateTime?
+  /// pending | checking | passed | flagged | error | unavailable | not_checked; advisory only
+  aiStatus    String        @default("pending")
+  aiNote      String?
+  aiModel     String?
+  aiCheckedAt DateTime?
+  aiReviewToken String?
+  createdAt   DateTime      @default(now())
+
+  @@index([postId, status, createdAt])
+  @@index([parentId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([authorEmail, createdAt])
 }
 
 model Category {

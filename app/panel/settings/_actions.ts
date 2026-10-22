@@ -35,6 +35,7 @@ import {
   saveTelegramOptions,
 } from "@/lib/telegram-settings";
 import { getMe, telegram } from "@/telegram/api";
+import { BOT_COMMANDS } from "@/telegram/modes";
 import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared";
 import type { ActionResult } from "@/app/panel/media/_lib";
 
@@ -231,13 +232,7 @@ export async function connectTelegramBotAction(
         drop_pending_updates: true,
       });
     }
-    await telegram(trimmed, "setMyCommands", {
-      commands: [
-        { command: "new", description: "Start a fresh conversation" },
-        { command: "whoami", description: "Panel account the bot acts as" },
-        { command: "help", description: "What the bot can do" },
-      ],
-    }).catch(() => undefined);
+    await telegram(trimmed, "setMyCommands", { commands: BOT_COMMANDS }).catch(() => undefined);
     revalidatePath("/panel/settings");
     return { ok: true, username: bot.username ?? String(bot.id), webhook };
   } catch (error) {

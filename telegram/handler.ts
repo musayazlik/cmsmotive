@@ -9,8 +9,21 @@ import {
 import type { TelegramLink } from "@/lib/telegram-settings-shared";
 import { runAsActor } from "@/mcp/context";
 import { uploadMediaRecord } from "@/mcp/lib/media";
-import { appendHistory, clearConversation, dropPending, resumeAgent, runAgent, type AgentContext } from "./agent";
+import {
+  appendHistory,
+  clearConversation,
+  dropPending,
+  askPostImages,
+  getChatMode,
+  isPostLanguage,
+  resumeAgent,
+  resumeWithPostOptions,
+  runAgent,
+  setChatMode,
+  type AgentContext,
+} from "./agent";
 import { handleDraftAction, isDraftAction } from "./drafts";
+import { isToolMode, TOOL_MODES } from "./modes";
 import { downloadFile, sendText, telegram, type TgCallbackQuery, type TgMessage, type TgUpdate } from "./api";
 
 /**
@@ -29,6 +42,9 @@ const HELP = [
   "",
   "/new — start a fresh conversation",
   "/whoami — the panel account the bot acts as",
+  "",
+  "**Modes** — the bot only loads the tools of the current mode, which keeps every message cheaper. The mode stays until you switch:",
+  ...Object.entries(TOOL_MODES).map(([name, info]) => `/${name} — ${info.summary}`),
 ].join("\n");
 
 // One run per chat at a time; a second message waits for the first to finish.
@@ -150,7 +166,17 @@ async function handleMessage(config: TelegramConfig, message: TgMessage) {
   if (command === "start" || command === "help") return sendText(token, chatId, HELP);
   if (command === "new") {
     await clearConversation(chatId);
-    return sendText(token, chatId, "Started a fresh conversation.");
+    const mode = TOOL_MODES[await getChatMode(chatId)];
+    return sendText(token, chatId, `Started a fresh conversation in **${mode.title}** mode.`);
+  }
+  // "/post write about X" switches and runs the rest; a bare "/post" only switches.
+  let request = text;
+  if (isToolMode(command)) {
+    // The conversation carries over; only the offered tools change.
+    await setChatMode(chatId, command);
+    request = text.replace(/^\/\w+(?:@\w+)?\s*/, "");
+    const mode = TOOL_MODES[command];
+    if (!request && !message.photo && !message.document) return sendText(token, chatId, `**${mode.title}** mode: ${mode.summary}.`);
   }
   if (command === "whoami") {
     const user = await prisma.user.findUnique({ where: { id: link.userId }, select: { email: true, role: true } });
@@ -161,7 +187,7 @@ async function handleMessage(config: TelegramConfig, message: TgMessage) {
     try {
       if (await dropPending(chatId)) await sendText(token, chatId, "The action that was waiting for confirmation was cancelled.");
       const attachment = await storeAttachment(config, message, link.userId);
-      const prompt = [text, attachment].filter(Boolean).join("\n\n");
+      const prompt = [request, attachment].filter(Boolean).join("\n\n");
       if (!prompt) return;
       await runAsActor(link.userId, () => runAgent(agentContext(config, chatId), prompt));
     } catch (error) {
@@ -175,9 +201,11 @@ async function handleCallback(config: TelegramConfig, query: TgCallbackQuery) {
   const chatId = query.message?.chat.id;
   const data = query.data ?? "";
   const match = /^(confirm|cancel):(\w+)$/.exec(data);
+  // New post questions: post:<nonce>:<language> picks the language, a trailing :<count> the image count.
+  const postOption = /^post:(\w+):(\w+)(?::([0-2]))?$/.exec(data);
   const link = config.links.find((entry) => entry.telegramUserId === query.from.id);
   await telegram(token, "answerCallbackQuery", { callback_query_id: query.id }).catch(() => undefined);
-  if (!chatId || !link || (!match && !isDraftAction(data))) return;
+  if (!chatId || !link || (!match && !postOption && !isDraftAction(data))) return;
 
   // The buttons are single-use: remove them before running anything.
   if (query.message) {
@@ -190,6 +218,18 @@ async function handleCallback(config: TelegramConfig, query: TgCallbackQuery) {
 
   await withChatLock(chatId, async () => {
     try {
+      if (postOption && query.message && isPostLanguage(postOption[2])) {
+        const [, nonce, language, count] = postOption;
+        const messageId = query.message.message_id;
+        const ctx = agentContext(config, chatId);
+        const answered = await runAsActor(link.userId, () =>
+          count === undefined
+            ? askPostImages(ctx, nonce, language, messageId)
+            : resumeWithPostOptions(ctx, nonce, language, Number(count), messageId),
+        );
+        if (!answered) await sendText(token, chatId, "This question has expired. Ask for the post again.");
+        return;
+      }
       if (!match) {
         // Publish / Discard on a post card: the user's own decision, no model involved.
         const decision = await runAsActor(link.userId, () => handleDraftAction(agentContext(config, chatId), data));

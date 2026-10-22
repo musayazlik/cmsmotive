@@ -9,6 +9,7 @@ import { isValidPostPreview } from "@/lib/post-preview";
 import { getSiteSettings } from "@/lib/settings";
 import { SiteFrame } from "../../_components/site-chrome";
 import { JsonLd } from "../../_components/json-ld";
+import CommentsSection from "../_components/comments-section";
 
 export const dynamic = "force-dynamic";
 
@@ -174,60 +175,7 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
               <div className="article-copy" dangerouslySetInnerHTML={{ __html: post.content }} />
             </article>
 
-            <section className="comments-section" data-comments data-article={post.slug} aria-labelledby="comments-title">
-              <div className="comments-heading">
-                <div>
-                  <span className="eyebrow">{t("The conversation")}</span>
-                  <h2 id="comments-title">
-                    {t("Comments")} <span data-comment-count>0</span>
-                  </h2>
-                </div>
-                <p>{t("Share a thought or continue a thread.")}</p>
-              </div>
-              <div className="comment-list" data-comment-list>
-                <p className="comment-empty">{t("Loading comments…")}</p>
-              </div>
-              <div className="comment-composer">
-                <h3>{t("Leave a comment")}</h3>
-                <p>{t("Comments in this preview are saved only in this browser.")}</p>
-                <form className="comment-form" data-comment-form>
-                  <div className="comment-field">
-                    <label htmlFor="comment-name">{t("Your name")}</label>
-                    <input
-                      id="comment-name"
-                      name="name"
-                      autoComplete="name"
-                      required
-                      minLength={2}
-                      maxLength={60}
-                      placeholder={t("Your name")}
-                    />
-                  </div>
-                  <div className="comment-field">
-                    <label htmlFor="comment-message">{t("Your comment")}</label>
-                    <textarea
-                      id="comment-message"
-                      name="message"
-                      rows={5}
-                      required
-                      minLength={2}
-                      maxLength={2000}
-                      placeholder={t("Add to the conversation...")}
-                    />
-                  </div>
-                  <div className="comment-form-bottom">
-                    <span>{t("Be thoughtful and constructive.")}</span>
-                    <button className="btn btn-primary" type="submit">
-                      <span className="btn-label">{t("Post comment")}</span>
-                      <span className="btn-icon" aria-hidden="true">
-                        <img src="/assets/icons/arrow-right.svg" alt="" width={16} height={16} />
-                      </span>
-                    </button>
-                  </div>
-                  <p className="comment-status" role="status" aria-live="polite" data-comment-status></p>
-                </form>
-              </div>
-            </section>
+            <CommentsSection postId={post.id} locale={locale} preview={post.preview} />
           </div>
 
           <aside className="blog-detail-aside" aria-label={t("From the journal")}>

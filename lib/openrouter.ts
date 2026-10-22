@@ -244,6 +244,11 @@ export async function chatWithTools(options: {
   model: string;
   messages: AgentMessage[];
   tools: ToolDefinition[];
+  /**
+   * Keeps one conversation on the same provider from its first request, so
+   * the prompt cache written there is the one the next step reads.
+   */
+  sessionId?: string;
   timeoutMs?: number;
 }): Promise<{ content: string | null; toolCalls: ToolCall[]; usage: ChatUsage | null }> {
   const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
@@ -254,6 +259,7 @@ export async function chatWithTools(options: {
       messages: withCacheBreakpoints(options.messages),
       tools: options.tools.map((tool) => ({ type: "function", function: tool })),
       tool_choice: "auto",
+      ...(options.sessionId ? { session_id: options.sessionId } : {}),
     }),
     signal: AbortSignal.timeout(options.timeoutMs ?? 120_000),
   });

@@ -39,6 +39,9 @@ const nextConfig: NextConfig = {
       { source: "/de", destination: "/", permanent: true },
       { source: "/de/:path*", destination: "/:path*", permanent: true },
       { source: "/index.html", destination: "/", permanent: true },
+      // Account pages renamed to sign-in/sign-up; old addresses keep working.
+      { source: "/auth/login", destination: "/auth/sign-in", permanent: true },
+      { source: "/auth/register", destination: "/auth/sign-up", permanent: true },
       { source: "/auth/:mode.html", destination: "/auth/:mode", permanent: true },
       // Theme pages moved from the static /theme-<slug> files to /theme/<slug> (app/[locale]/(product)).
       { source: "/theme-:slug.html", destination: "/theme/:slug", permanent: true },

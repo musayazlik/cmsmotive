@@ -32,3 +32,10 @@ export function injectAdminPanelLink(html: string, panelPath = "/panel", label =
   const link = `<a class="topbar-admin" href="${panelPath}" aria-label="${safeLabel}">${ADMIN_PANEL_ICON}<span>${safeLabel}</span></a>`;
   return html.replace('<ul class="topbar-social"', `${link}<ul class="topbar-social"`);
 }
+
+/** The static-page counterpart of the maintenance notice in SiteFrame. */
+export function injectMaintenanceNotice(html: string, message: string): string {
+  const safeMessage = message.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+  const notice = `<div class="maintenance-notice" role="status"><p class="container">${safeMessage}</p></div>`;
+  return html.replace('<div class="topbar">', `${notice}<div class="topbar">`);
+}

@@ -226,10 +226,25 @@
 
 /* ---------------------------------------------------------------- blog section */
 .workspace-nav-group{display:grid;gap:2px}
-.workspace-subnav{display:grid;gap:1px;margin:0 0 5px 21px;padding-left:11px;border-left:1px solid var(--line)}
-.workspace-subnav a{padding:7px 11px;border-radius:7px;font-size:12px;font-weight:600;color:#7a858b;transition:background .16s,color .16s}
-.workspace-subnav a:hover{background:#eef0ff;color:var(--indigo)}
-.workspace-subnav a.active{background:#eef0ff;color:var(--indigo);font-weight:800}
+.workspace-nav-toggle{position:relative;display:flex;align-items:center;gap:13px;width:100%;min-height:49px;padding:15px 13px;border:0;border-radius:8px;background:transparent;color:#4d5a60;font:700 13px/1.5 Manrope,'Segoe UI',sans-serif;text-align:left;cursor:pointer;transition:background .16s,color .16s}
+.workspace-nav-toggle:hover,.workspace-nav-toggle[aria-expanded=true]{background:#f5f6fa;color:#39444a}
+.workspace-nav-toggle.active{background:#eef0ff;color:var(--indigo)}
+.workspace-nav-toggle:focus-visible{outline:3px solid var(--indigo);outline-offset:2px}
+.workspace-nav-index{color:#a2aaae;font:500 10px 'DM Mono',monospace}
+.workspace-nav-text{flex:1}
+.workspace-nav-chevron{flex:none;width:16px;height:16px;color:#8a949b;transition:transform .22s cubic-bezier(.2,.75,.2,1),color .16s}
+.workspace-nav-toggle[aria-expanded=true] .workspace-nav-chevron{transform:rotate(90deg)}
+.workspace-nav-toggle.active .workspace-nav-chevron{color:var(--indigo)}
+.workspace-subnav-collapse{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;transition:grid-template-rows .24s cubic-bezier(.2,.75,.2,1),opacity .16s ease,visibility 0s .24s}
+.workspace-subnav-collapse[data-open=true]{grid-template-rows:1fr;opacity:1;visibility:visible;transition:grid-template-rows .24s cubic-bezier(.2,.75,.2,1),opacity .18s ease .04s,visibility 0s}
+.workspace-subnav-clip{min-height:0;overflow:hidden}
+.workspace-subnav-collapse .workspace-subnav{display:grid;gap:3px;margin:6px 0 8px 21px;padding:0 0 0 12px;border-left:1px solid #dfe3ed}
+.workspace-subnav-collapse .workspace-subnav a{position:relative;gap:10px;min-height:38px;padding:8px 12px;border-radius:7px;color:#626d79;font-size:12px;font-weight:600;line-height:1.5;transition:background .16s,color .16s}
+.workspace-subnav-collapse .workspace-subnav a::before{content:'';flex:none;width:5px;height:5px;border:1px solid #a6aebb;border-radius:50%;transition:background .16s,border-color .16s,box-shadow .16s}
+.workspace-subnav-collapse .workspace-subnav a:hover{background:#f5f6fa;color:var(--indigo)}
+.workspace-subnav-collapse .workspace-subnav a.active{background:#eef0ff;color:var(--indigo);font-weight:700}
+.workspace-subnav-collapse .workspace-subnav a.active::before{border-color:var(--indigo);background:var(--indigo);box-shadow:0 0 0 3px #4353e815}
+@media(prefers-reduced-motion:reduce){.workspace-nav-toggle,.workspace-nav-chevron,.workspace-subnav-collapse,.workspace-subnav-collapse[data-open=true],.workspace-subnav-collapse .workspace-subnav a,.workspace-subnav-collapse .workspace-subnav a::before{transition:none}}
 
 /* editor toolbar icons + text headings */
 .wtiptap-toolbar button{display:inline-flex;align-items:center;justify-content:center}
@@ -628,6 +643,8 @@ a.workspace-person:hover{border-color:var(--indigo)}
 @media(max-width:700px){.workspace-sidebar-scroll{flex:none;margin:0;padding:0;overflow:visible;background:none}}
 /* Short laptop screens: tighten the rhythm so most of the menu fits without scrolling. */
 @media(min-width:701px) and (max-height:860px){.workspace-sidebar-scroll .workspace-sidebar-label{margin:22px 13px 10px}.workspace-nav{gap:3px}.workspace-nav a{padding:11px 13px}.workspace-subnav a{padding:6px 11px}.workspace-sidebar-bottom{padding-top:12px}.workspace-sidebar-bottom .workspace-sidebar-label{display:none}.workspace-person{padding:9px 10px}.workspace-signout{padding-top:12px}}
+@media(min-width:701px) and (max-height:860px){.workspace-nav-toggle{min-height:44px;padding:11px 13px}}
+@media(max-width:700px){.workspace-nav .workspace-nav-group--collapsible{display:grid;flex:none;align-items:stretch;gap:0;min-width:128px}.workspace-nav-toggle{min-height:44px;padding:10px;gap:8px;white-space:nowrap}.workspace-nav-toggle .workspace-nav-index{display:none}.workspace-subnav-collapse .workspace-subnav{display:grid;gap:3px;margin:4px 0 4px 12px;padding-left:7px;border-left:1px solid #dfe3ed}.workspace-subnav-collapse .workspace-subnav a{min-height:44px;padding:10px 8px;font-size:12px}}
 
 /* Status tabs (inbox, reviews) never widen the page on phones: they scroll sideways instead. */
 .winbox-tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}
@@ -977,3 +994,26 @@ a.workspace-person:hover{border-color:var(--indigo)}
 @keyframes wchat-sheet-out{to{opacity:0;transform:translateY(14px) scale(.94)}}
 @media(max-width:700px){.wchat-dock{right:14px;bottom:14px}.wchat-sheet{height:min(560px,calc(100dvh - 160px))}}
 @media(prefers-reduced-motion:reduce){.wchat-launch::before,.wchat-cloud-bob,.wchat-cloud,.wchat-status-dot,.wchat-sheet,.wchat-msg{animation:none}.wchat-launch,.wchat-send{transition:none}}
+
+/* Blog discussion and moderation. */
+.workspace-nav-toggle .workspace-nav-count{flex:none;min-width:22px;padding:3px 7px;border-radius:99px;background:var(--indigo);color:#fff;font:700 10px/1.4 'DM Mono',monospace;text-align:center}
+.wcomment-toolbar{align-items:stretch;gap:18px}
+.wcomment-filters{display:flex;align-items:center;flex-wrap:wrap;gap:10px;width:100%}
+.wcomment-filters .wtable-search{flex:1;min-width:200px}
+.wcomment-filters>.wfield{min-width:200px;max-width:300px;margin:0}
+.wcomment-table td{vertical-align:top}
+.wcomment-message{max-width:48ch;margin:0 0 10px;color:#39444a;font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.wcomment-message summary{cursor:pointer;list-style-position:inside}
+.wcomment-collapse{display:none}
+.wcomment-message[open] .wcomment-preview{display:none}
+.wcomment-message[open] .wcomment-collapse{display:inline;color:var(--indigo);font-weight:700}
+.wcomment-message p{color:inherit;font:inherit;white-space:pre-wrap}
+.wcomment-post{display:inline-block;max-width:24ch;color:var(--indigo);font-size:12px;font-weight:700;line-height:1.6}
+.wcomment-post:hover{text-decoration:underline;text-underline-offset:3px}
+.wcomment-reply{display:block;margin:4px 0;color:#626f77;font-size:11px;line-height:1.6}
+.wcomment-table{min-width:1050px}.wcomment-ai{min-width:180px;max-width:30ch}.wcomment-ai>p{margin:8px 0 0;color:#53616a;font-size:12px;line-height:1.65;white-space:normal;overflow-wrap:anywhere}.wcomment-ai>small{display:block;margin-top:7px;color:#626f77;font-size:10px;overflow-wrap:anywhere}
+@media(max-width:700px){.wcomment-filters .wtable-search,.wcomment-filters>.wfield{min-width:0;max-width:none;width:100%;flex-basis:100%}.wcomment-toolbar .winbox-tabs{overflow-x:auto;max-width:100%}}
+
+/* Keep table labels legible on the pale table surface. */
+.wtable th,.wtable-foot .wtable-count{color:#627078}
+.wcomment-filters .wui-trigger.is-placeholder{color:#627078}

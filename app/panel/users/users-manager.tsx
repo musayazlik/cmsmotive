@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DatePicker, Select, TextField } from "../_components/ui";
 
@@ -419,14 +421,10 @@ export default function UsersManager() {
                       <span className="wtable-date">{formatDate(user.createdAt)}</span>
                     </td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <button className="wbtn wbtn-ghost wbtn-sm" type="button" onClick={() => openEdit(user)}>
-                          Edit
-                        </button>
-                        <button className="wbtn wbtn-ghost wbtn-sm wbtn-danger-ghost" type="button" onClick={() => openDelete(user)}>
-                          Delete
-                        </button>
-                      </div>
+                      <RowActions label={user.name} actions={[
+                        { label: "Edit", onSelect: () => openEdit(user) },
+                        { label: "Delete", danger: true, separated: true, onSelect: () => openDelete(user) },
+                      ]} />
                     </td>
                   </tr>
                 ))

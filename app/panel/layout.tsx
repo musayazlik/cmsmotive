@@ -12,16 +12,17 @@ export const dynamic = "force-dynamic";
 
 export default async function PanelLayout({ children }: { children: ReactNode }) {
   const user = await requirePanelUser();
-  const [accessSettings, uploadSettings, unreadInquiries, pendingReviews] = await Promise.all([
+  const [accessSettings, uploadSettings, unreadInquiries, pendingReviews, pendingComments] = await Promise.all([
     getAdminAccessSettings(),
     getUploadSettings(),
     prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
     prisma.productReview.count({ where: { status: "pending" } }),
+    prisma.postComment.count({ where: { status: "pending" } }),
   ]);
   return (
     <PanelNavigationProvider basePath={accessSettings.panelPath}>
       <UploadSettingsProvider value={uploadSettings}>
-        <PanelShell user={user} unreadInquiries={unreadInquiries} pendingReviews={pendingReviews}>
+        <PanelShell user={user} unreadInquiries={unreadInquiries} pendingReviews={pendingReviews} pendingComments={pendingComments}>
           {children}
         </PanelShell>
       </UploadSettingsProvider>

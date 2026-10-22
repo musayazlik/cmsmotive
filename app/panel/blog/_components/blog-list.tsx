@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import Link from "@/app/panel/_components/panel-navigation";
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useMemo, useState } from "react";
@@ -227,27 +229,11 @@ export default function BlogList({ posts }: { posts: PostRow[] }) {
                     </td>
                     <td className="wtable-date">{formatDate(post.updatedAt)}</td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <Link className="wbtn wbtn-ghost wbtn-sm" href={`/panel/blog/${post.id}`}>
-                          Edit
-                        </Link>
-                        <button
-                          type="button"
-                          className="wbtn wbtn-ghost wbtn-sm"
-                          disabled={busyId === post.id}
-                          onClick={() => togglePublish(post)}
-                        >
-                          {post.status === "published" ? "Unpublish" : "Publish"}
-                        </button>
-                        <button
-                          type="button"
-                          className="wbtn wbtn-danger-ghost wbtn-sm"
-                          disabled={busyId === post.id}
-                          onClick={() => setPendingDelete(post)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <RowActions label={post.title} actions={[
+                        { label: "Edit", href: `/panel/blog/${post.id}` },
+                        { label: post.status === "published" ? "Unpublish" : "Publish", disabled: busyId === post.id, onSelect: () => togglePublish(post) },
+                        { label: "Delete", danger: true, separated: true, disabled: busyId === post.id, onSelect: () => setPendingDelete(post) },
+                      ]} />
                     </td>
                   </tr>
                 ))

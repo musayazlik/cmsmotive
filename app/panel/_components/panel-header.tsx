@@ -3,6 +3,7 @@
 import Link from "@/app/panel/_components/panel-navigation";
 import { usePathname } from "@/app/panel/_components/panel-navigation";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useSignOut } from "@/app/_components/use-sign-out";
 
 type Notification = {
   id: string;
@@ -57,6 +58,7 @@ export default function PanelHeader({
   const accountMenuId = useId();
   const notificationsId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
+  const { signOut, pending: signingOut } = useSignOut();
 
   const close = useCallback(() => setOpen(null), []);
   const shellRef = useDismiss(close);
@@ -117,17 +119,6 @@ export default function PanelHeader({
     }, 60_000);
     return () => window.clearInterval(timer);
   }, [load]);
-
-  async function signOut() {
-    await fetch("/api/auth/sign-out", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-    // Full reload on purpose: a client-side push would keep cached panel state around.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.assign("/");
-  }
 
   // Informational items (drafts, roadmap) do not ring the bell.
   const badge = items?.filter((item) => item.actionable).reduce((sum, item) => sum + item.count, 0) ?? 0;
@@ -271,11 +262,11 @@ export default function PanelHeader({
                 </Link>
               </nav>
               <div className="wmenu-divider" />
-              <button className="wmenu-item wmenu-item-danger" type="button" onClick={signOut}>
+              <button className="wmenu-item wmenu-item-danger" type="button" onClick={signOut} disabled={signingOut} aria-busy={signingOut}>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4m7-16 5 5-5 5m-9-5h14" />
                 </svg>
-                Sign out
+                {signingOut ? "Signing out…" : "Sign out"}
               </button>
             </div>
           ) : null}

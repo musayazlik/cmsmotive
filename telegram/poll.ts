@@ -3,6 +3,7 @@ import "../mcp/env";
 import { getTelegramConfig } from "@/lib/telegram-settings";
 import { getWebhookInfo, telegram, type TgUpdate } from "./api";
 import { handleUpdate } from "./handler";
+import { BOT_COMMANDS } from "./modes";
 
 /**
  * Local development without a public HTTPS URL: long-polls Telegram instead
@@ -25,6 +26,10 @@ async function main() {
     console.error("[telegram] webhook removed");
   }
 
+  // Refreshes the command menu, which is otherwise only set when the bot is connected.
+  await telegram(config.token, "setMyCommands", { commands: BOT_COMMANDS }).catch((error) =>
+    console.error("[telegram] setMyCommands failed", error),
+  );
   console.error(`[telegram] polling as @${config.username}`);
   let offset = 0;
   for (;;) {

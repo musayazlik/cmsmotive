@@ -9,13 +9,23 @@ const eslintConfig = defineConfig([
     rules: {
       // eslint-plugin-react-hooks v7 ships the React-Compiler-powered rules.
       // The panel's prop-sync and fetch-on-mount idioms trip set-state-in-effect
-      // and keyboard typeahead trips purity — advisory until those call sites
+      // and keyboard typeahead trips purity - advisory until those call sites
       // are reworked (see `pnpm lint` output).
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
       // `_`-prefixed names mark intentionally unused values, e.g. the
       // discard-style destructuring in telegram/agent.ts.
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    files: ["app/auth/**/*.tsx"],
+    rules: {
+      // The account pages use plain anchors on purpose (same call as
+      // site-chrome.tsx): every page outside /auth is legacy HTML served by
+      // rewrites, and auth flows want full loads so server components see the
+      // fresh session.
+      "@next/next/no-html-link-for-pages": "off",
     },
   },
   globalIgnores([

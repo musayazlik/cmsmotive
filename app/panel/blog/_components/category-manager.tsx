@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useEffect, useRef, useState } from "react";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
@@ -170,18 +172,10 @@ export default function CategoryManager({ categories }: { categories: CategoryRo
                     <td>{category.postCount}</td>
                     <td className="wtable-date">{formatDate(category.createdAt)}</td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={() => openEdit(category)}>
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="wbtn wbtn-danger-ghost wbtn-sm"
-                          onClick={() => setPendingDelete(category)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <RowActions label={category.name} actions={[
+                        { label: "Edit", onSelect: () => openEdit(category) },
+                        { label: "Delete", danger: true, separated: true, onSelect: () => setPendingDelete(category) },
+                      ]} />
                     </td>
                   </tr>
                 ))

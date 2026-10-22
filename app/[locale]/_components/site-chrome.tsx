@@ -4,6 +4,7 @@ import { LOCALES, LOCALE_LABELS, localizePath, type Locale } from "@/lib/i18n/co
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
 import { hasPanelSession } from "@/lib/public-session";
 import { getAdminAccessSettings } from "@/lib/admin-access";
+import { getMaintenanceSettings } from "@/lib/settings";
 
 /**
  * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
@@ -275,6 +276,7 @@ export async function SiteFrame({
   // Signed-in visitors get the admin-panel shortcut in the top bar.
   const showAdmin = await hasPanelSession();
   const adminHref = showAdmin ? (await getAdminAccessSettings()).panelPath : undefined;
+  const showMaintenance = showAdmin && (await getMaintenanceSettings()).enabled;
   return (
     <>
       {/* React hoists these into <head>. */}
@@ -284,6 +286,11 @@ export async function SiteFrame({
       <a className="skip-link" href="#main">
         {t("Skip to content")}
       </a>
+      {showMaintenance ? (
+        <div className="maintenance-notice" role="status">
+          <p className="container">{t("This site is currently in maintenance mode.")}</p>
+        </div>
+      ) : null}
       <TopBar locale={locale} t={t} path={path} showAdmin={showAdmin} adminHref={adminHref} />
       <SiteHeader locale={locale} t={t} current={current} />
       <main id="main">{children}</main>

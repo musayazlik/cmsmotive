@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import type { ReviewStatus } from "@/lib/reviews";
@@ -350,12 +352,12 @@ export default function ReviewList({ rows, limit, products, initialProduct = "" 
                       <span className="wtable-date">{formatReviewDate(row.createdAt)}</span>
                     </td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <button className="wbtn wbtn-ghost wbtn-sm" type="button" onClick={() => setActiveId(row.id)}>
-                          Open
-                        </button>
-                        <StatusButtons review={row} busy={pendingId === row.id} size="wbtn-sm" onStatus={changeStatus} />
-                      </div>
+                      <RowActions label={row.authorName} actions={[
+                        { label: "Open", onSelect: () => setActiveId(row.id) },
+                        ...(row.status !== "approved" ? [{ label: "Approve", disabled: pendingId === row.id, onSelect: () => changeStatus(row, "approved") }] : []),
+                        ...(row.status !== "rejected" ? [{ label: "Reject", disabled: pendingId === row.id, onSelect: () => changeStatus(row, "rejected") }] : []),
+                        ...(row.status !== "pending" ? [{ label: "Back to pending", disabled: pendingId === row.id, onSelect: () => changeStatus(row, "pending") }] : []),
+                      ]} />
                     </td>
                   </tr>
                 ))

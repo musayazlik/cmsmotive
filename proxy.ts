@@ -8,7 +8,14 @@ import { getAdminAccessSettings } from "@/lib/admin-access";
 import { ADMIN_ENTRY_COOKIE, ADMIN_ENTRY_TTL, issueAdminEntry } from "@/lib/admin-entry";
 
 const ADMIN_CONTEXT_HEADER = "x-admin-gateway";
-const PRIVATE_AUTH_MODES = new Set(["login", "forgot-password", "reset-password", "verify-email"]);
+// Account pages reachable through the private entry; the historical /login
+// suffix maps onto /auth/sign-in (sign-up is never private).
+const PRIVATE_AUTH_MODES = new Set(["sign-in", "forgot-password", "reset-password", "verify-email"]);
+
+function privateAuthRoute(suffix: string): string | null {
+  const mode = suffix === "login" ? "sign-in" : suffix;
+  return PRIVATE_AUTH_MODES.has(mode) ? `/auth/${mode}` : null;
+}
 
 function privateResponse(response: NextResponse) {
   response.headers.set("Cache-Control", "no-store");
@@ -40,12 +47,13 @@ export async function proxy(request: NextRequest) {
   if (panelPath !== "/panel" && (pathname === panelPath || pathname.startsWith(`${panelPath}/`))) {
     const suffix = pathname.slice(panelPath.length);
     const mode = suffix.slice(1);
+    const authRoute = privateAuthRoute(mode);
     const destination = request.nextUrl.clone();
-    destination.pathname = PRIVATE_AUTH_MODES.has(mode) ? `/auth/${mode}` : `/panel${suffix}`;
+    destination.pathname = authRoute ?? `/panel${suffix}`;
     headers.set(ADMIN_CONTEXT_HEADER, panelPath);
     headers.set(LOCALE_HEADER, "en");
     const response = privateResponse(NextResponse.rewrite(destination, { request: { headers } }));
-    if (PRIVATE_AUTH_MODES.has(mode) && (request.method === "GET" || request.method === "HEAD")) {
+    if (authRoute && (request.method === "GET" || request.method === "HEAD")) {
       response.cookies.set(ADMIN_ENTRY_COOKIE, issueAdminEntry(panelPath), {
         httpOnly: true, sameSite: "strict", secure: request.nextUrl.protocol === "https:" || process.env.NODE_ENV === "production",
         path: "/", maxAge: ADMIN_ENTRY_TTL,

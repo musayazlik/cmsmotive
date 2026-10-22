@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { LOCALE_HEADER, isLocale } from "@/lib/i18n/config";
 import { siteOrigin } from "@/lib/seo";
+import AccountFeedback from "./_components/account-feedback";
 
 /**
  * Defaults for the account area. Public pages opt back into indexing with
@@ -26,5 +27,5 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = (await headers()).get(LOCALE_HEADER);
-  return <html lang={isLocale(locale) ? locale : "en"} className="js"><body>{children}</body></html>;
+  return <html lang={isLocale(locale) ? locale : "en"} className="js"><body>{children}<AccountFeedback /></body></html>;
 }

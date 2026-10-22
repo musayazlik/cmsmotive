@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import { htmlResponse, injectAdminPanelLink, readLegacyPage } from "@/lib/legacy";
+import { htmlResponse, injectAdminPanelLink, injectMaintenanceNotice, readLegacyPage } from "@/lib/legacy";
 import { trackPageView } from "@/lib/analytics";
 import { isLocale } from "@/lib/i18n/config";
 import { localizeLegacyHtml } from "@/lib/i18n/legacy";
 import { injectCatalog } from "@/lib/catalog";
 import { addLegacySeo, siteOrigin } from "@/lib/seo";
-import { getSeoSettings, getSiteSettings } from "@/lib/settings";
+import { getMaintenanceSettings, getSeoSettings, getSiteSettings } from "@/lib/settings";
 import { injectTestimonials } from "@/lib/testimonials";
 import { hasPanelSession } from "@/lib/public-session";
 import { getAdminAccessSettings } from "@/lib/admin-access";
@@ -33,7 +33,12 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     // Inject after URL localization: private admin paths never get a public language prefix.
     const showAdmin = await hasPanelSession();
     if (showAdmin) {
-      localized = injectAdminPanelLink(localized, (await getAdminAccessSettings()).panelPath, getTranslator(locale)("Admin panel"));
+      const t = getTranslator(locale);
+      const [admin, maintenance] = await Promise.all([getAdminAccessSettings(), getMaintenanceSettings()]);
+      localized = injectAdminPanelLink(localized, admin.panelPath, t("Admin panel"));
+      if (maintenance.enabled) {
+        localized = injectMaintenanceNotice(localized, t("This site is currently in maintenance mode."));
+      }
     }
     const [site, seo, origin] = await Promise.all([getSiteSettings(), getSeoSettings(), siteOrigin()]);
     const response = htmlResponse(addLegacySeo(localized, { origin, locale, pagePath, site, seo }));

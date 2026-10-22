@@ -691,3 +691,6 @@ document.querySelectorAll('[data-newsletter-form]').forEach(form => {
     }
   });
 });
+
+// One-time account notices also work on pages served as complete static HTML.
+import('/assets/js/account-feedback.js').then(({ initAccountFeedback }) => initAccountFeedback()).catch(() => {});

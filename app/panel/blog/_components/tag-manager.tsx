@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useEffect, useRef, useState } from "react";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
@@ -158,18 +160,10 @@ export default function TagManager({ tags }: { tags: TagRow[] }) {
                     <td>{tag.postCount}</td>
                     <td className="wtable-date">{formatDate(tag.createdAt)}</td>
                     <td className="wtable-actions-col">
-                      <div className="wtable-actions">
-                        <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={() => openEdit(tag)}>
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="wbtn wbtn-danger-ghost wbtn-sm"
-                          onClick={() => setPendingDelete(tag)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <RowActions label={tag.name} actions={[
+                        { label: "Edit", onSelect: () => openEdit(tag) },
+                        { label: "Delete", danger: true, separated: true, onSelect: () => setPendingDelete(tag) },
+                      ]} />
                     </td>
                   </tr>
                 ))

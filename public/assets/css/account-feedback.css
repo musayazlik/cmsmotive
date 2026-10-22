@@ -1,0 +1,31 @@
+.account-toast {
+  position: fixed;
+  top: max(24px, env(safe-area-inset-top));
+  right: max(24px, env(safe-area-inset-right));
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: min(400px, calc(100vw - 32px));
+  padding: 10px 8px 10px 16px;
+  border: 1px solid #e0e5ef;
+  border-radius: 14px;
+  background: #fff;
+  color: #20243d;
+  box-shadow: 0 12px 36px #20243d1f, 0 2px 6px #20243d08;
+  font: 500 13px/1.6 Manrope, "Segoe UI", sans-serif;
+  animation: account-toast-in 180ms ease-out;
+  box-sizing: border-box;
+}
+.account-toast p { margin: 0; color: inherit; font: inherit; overflow-wrap: anywhere; }
+.account-toast__icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: #eaf5ef; color: #277249; }
+.account-toast--error .account-toast__icon { background: #fff0f1; color: #ad3543; }
+.account-toast__icon svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.account-toast__close { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #687086; cursor: pointer; }
+.account-toast__close svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.account-toast__close:hover { background: #f1f3fa; color: #20243d; }
+.account-toast__close:focus-visible { outline: 3px solid #4353e8; outline-offset: 2px; }
+@keyframes account-toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 600px) { .account-toast { top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); } }
+@media (prefers-reduced-motion: reduce) { .account-toast { animation: none; } }

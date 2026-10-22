@@ -14,8 +14,10 @@ import { prisma } from "@/lib/prisma";
 import { getAiSettings } from "@/lib/settings";
 import { resolveMcpActor, runWithModelOverrides } from "@/mcp/context";
 import { createCmsMcpServer } from "@/mcp/create-server";
-import { sendPhoto, sendText, sendTyping } from "./api";
+import type { AiLanguage } from "@/app/panel/blog/_ai";
+import { editText, sendPhoto, sendText, sendTyping } from "./api";
 import { sendPostCard } from "./drafts";
+import { DEFAULT_MODE, isToolMode, TOOL_MODES, toolInMode, type ToolMode } from "./modes";
 
 /**
  * The Telegram agent: an OpenRouter tool-calling model (the chat model)
@@ -50,12 +52,16 @@ export type AgentContext = {
 /** A run in progress: the conversation so far and tool calls still to execute. */
 type RunState = {
   userText: string;
+  /** The tool mode the run started in; a confirmed call resumes with the same tools. */
+  mode: ToolMode;
   messages: AgentMessage[];
   queue: ToolCall[];
   /** Tool call ids the user confirmed. */
   approved: string[];
   /** Posts created or changed in this run; each gets a review card at the end. */
   touchedPosts: string[];
+  /** ai_write_post calls whose language and image count the user picked. */
+  postOptionsSet: string[];
   steps: number;
 };
 
@@ -63,6 +69,7 @@ type Pending = RunState & { nonce: string; expiresAt: number };
 
 const historyKey = (chatId: number) => `telegram.history.${chatId}`;
 const pendingKey = (chatId: number) => `telegram.pending.${chatId}`;
+const modeKey = (chatId: number) => `telegram.mode.${chatId}`;
 
 /* ------------------------------------------------------------- persistence */
 
@@ -89,6 +96,16 @@ export async function clearConversation(chatId: number) {
 export async function dropPending(chatId: number): Promise<boolean> {
   const { count } = await prisma.setting.deleteMany({ where: { key: pendingKey(chatId) } });
   return count > 0;
+}
+
+/** The chat's tool mode; it survives /new and stays until the user switches. */
+export async function getChatMode(chatId: number): Promise<ToolMode> {
+  const mode = await loadJson<unknown>(modeKey(chatId), DEFAULT_MODE);
+  return isToolMode(mode) ? mode : DEFAULT_MODE;
+}
+
+export async function setChatMode(chatId: number, mode: ToolMode) {
+  await saveJson(modeKey(chatId), mode);
 }
 
 /** Adds a line to the chat history, e.g. a decision taken with a card button. */
@@ -141,12 +158,12 @@ function parseArgs(call: ToolCall): Record<string, unknown> | null {
   }
 }
 
-async function connectTools() {
+async function connectTools(mode: ToolMode) {
   const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
   const server = createCmsMcpServer();
   const client = new Client({ name: "cmsmotive-telegram", version: "0.1.0" });
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
-  const { tools } = await client.listTools();
+  const tools = (await client.listTools()).tools.filter((tool) => toolInMode(mode, tool.name));
   const byName = new Map((tools as McpToolInfo[]).map((tool) => [tool.name, tool]));
   const definitions: ToolDefinition[] = [
     ...(tools as McpToolInfo[]).map((tool) => {
@@ -237,19 +254,24 @@ async function resolveModels(ctx: AgentContext) {
 
 type Models = Awaited<ReturnType<typeof resolveModels>>;
 
-async function systemPrompt(ctx: AgentContext, models: Models): Promise<string> {
+async function systemPrompt(ctx: AgentContext, models: Models, mode: ToolMode): Promise<string> {
   const actor = await resolveMcpActor();
+  const otherModes = Object.entries(TOOL_MODES)
+    .filter(([name]) => name !== mode)
+    .map(([name, info]) => `/${name} (${info.summary})`)
+    .join(", ");
   return [
     "You are the CMSMotive panel assistant, talking to a site administrator in Telegram.",
     `You act as the panel account ${actor.name} <${actor.email}>. Today is ${new Date().toISOString().slice(0, 10)}. The site is ${ctx.origin}.`,
     `You run on the OpenRouter model ${models.chat}; post texts are written by ${models.content} and images are made by ${models.image}. If asked which model you are, say exactly this — never guess.`,
     "Use the tools to do what is asked. Discover ids with list/get tools first; never invent ids.",
+    `Tool mode: ${TOOL_MODES[mode].title} — your tools cover ${TOOL_MODES[mode].summary}. The user switches modes with a command: ${otherModes}. If a request needs tools this mode does not have, do not work around it; tell the user which command to send.`,
     "Research: posts must rest on real sources. ai_write_post / ai_rewrite_post research the web and add a numbered bibliography when webSearch is true — pass webSearch: true whenever the topic involves facts, news, recent events, products, versions or numbers, or the user asks for research. Never claim you researched when the tool result says research: none.",
     "Writing: to write a post call ai_write_post — it uses the content model and saves a DRAFT. To change an existing post's text call ai_rewrite_post. Do not write post bodies yourself. Never publish on your own initiative.",
     "Publishing needs a category and at least one tag. When ai_write_post returns newCategory/newTags, create them (blog_categories_create, blog_tags_create — together in one step) and attach them with blog_posts_update, so the draft is ready to publish once the user approves.",
     "Review: after you finish, the user automatically gets a card for every post you created or changed, with a preview link and Publish / Discard buttons. Do not repeat links in your reply; just say what you did and what is missing.",
     "Approval: edits, publishing, deletions and new categories/tags wait for the user's Confirm tap in Telegram. Call those tools directly — do not ask for permission in text first. If the user explicitly asks to publish, call blog_posts_set_status.",
-    "New posts with images: pass cover: true and inlineImages (1–2) to ai_write_post — it creates and places them in the same call; never add images to a new post afterwards. For \"deep research\" requests pass deepResearch: true.",
+    "New posts: call ai_write_post as soon as the topic is clear. Before it runs, the bot asks the user with buttons for the content language and the number of images inside the post, and always adds a cover — do not ask about these in text, and never add images to a new post afterwards. For \"deep research\" requests pass deepResearch: true.",
     "Changing images later: call ai_generate_image (purpose \"cover\"), then blog_posts_update with the returned media id as coverId, and show it with telegram_send_photo. To edit a cover, pass the post's current coverId as sourceMediaId with an edit instruction. When the user sends a photo, its media id is in the message.",
     "Reply in the language the user writes in. Keep replies short; Markdown bold, lists and links are fine.",
   ].join("\n");
@@ -275,7 +297,7 @@ function drive(ctx: AgentContext, state: RunState) {
 }
 
 async function driveSteps(ctx: AgentContext, state: RunState) {
-  const tools = await connectTools();
+  const tools = await connectTools(state.mode);
   const models = await resolveModels(ctx);
   const typing = setInterval(() => void sendTyping(ctx.token, ctx.chatId), 4500);
   await sendTyping(ctx.token, ctx.chatId);
@@ -289,14 +311,24 @@ async function driveSteps(ctx: AgentContext, state: RunState) {
           await askApproval(ctx, state, tools, waiting);
           return;
         }
-        const call = state.queue.shift()!;
+        const call = state.queue[0];
+        if (call.function.name === "ai_write_post" && !state.postOptionsSet.includes(call.id)) {
+          await askPostLanguage(ctx, state, call);
+          return;
+        }
+        state.queue.shift();
         const content = await executeCall(ctx, tools, call, state);
         state.messages.push({ role: "tool", tool_call_id: call.id, content });
         continue;
       }
 
       state.steps += 1;
-      const step = await chatWithTools({ model: models.chat, messages: state.messages, tools: tools.definitions });
+      const step = await chatWithTools({
+        model: models.chat,
+        messages: state.messages,
+        tools: tools.definitions,
+        sessionId: `telegram-${ctx.chatId}`,
+      });
       if (step.usage) {
         const { input, cached, output, cost } = step.usage;
         console.error(
@@ -332,10 +364,27 @@ function describeCall(tools: Tools, call: ToolCall): string {
   return `**${title}**${details ? `\n\`\`\`\n${details}\n\`\`\`` : ""}`;
 }
 
-async function askApproval(ctx: AgentContext, state: RunState, tools: Tools, calls: ToolCall[]) {
+/** Stores the run until the user taps a button; returns the nonce the buttons carry. */
+async function savePending(chatId: number, state: RunState): Promise<string> {
   const nonce = randomBytes(6).toString("hex");
   const pending: Pending = { ...state, nonce, expiresAt: Date.now() + PENDING_TTL_MS };
-  await saveJson(pendingKey(ctx.chatId), pending);
+  await saveJson(pendingKey(chatId), pending);
+  return nonce;
+}
+
+/** The waiting run the buttons with this nonce belong to, or null when they are stale. */
+async function openPending(chatId: number, nonce: string): Promise<RunState | null> {
+  const pending = await loadJson<Pending | null>(pendingKey(chatId), null);
+  if (!pending || pending.nonce !== nonce || pending.expiresAt < Date.now()) return null;
+  const { nonce: _nonce, expiresAt: _expires, ...state } = pending;
+  // A run saved before these fields existed carries none.
+  if (!isToolMode(state.mode)) state.mode = DEFAULT_MODE;
+  state.postOptionsSet ??= [];
+  return state;
+}
+
+async function askApproval(ctx: AgentContext, state: RunState, tools: Tools, calls: ToolCall[]) {
+  const nonce = await savePending(ctx.chatId, state);
   const header = calls.length === 1 ? "Approve this change?" : `Approve these ${calls.length} changes?`;
   await sendText(ctx.token, ctx.chatId, [header, ...calls.map((call) => describeCall(tools, call))].join("\n\n"), {
     inline_keyboard: [
@@ -347,20 +396,99 @@ async function askApproval(ctx: AgentContext, state: RunState, tools: Tools, cal
   });
 }
 
+/* ------------------------------------------------------ new post questions */
+
+/**
+ * Before ai_write_post runs, the bot asks the user with buttons: first the
+ * content language, then how many illustrations go inside the post. A cover
+ * is always generated. The choices travel in the callback data
+ * (post:<nonce>:<language>[:<count>]), so only the run itself is stored.
+ */
+
+const POST_LANGUAGES: Record<AiLanguage, string> = { tr: "Türkçe", en: "English", de: "Deutsch" };
+
+export function isPostLanguage(value: string): value is AiLanguage {
+  return Object.hasOwn(POST_LANGUAGES, value);
+}
+
+function postQuestionHeader(call: ToolCall): string {
+  const brief = parseArgs(call)?.brief;
+  const text = typeof brief === "string" ? brief : "";
+  return `**New post**${text ? `: ${text.length > 200 ? `${text.slice(0, 197)}…` : text}` : ""}`;
+}
+
+async function askPostLanguage(ctx: AgentContext, state: RunState, call: ToolCall) {
+  const nonce = await savePending(ctx.chatId, state);
+  await sendText(ctx.token, ctx.chatId, `${postQuestionHeader(call)}\n\nWhich language should it be written in?`, {
+    inline_keyboard: [
+      Object.entries(POST_LANGUAGES).map(([code, label]) => ({ text: label, callback_data: `post:${nonce}:${code}` })),
+      [{ text: "✖️ Cancel", callback_data: `cancel:${nonce}` }],
+    ],
+  });
+}
+
+/** The user picked the language; the same message turns into the image question. */
+export async function askPostImages(ctx: AgentContext, nonce: string, language: AiLanguage, messageId: number): Promise<boolean> {
+  const state = await openPending(ctx.chatId, nonce);
+  const call = state?.queue[0];
+  if (!call) return false;
+  await editText(
+    ctx.token,
+    ctx.chatId,
+    messageId,
+    `${postQuestionHeader(call)}\n\nLanguage: **${POST_LANGUAGES[language]}**\nHow many images inside the post? A cover is always generated.`,
+    {
+      inline_keyboard: [
+        [0, 1, 2].map((count) => ({ text: count === 0 ? "None" : String(count), callback_data: `post:${nonce}:${language}:${count}` })),
+        [{ text: "✖️ Cancel", callback_data: `cancel:${nonce}` }],
+      ],
+    },
+  );
+  return true;
+}
+
+/** Both answers are in: the write runs with them and a cover. */
+export async function resumeWithPostOptions(
+  ctx: AgentContext,
+  nonce: string,
+  language: AiLanguage,
+  inlineImages: number,
+  messageId: number,
+): Promise<boolean> {
+  const state = await openPending(ctx.chatId, nonce);
+  const call = state?.queue[0];
+  if (!state || call?.function.name !== "ai_write_post") return false;
+  await dropPending(ctx.chatId);
+
+  await editText(
+    ctx.token,
+    ctx.chatId,
+    messageId,
+    `${postQuestionHeader(call)}\n\n${POST_LANGUAGES[language]} · ${inlineImages === 0 ? "no images inside" : `${inlineImages} image${inlineImages > 1 ? "s" : ""} inside`} · cover`,
+  ).catch(() => undefined);
+  call.function.arguments = JSON.stringify({ ...parseArgs(call), language, inlineImages, cover: true });
+  state.postOptionsSet = [...state.postOptionsSet, call.id];
+  await drive(ctx, state);
+  return true;
+}
+
 /** A new message from the user. */
 export async function runAgent(ctx: AgentContext, userText: string) {
   const history = await loadJson<AgentMessage[]>(historyKey(ctx.chatId), []);
   const models = await resolveModels(ctx);
+  const mode = await getChatMode(ctx.chatId);
   const state: RunState = {
     userText,
+    mode,
     messages: [
-      { role: "system", content: await systemPrompt(ctx, models) },
+      { role: "system", content: await systemPrompt(ctx, models, mode) },
       ...history,
       { role: "user", content: userText },
     ],
     queue: [],
     approved: [],
     touchedPosts: [],
+    postOptionsSet: [],
     steps: 0,
   };
   await drive(ctx, state);
@@ -368,11 +496,10 @@ export async function runAgent(ctx: AgentContext, userText: string) {
 
 /** The user tapped Confirm or Cancel; returns false when the buttons are stale. */
 export async function resumeAgent(ctx: AgentContext, nonce: string, confirmed: boolean): Promise<boolean> {
-  const pending = await loadJson<Pending | null>(pendingKey(ctx.chatId), null);
-  if (!pending || pending.nonce !== nonce || pending.expiresAt < Date.now()) return false;
+  const state = await openPending(ctx.chatId, nonce);
+  if (!state) return false;
   await dropPending(ctx.chatId);
 
-  const { nonce: _nonce, expiresAt: _expires, ...state } = pending;
   if (confirmed) {
     state.approved = [...state.approved, ...state.queue.map((call) => call.id)];
   } else {

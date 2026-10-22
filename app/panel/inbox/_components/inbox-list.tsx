@@ -1,5 +1,7 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { setInquiryArchived, setInquiryRead } from "../_actions";
@@ -282,19 +284,10 @@ export default function InboxList({ rows, limit }: { rows: InquiryRow[]; limit: 
                         )}
                       </td>
                       <td className="wtable-actions-col">
-                        <div className="wtable-actions">
-                          <button className="wbtn wbtn-ghost wbtn-sm" type="button" onClick={() => open(row)}>
-                            Open
-                          </button>
-                          <button
-                            className="wbtn wbtn-ghost wbtn-sm wbtn-danger-ghost"
-                            type="button"
-                            disabled={pendingId === row.id}
-                            onClick={() => toggleArchived(row)}
-                          >
-                            {archived ? "Restore" : "Archive"}
-                          </button>
-                        </div>
+                        <RowActions label={row.name} actions={[
+                        { label: "Open", onSelect: () => open(row) },
+                          { label: archived ? "Restore" : "Archive", disabled: pendingId === row.id, separated: true, onSelect: () => toggleArchived(row) },
+                      ]} />
                       </td>
                     </tr>
                   );

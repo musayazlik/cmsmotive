@@ -7,6 +7,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import SignOutButton from "../sign-out-button";
 import PanelHeader from "./panel-header";
 import SupportChat from "./support-chat";
+import PanelNavGroup from "./panel-nav-group";
 
 type NavItem = {
   href: string;
@@ -32,6 +33,7 @@ const PANEL_NAV: NavItem[] = [
       { href: "/panel/blog", label: "Posts" },
       { href: "/panel/blog/categories", label: "Categories" },
       { href: "/panel/blog/tags", label: "Tags" },
+      { href: "/panel/blog/comments", label: "Comments" },
     ],
   },
   { href: "/panel/media", index: "09", label: "Media" },
@@ -59,11 +61,13 @@ export default function PanelShell({
   user,
   unreadInquiries,
   pendingReviews,
+  pendingComments,
   children,
 }: {
   user: { name: string; email: string; role: string };
   unreadInquiries: number;
   pendingReviews: number;
+  pendingComments: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -77,7 +81,8 @@ export default function PanelShell({
   useEffect(() => {
     const area = scrollRef.current;
     // A sub-page (Blog › Tags) marks both links active; the child is the one to show.
-    const active = area?.querySelector<HTMLElement>(".workspace-subnav a.active") ?? area?.querySelector<HTMLElement>("a.active");
+    const active = area?.querySelector<HTMLElement>('.workspace-subnav-collapse[data-open="true"] a.active')
+      ?? area?.querySelector<HTMLElement>("a.active, .workspace-nav-toggle.active");
     if (!area || !active) return;
     const areaBox = area.getBoundingClientRect();
     const box = active.getBoundingClientRect();
@@ -96,6 +101,9 @@ export default function PanelShell({
           <div className="workspace-sidebar-label">YOUR WORKSPACE / 01</div>
           <nav className="workspace-nav" aria-label="Workspace navigation">
             {PANEL_NAV.map((item) => {
+              if (item.children) {
+                return <PanelNavGroup key={`${item.href}:${pathname}`} href={item.href} index={item.index} label={item.label} items={item.children.map((child) => ({ ...child, count: child.href === "/panel/blog/comments" ? pendingComments : 0 }))} pathname={pathname} />;
+              }
               const badge = navBadge(item.href, { unreadInquiries, pendingReviews });
               return (
                 <div key={item.href} className="workspace-nav-group">
@@ -113,15 +121,6 @@ export default function PanelShell({
                     ) : null}
                     <b aria-hidden="true">↗</b>
                   </Link>
-                  {item.children ? (
-                    <div className="workspace-subnav">
-                      {item.children.map((child) => (
-                        <Link key={child.href} href={child.href} className={pathname === child.href ? "active" : undefined}>
-                          {child.label}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
               );
             })}

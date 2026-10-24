@@ -92,6 +92,18 @@ Onay akışı: okuma, AI ile taslak yazma, görsel üretme ve taslak olarak yaz�
 
 Statik sayfada değişiklik yapınca `static-site/build.py` ile HTML'leri yeniden üretin. `static-site/assets/` altında değiştirdiğiniz dosyaları `public/assets/` dizinine de kopyalayın. Statik blog önizlemelerindeki eski yorumlar tarayıcıda kalır; gerçek React blog sayfaları aşağıdaki moderasyon akışını kullanır.
 
+## Yedekleme ve geri yükleme
+
+Panel menüsündeki **Export / Import** (`/panel/backup`, özel panel adresiyle de çalışır) içerikleri ve panel ayarlarını sürümlü bir JSON dosyası olarak dışa aktarır. Temalar, eklentiler, galeriler, sürüm notları, blog yazıları, kategoriler, etiketler, yorumlar, ürün değerlendirmeleri, medya kayıtları, iletişim mesajları, bülten aboneleri ve sayfa görüntülenme sayaçları dahildir. Panel sınırı 25 MB'dır; daha büyük kurulumlarda doğrudan veritabanı yedeği kullanılmalıdır.
+
+İçe aktarmada önce dosya biçimi, sürümü, benzersiz alanları ve kayıt ilişkileri doğrulanır; kayıt adetleri ve geri yüklenecek panel adresi gösterilir. Kullanıcı `RESTORE` yazarak ve mevcut parolasını doğrulayarak işlemi başlatır. İçe aktarma birleştirme yapmaz: yedekte boş olan bölümler dahil mevcut CMS verileri ve ayarlar değiştirilir. Bütün veritabanı değişiklikleri tek transaction içinde gerçekleşir; hata olursa geri alınır. Önce güncel bir kopyayı dışa aktarın.
+
+Yedek, veritabanındaki entegrasyon sırlarını (Telegram bot kimlik bilgileri dahil), özel mesajları ve e-posta adreslerini içerir; dosyayı güvenli saklayın ve yalnızca güvendiğiniz yedekleri içe aktarın. Medya dosyalarının kendisi, uygulama kodu, statik varlıklar, `.env` değerleri, kullanıcı hesapları, parolalar ve oturumlar dahil değildir. Dosyalar depolama sağlayıcısında erişilebilir kalmalıdır; bunları ayrıca yedekleyin. Başka sunucuya taşırken ortam değişkenlerini ve webhook adreslerini ayrıca yapılandırın.
+
+Yazar ve yükleyen bilgileri mevcut kullanıcılarla e-posta üzerinden eşleştirilir; eşleşmeyenler boş bırakılır. Eksik yöneticiye bağlı Telegram bağlantıları kaldırılır; MCP'nin seçili yöneticisi eşleştirilemezse HTTP erişimi kapatılır. Geçici Telegram eşleştirme kodları ve sürmekte olan AI inceleme işaretleri yeniden etkinleştirilmez. Kullanıcı hesapları ve oturumlar geri yükleme sırasında korunur.
+
+Doğrulama: `pnpm test:backup`. Veritabanı testi: `pnpm test:backup:db` (ayrı, geçici bir PostgreSQL şemasında çalışır ve sonunda şemayı temizler).
+
 ## Blog yorumları
 
 Blog alt menüsü açılıp kapanır; Posts, Categories, Tags ve Comments bölümlerini içerir. Blog sayfalarında menü açık gelir ve aktif alt sayfa işaretlenir. **Blog → Comments** (`/panel/blog/comments`) yorumları yazıya ve metne göre filtreler, sayfalar; yöneticiler yorumları onaylayabilir, reddedebilir, yeniden beklemeye alabilir veya onay penceresinden silebilir. Bekleyen yorum sayısı menüde ve bildirimlerde görünür.

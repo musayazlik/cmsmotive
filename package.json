@@ -19,6 +19,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:admin-access": "tsx --test tests/admin-access.test.ts",
+    "test:backup": "tsx --test tests/backup.test.ts",
+    "test:backup:db": "tsx --test tests/backup.integration.test.ts",
     "test:blog-comments": "tsx --test tests/blog-comments.test.ts",
     "test:blog-comments:db": "tsx --test tests/blog-comments.integration.test.ts",
     "test:comment-ai": "tsx --test tests/comment-ai.test.ts",

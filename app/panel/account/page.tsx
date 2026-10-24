@@ -1,6 +1,7 @@
 import Link from "@/app/panel/_components/panel-navigation";
 import { requirePanelUser } from "@/lib/panel-auth";
 import AccountForm from "./_components/account-form";
+import AccountNameForm from "./_components/account-name-form";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,8 @@ export default async function AccountPage() {
             Your <em>account.</em>
           </h1>
           <p>
-            Your sign-in identity and password. Other account holders — names, roles, e-mail addresses —
-            stay in the Users section; this page is only about your own access.
+            Your own name, sign-in identity and password. Other account holders — names, roles, e-mail
+            addresses — stay in the Users section.
           </p>
         </div>
         <span className="workspace-index">ACCOUNT</span>
@@ -28,11 +29,8 @@ export default async function AccountPage() {
       <div className="wtable-card wsettings-card">
         <div className="wsettings-section">
           <p className="wsection-label">Identity</p>
+          <AccountNameForm initialName={user.name} />
           <div className="winbox-meta">
-            <div>
-              <span>Name</span>
-              <strong>{user.name}</strong>
-            </div>
             <div>
               <span>E-mail</span>
               <strong>{user.email}</strong>
@@ -43,8 +41,9 @@ export default async function AccountPage() {
             </div>
           </div>
           <p className="wfield-hint-block">
-            Name and e-mail are managed in <Link href="/panel/users">Users</Link> — changing the e-mail there
-            signs you in with the new address next time.
+            Your name can be changed here. E-mail addresses are managed in{" "}
+            <Link href="/panel/users">Users</Link> — changing the e-mail there signs you in with the new
+            address next time.
           </p>
         </div>
 

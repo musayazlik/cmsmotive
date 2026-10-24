@@ -13,7 +13,7 @@ type SeedUser = {
   label: string;
   name: string;
   email: string;
-  role: "superadmin" | "admin";
+  role: "superadmin" | "admin" | "user";
   passwordEnv: string;
 };
 
@@ -42,6 +42,13 @@ const seedUsers: SeedUser[] = [
     email: (process.env.SEED_ADMIN_EMAIL?.trim() || "admin@cmsmotive.de").toLowerCase(),
     role: "admin",
     passwordEnv: "SEED_ADMIN_PASSWORD",
+  },
+  {
+    label: "user",
+    name: process.env.SEED_USER_NAME?.trim() || "CMSMotive User",
+    email: (process.env.SEED_USER_EMAIL?.trim() || "user@cmsmotive.de").toLowerCase(),
+    role: "user",
+    passwordEnv: "SEED_USER_PASSWORD",
   },
 ];
 
@@ -109,7 +116,7 @@ async function main() {
     for (const { user } of usedDefaults) {
       console.warn(`  ${user.email}  ->  ${DEV_PASSWORD}`);
     }
-    console.warn(`Set ${seedUsers.map((seedUser) => seedUser.passwordEnv).join(" and ")} before deploying.`);
+    console.warn(`Set ${seedUsers.map((seedUser) => seedUser.passwordEnv).join(", ")} before deploying.`);
   }
 }
 

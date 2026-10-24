@@ -68,29 +68,27 @@ export default function AccountForm() {
         placeholder="••••••••"
         disabled={pending}
       />
-      <div className="winbox-password-row">
-        <TextField
-          id="w-account-new"
-          label="New password"
-          hint={`min. ${MIN_LENGTH} characters`}
-          type="password"
-          value={newPassword}
-          onChange={setNewPassword}
-          autoComplete="new-password"
-          placeholder="••••••••"
-          disabled={pending}
-        />
-        <TextField
-          id="w-account-confirm"
-          label="Repeat new password"
-          type="password"
-          value={confirmPassword}
-          onChange={setConfirmPassword}
-          autoComplete="new-password"
-          placeholder="••••••••"
-          disabled={pending}
-        />
-      </div>
+      <TextField
+        id="w-account-new"
+        label="New password"
+        hint={`min. ${MIN_LENGTH} characters`}
+        type="password"
+        value={newPassword}
+        onChange={setNewPassword}
+        autoComplete="new-password"
+        placeholder="••••••••"
+        disabled={pending}
+      />
+      <TextField
+        id="w-account-confirm"
+        label="Repeat new password"
+        type="password"
+        value={confirmPassword}
+        onChange={setConfirmPassword}
+        autoComplete="new-password"
+        placeholder="••••••••"
+        disabled={pending}
+      />
       <p className="wfield-hint-block">
         Changing the password signs out your other devices; this session stays active.
       </p>

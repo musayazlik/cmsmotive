@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { DEFAULT_MCP_NAME } from "@/lib/mcp-settings-shared";
 import { registerAiTools } from "./tools/ai";
 import { registerChangelogTools } from "./tools/changelog";
 import { registerExtensionTools } from "./tools/extensions";
@@ -17,9 +18,9 @@ import { registerUserTools } from "./tools/users";
  * used by the stdio entry point (mcp/stdio.ts) and the token-protected HTTP
  * route (app/api/mcp/route.ts).
  */
-export function createCmsMcpServer(): McpServer {
+export function createCmsMcpServer(name = DEFAULT_MCP_NAME): McpServer {
   const server = new McpServer(
-    { name: "cmsmotive", version: "0.1.0" },
+    { name, version: "0.1.0" },
     {
       instructions:
         "Manage the CMSMotive panel. Use list tools first to discover ids, then create/update/delete tools. Publishing a blog post requires a category and at least one tag. Destructive tools are marked and cannot be undone.",

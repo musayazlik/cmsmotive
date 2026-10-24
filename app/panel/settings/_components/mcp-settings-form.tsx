@@ -5,7 +5,15 @@ import { useRouter } from "@/app/panel/_components/panel-navigation";
 import ConfirmDialog from "@/app/panel/_components/confirm-dialog";
 import CheckBox from "@/app/panel/_components/ui/checkbox";
 import Select from "@/app/panel/_components/ui/select";
-import { MCP_TOKEN_PREFIX, type McpSettings } from "@/lib/mcp-settings-shared";
+import TextField from "@/app/panel/_components/ui/text-field";
+import {
+  DEFAULT_MCP_NAME,
+  MCP_NAME_ERROR,
+  MCP_NAME_MAX_LENGTH,
+  MCP_TOKEN_PREFIX,
+  normalizeMcpName,
+  type McpSettings,
+} from "@/lib/mcp-settings-shared";
 import { issueMcpTokenAction, revokeMcpTokenAction, saveMcpAccessAction } from "../_actions";
 import { CopyButton } from "./settings-kit";
 
@@ -49,6 +57,7 @@ function Snippet({ title, note, code }: { title: string; note: string; code: str
 
 export default function McpSettingsForm({ settings, admins, endpoint, projectDir }: Props) {
   const router = useRouter();
+  const [name, setName] = useState(settings.name);
   const [httpEnabled, setHttpEnabled] = useState(settings.httpEnabled);
   const [actorUserId, setActorUserId] = useState(settings.actorUserId ?? "");
   const [saved, setSaved] = useState(false);
@@ -62,7 +71,13 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
   const [confirm, setConfirm] = useState<"rotate" | "revoke" | null>(null);
   const [tokenBusy, startToken] = useTransition();
 
-  const dirty = httpEnabled !== settings.httpEnabled || actorUserId !== (settings.actorUserId ?? "");
+  const serverName = normalizeMcpName(name);
+  const nameError = serverName ? undefined : MCP_NAME_ERROR;
+  const dirty =
+    serverName !== null &&
+    (serverName !== settings.name ||
+      httpEnabled !== settings.httpEnabled ||
+      actorUserId !== (settings.actorUserId ?? ""));
   const missingActor = Boolean(settings.actorUserId) && !admins.some((admin) => admin.id === settings.actorUserId);
   const fallbackAdmin = admins[0];
   const actorOptions = admins.map((admin) => ({
@@ -79,12 +94,17 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
   function save() {
     setError("");
     setSaved(false);
+    if (!serverName) {
+      setError(MCP_NAME_ERROR);
+      return;
+    }
     startSaving(async () => {
-      const result = await saveMcpAccessAction(httpEnabled, actorUserId || null);
+      const result = await saveMcpAccessAction(httpEnabled, actorUserId || null, serverName);
       if (!result.ok) {
         setError(result.error);
         return;
       }
+      setName(serverName);
       setSaved(true);
       router.refresh();
     });
@@ -119,13 +139,14 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
   }
 
   const token = freshToken ?? TOKEN_PLACEHOLDER;
+  const snippetName = serverName ?? settings.name;
   const stdioConfig = JSON.stringify(
-    { mcpServers: { cmsmotive: { command: "pnpm", args: ["--dir", projectDir, "mcp"] } } },
+    { mcpServers: { [snippetName]: { command: "pnpm", args: ["--dir", projectDir, "mcp"] } } },
     null,
     2,
   );
   const httpConfig = JSON.stringify(
-    { mcpServers: { cmsmotive: { url: endpoint, headers: { Authorization: `Bearer ${token}` } } } },
+    { mcpServers: { [snippetName]: { url: endpoint, headers: { Authorization: `Bearer ${token}` } } } },
     null,
     2,
   );
@@ -133,6 +154,19 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
   return (
     <div className="wsettings-stack">
       <div className="wtable-card wsettings-card">
+        <div className="wsettings-section">
+          <p className="wsection-label">Server</p>
+          <TextField
+            label="Name"
+            value={name}
+            onChange={setName}
+            maxLength={MCP_NAME_MAX_LENGTH}
+            placeholder={DEFAULT_MCP_NAME}
+            note="The name MCP clients see and use as the key in their configs. The snippets below follow it; clients that are already connected keep the old name until their config is updated."
+            error={nameError}
+          />
+        </div>
+
         <div className="wsettings-section">
           <div className="wsettings-heading">
             <p className="wsection-label">HTTP endpoint</p>
@@ -256,7 +290,7 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
           <Snippet
             title="Claude Code"
             note="Remote, over HTTP"
-            code={`claude mcp add --transport http cmsmotive ${endpoint} --header "Authorization: Bearer ${token}"`}
+            code={`claude mcp add --transport http ${snippetName} ${endpoint} --header "Authorization: Bearer ${token}"`}
           />
           <Snippet title="Cursor, Claude Desktop and other JSON configs" note="Remote, over HTTP" code={httpConfig} />
           <Snippet title="Local stdio server" note="Runs `pnpm mcp` from a checkout with database access" code={stdioConfig} />

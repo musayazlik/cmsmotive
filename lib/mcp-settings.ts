@@ -1,6 +1,12 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_MCP_SETTINGS, MCP_TOKEN_PREFIX, type McpSettings } from "@/lib/mcp-settings-shared";
+import {
+  DEFAULT_MCP_NAME,
+  DEFAULT_MCP_SETTINGS,
+  MCP_TOKEN_PREFIX,
+  normalizeMcpName,
+  type McpSettings,
+} from "@/lib/mcp-settings-shared";
 
 /**
  * Server-side MCP settings, stored in the Setting table next to the upload
@@ -9,13 +15,22 @@ import { DEFAULT_MCP_SETTINGS, MCP_TOKEN_PREFIX, type McpSettings } from "@/lib/
  * issued. Never import this module from a client component.
  */
 
+const KEY_NAME = "mcp.name";
 const KEY_HTTP_ENABLED = "mcp.http.enabled";
 const KEY_ACTOR = "mcp.actor.userId";
 const KEY_TOKEN_HASH = "mcp.token.hash";
 const KEY_TOKEN_HINT = "mcp.token.hint";
 const KEY_TOKEN_CREATED = "mcp.token.createdAt";
 const KEY_TOKEN_USED = "mcp.token.lastUsedAt";
-const SETTING_KEYS = [KEY_HTTP_ENABLED, KEY_ACTOR, KEY_TOKEN_HASH, KEY_TOKEN_HINT, KEY_TOKEN_CREATED, KEY_TOKEN_USED];
+const SETTING_KEYS = [
+  KEY_NAME,
+  KEY_HTTP_ENABLED,
+  KEY_ACTOR,
+  KEY_TOKEN_HASH,
+  KEY_TOKEN_HINT,
+  KEY_TOKEN_CREATED,
+  KEY_TOKEN_USED,
+];
 const TOKEN_KEYS = [KEY_TOKEN_HASH, KEY_TOKEN_HINT, KEY_TOKEN_CREATED, KEY_TOKEN_USED];
 
 /** lastUsedAt is refreshed at most this often, so busy clients do not write on every call. */
@@ -37,6 +52,7 @@ export async function getMcpSettings(): Promise<McpSettings> {
     const values = await readValues();
     const hash = values.get(KEY_TOKEN_HASH);
     return {
+      name: normalizeMcpName(values.get(KEY_NAME)) ?? DEFAULT_MCP_NAME,
       httpEnabled: values.get(KEY_HTTP_ENABLED) === "true",
       actorUserId: values.get(KEY_ACTOR) || null,
       token: hash
@@ -58,8 +74,19 @@ export async function getMcpActorUserId(): Promise<string | null> {
   return row?.value || null;
 }
 
-export async function saveMcpAccess(settings: { httpEnabled: boolean; actorUserId: string | null }): Promise<void> {
+/** The name registered with MCP clients; falls back to the default if unset or invalid. */
+export async function getMcpServerName(): Promise<string> {
+  const row = await prisma.setting.findUnique({ where: { key: KEY_NAME } });
+  return normalizeMcpName(row?.value) ?? DEFAULT_MCP_NAME;
+}
+
+export async function saveMcpAccess(settings: {
+  name: string;
+  httpEnabled: boolean;
+  actorUserId: string | null;
+}): Promise<void> {
   await prisma.$transaction([
+    upsert(KEY_NAME, normalizeMcpName(settings.name) ?? DEFAULT_MCP_NAME),
     upsert(KEY_HTTP_ENABLED, String(settings.httpEnabled)),
     upsert(KEY_ACTOR, settings.actorUserId ?? ""),
   ]);

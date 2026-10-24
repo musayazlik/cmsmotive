@@ -8,6 +8,7 @@ import { validateAdminAccessSettings } from "@/lib/admin-access-shared";
 import { adminEntryConfigured } from "@/lib/admin-entry";
 import { isAdminRole, requireAdmin } from "@/lib/admin-guard";
 import { issueMcpToken, revokeMcpToken, saveMcpAccess } from "@/lib/mcp-settings";
+import { MCP_NAME_ERROR, normalizeMcpName } from "@/lib/mcp-settings-shared";
 import { prisma } from "@/lib/prisma";
 import { validateAiSettings } from "@/lib/ai-settings-shared";
 import { validateEmailSettings } from "@/lib/email-settings-shared";
@@ -153,10 +154,17 @@ export async function saveUploadSettingsAction(
   }
 }
 
-/** Turns the HTTP endpoint on or off and picks the admin account MCP acts as (null = oldest admin). */
-export async function saveMcpAccessAction(httpEnabled: boolean, actorUserId: string | null): Promise<ActionResult> {
+/** Turns the HTTP endpoint on or off, picks the server name and the admin account MCP acts as (null = oldest admin). */
+export async function saveMcpAccessAction(
+  httpEnabled: boolean,
+  actorUserId: string | null,
+  name: string,
+): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: FORBIDDEN };
+
+  const serverName = normalizeMcpName(name);
+  if (!serverName) return { ok: false, error: MCP_NAME_ERROR };
 
   if (actorUserId) {
     const user = await prisma.user.findUnique({ where: { id: actorUserId }, select: { role: true } });
@@ -165,7 +173,7 @@ export async function saveMcpAccessAction(httpEnabled: boolean, actorUserId: str
   }
 
   try {
-    await saveMcpAccess({ httpEnabled, actorUserId });
+    await saveMcpAccess({ name: serverName, httpEnabled, actorUserId });
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {

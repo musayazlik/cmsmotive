@@ -1,5 +1,5 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { verifyMcpToken } from "@/lib/mcp-settings";
+import { getMcpServerName, verifyMcpToken } from "@/lib/mcp-settings";
 import { resolveMcpActor } from "@/mcp/context";
 import { createCmsMcpServer } from "@/mcp/create-server";
 
@@ -57,7 +57,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const server = createCmsMcpServer();
+  const server = createCmsMcpServer(await getMcpServerName());
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

@@ -27,7 +27,7 @@ Yol doğrulama, bağlantı eşleme ve sahte/süresi dolmuş giriş çerezleri i�
 
 ## MCP server
 
-Panelin tüm işlevleri MCP üzerinden de kullanılabilir: blog yazıları, kategori ve etiketler, temalar, eklentiler, güncelleme geçmişi, medya, ürün yorumları, gelen kutusu, kullanıcılar, ayarlar ve istatistikler. Her iki taşıma da aynı araçları sunar (`mcp/create-server.ts`, `mcp/tools/`). Ayarlar panelde **Settings → MCP** sekmesinden yönetilir (`/panel/settings?tab=mcp`). Yazma işlemleri orada seçilen yönetici hesabına atfedilir; seçim yoksa en eski admin/superadmin hesabı kullanılır. Hesap admin değilse araçlar çalışmaz.
+Panelin tüm işlevleri MCP üzerinden de kullanılabilir: blog yazıları, kategori ve etiketler, temalar, eklentiler, güncelleme geçmişi, medya, ürün yorumları, gelen kutusu, kullanıcılar, ayarlar ve istatistikler. Her iki taşıma da aynı araçları sunar (`mcp/create-server.ts`, `mcp/tools/`). Ayarlar panelde **Settings → MCP** sekmesinden yönetilir (`/panel/settings?tab=mcp`). Yazma işlemleri orada seçilen yönetici hesabına atfedilir; seçim yoksa en eski admin/superadmin hesabı kullanılır. Hesap admin değilse araçlar çalışmaz. Sunucu adı da aynı sekmeden değiştirilebilir; istemci yapılandırmalarındaki anahtar, `claude mcp add` komutu ve `initialize` yanıtındaki sunucu adı bu değeri kullanır (varsayılan: `cmsmotive`).
 
 ### stdio (yerel istemciler)
 

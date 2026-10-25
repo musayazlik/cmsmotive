@@ -13,6 +13,8 @@ export type AiSettings = {
   /** OpenRouter model id; "" picks the dialog's built-in preference list. */
   textModel: string;
   imageModel: string;
+  /** OpenRouter model for the panel's support chat; "" picks the chat's own preference list. */
+  chatModel: string;
   style: AiStyle;
   depth: AiDepth;
   language: AiLanguage;
@@ -36,6 +38,7 @@ export const DEFAULT_RESEARCH_MODEL = "perplexity/sonar-pro";
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   textModel: "",
   imageModel: "",
+  chatModel: "",
   style: "informative",
   depth: "standard",
   language: "en",
@@ -53,7 +56,8 @@ export function validateAiSettings(input: Record<string, unknown>): { error: str
   const model = (key: string) => (typeof input[key] === "string" ? (input[key] as string).trim() : "");
   const textModel = model("textModel");
   const imageModel = model("imageModel");
-  if ((textModel && !MODEL_ID.test(textModel)) || (imageModel && !MODEL_ID.test(imageModel))) {
+  const chatModel = model("chatModel");
+  if ((textModel && !MODEL_ID.test(textModel)) || (imageModel && !MODEL_ID.test(imageModel)) || (chatModel && !MODEL_ID.test(chatModel))) {
     return { error: "Model ids look like provider/model-name." };
   }
   if (!oneOf(AI_STYLES, input.style)) return { error: "Choose a writing style." };
@@ -70,6 +74,7 @@ export function validateAiSettings(input: Record<string, unknown>): { error: str
     data: {
       textModel,
       imageModel,
+      chatModel,
       style: input.style,
       depth: input.depth,
       language: input.language,
@@ -86,6 +91,14 @@ type ModelRef = { id: string; free?: boolean };
 export const DEFAULT_TEXT_MODELS = [
   "openai/gpt-5-mini",
   "google/gemini-3.1-flash-lite",
+  "google/gemini-2.5-flash",
+  "openai/gpt-4o-mini",
+];
+
+/** Models the support chat tries when Settings → AI picks no chat model. */
+export const DEFAULT_CHAT_MODELS = [
+  "google/gemini-3.1-flash-lite",
+  "openai/gpt-5-mini",
   "google/gemini-2.5-flash",
   "openai/gpt-4o-mini",
 ];

@@ -30,7 +30,7 @@ export async function GET() {
 
   const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, roadmapProducts, pendingComments] = await Promise.all([
     getAdminAccessSettings(),
-    prisma.user.count({ where: { emailVerified: false } }),
+    prisma.user.count({ where: { emailVerified: false, storeMemberships: { some: { storeId } } } }),
     prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null } }),
     prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null, emailSent: false } }),
     prisma.product.count({ where: { storeId, status: { in: ["concept", "planning", "in-development"] } } }),

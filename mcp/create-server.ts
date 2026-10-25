@@ -1,5 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DEFAULT_MCP_NAME } from "@/lib/mcp-settings-shared";
+import { instrumentMcpActivity } from "./activity";
+import { resolveMcpActor } from "./context";
 import { registerAiTools } from "./tools/ai";
 import { registerChangelogTools } from "./tools/changelog";
 import { registerInboxTools } from "./tools/inbox";
@@ -26,6 +28,7 @@ export function createCmsMcpServer(name = DEFAULT_MCP_NAME): McpServer {
     },
   );
 
+  instrumentMcpActivity(server, resolveMcpActor);
   registerPostTools(server);
   registerTaxonomyTools(server);
   registerProductTools(server);

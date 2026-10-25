@@ -332,7 +332,7 @@ function AssistantCard({
           onChange={(id) => set("imageModel", id)}
         />
         <p className="wfield-hint-block" style={{ marginTop: 0 }}>
-          The panel&apos;s own AI assistant keeps using <Link href="/panel/settings?tab=ai">Settings → AI</Link>. AI
+          The panel&apos;s own AI assistant keeps using <Link href="/panel/settings/ai">Settings → AI</Link>. AI
           drafts and images are created directly; edits, publishing and deletions wait for your Confirm tap in the chat.
         </p>
       </div>

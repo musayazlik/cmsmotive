@@ -12,7 +12,7 @@ export default function SecuritySettingsForm({ settings, origin }: { settings: A
     const result = await saveAdminAccessSettingsAction({ ...values, currentPassword: password });
     if (result.ok) {
       setPassword("");
-      window.location.replace(`${result.panelPath}/settings?tab=security`);
+      window.location.replace(`${result.panelPath}/settings/security`);
     }
     return result;
   }, { refresh: false });

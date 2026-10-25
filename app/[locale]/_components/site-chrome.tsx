@@ -56,17 +56,11 @@ const SOCIAL = [
 /** What every chrome part needs: the language, its translator, and the page's unprefixed path. */
 type ChromeProps = { locale: Locale; t: Translate; path: string };
 
-function ArrowIcon() {
-  return (
-    <span className="btn-icon" aria-hidden="true">
-      <img src="/assets/icons/arrow-right.svg" alt="" width={16} height={16} />
-    </span>
-  );
-}
-
-/** Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py (site.js binds [data-lang-switch]).
- * Signed-in visitors also get the admin link (its static twin: lib/legacy.ts injectAdminPanelLink). */
-export function TopBar({ locale, t, path, showAdmin, adminHref = "/panel" }: ChromeProps & { showAdmin?: boolean; adminHref?: string }) {
+/**
+ * Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py (site.js binds [data-lang-switch]).
+ * Account entry lives in the header's avatar menu, so the bar stays purely informational.
+ */
+export function TopBar({ locale, t, path }: ChromeProps) {
   return (
     <div className="topbar">
       <div className="container topbar-inner">
@@ -84,18 +78,6 @@ export function TopBar({ locale, t, path, showAdmin, adminHref = "/panel" }: Chr
           <span className="topbar-note">{t("Replies within one business day")}</span>
         </div>
         <div className="topbar-end">
-          <a className="topbar-admin" href={`/account?lang=${locale}`}>{t("My account")}</a>
-          {showAdmin ? (
-            <a className="topbar-admin" href={adminHref} aria-label={t("Admin panel")}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
-                <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
-                <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
-                <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
-              </svg>
-              <span>{t("Admin panel")}</span>
-            </a>
-          ) : null}
           <ul className="topbar-social" aria-label={t("CMSMotive on social media")}>
             {SOCIAL.map((item) => (
               <li key={item.label}>
@@ -162,9 +144,8 @@ export function SiteHeader({ locale, t, current, account, adminHref }: Omit<Chro
         </nav>
         <div className="header-actions">
           {account ? <div dangerouslySetInnerHTML={{__html:accountMenuHtml(account,locale,adminHref)}} /> :
-          <a className="btn btn-primary" href={href("/themes")}>
-            <span className="btn-label">{t("Explore themes")}</span>
-            <ArrowIcon />
+          <a className="btn btn-primary" href={`/auth/sign-in?lang=${locale}`}>
+            <span className="btn-label">{t("Sign in")}</span>
           </a>}
           <button className="menu-toggle" type="button" aria-label={t("Open menu")} aria-expanded="false" aria-controls="mobile-nav">
             <span></span>
@@ -179,10 +160,11 @@ export function SiteHeader({ locale, t, current, account, adminHref }: Omit<Chro
             {t(item.label)}
           </a>
         ))}
-        {account ? <a href={`/account?lang=${locale}`}>{t("My account")}</a> : <a className="btn btn-primary" href={href("/themes")}>
-          <span className="btn-label">{t("Explore themes")}</span>
-          <ArrowIcon />
-        </a>}
+        {account ? null : (
+          <a className="btn btn-primary" href={`/auth/sign-in?lang=${locale}`}>
+            <span className="btn-label">{t("Sign in")}</span>
+          </a>
+        )}
       </nav>
     </header>
   );
@@ -296,7 +278,7 @@ export async function SiteFrame({
           <p className="container">{t("This site is currently in maintenance mode.")}</p>
         </div>
       ) : null}
-      <TopBar locale={locale} t={t} path={path} showAdmin={showAdmin} adminHref={adminHref} />
+      <TopBar locale={locale} t={t} path={path} />
       <SiteHeader locale={locale} t={t} current={current} account={account} adminHref={adminHref} />
       <main id="main">{children}</main>
       <SiteFooter locale={locale} t={t} />

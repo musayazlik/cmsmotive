@@ -1,0 +1,2 @@
+export const SUPPORT_MESSAGE_LIMIT = 2000;
+export const SUPPORT_HISTORY_LIMIT = 21;

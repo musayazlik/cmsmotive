@@ -73,6 +73,7 @@ test("registration records current consent, cannot assign privileges, and Google
       mailCount++;
       return Response.json({ success: true });
     });
+    let requestNumber = 55;
     const call = (path: string, body: Record<string, unknown>) =>
       POST(
         new Request(`http://localhost:3000/api/auth/${path}`, {
@@ -80,7 +81,7 @@ test("registration records current consent, cannot assign privileges, and Google
           headers: {
             "Content-Type": "application/json",
             origin: "http://localhost:3000",
-            "x-forwarded-for": "127.0.0.55",
+            "x-forwarded-for": `127.0.0.${requestNumber++}`,
           },
           body: JSON.stringify(body),
         }),
@@ -93,8 +94,6 @@ test("registration records current consent, cannot assign privileges, and Google
       acceptedTermsVersion: "2026-10-24",
       locale: "tr",
       role: "admin",
-      accountLocale: "de",
-      termsVersion: "forged",
     };
     assert.equal(
       (await call("sign-up/email", { ...signup, termsAccepted: false })).status,
@@ -106,12 +105,17 @@ test("registration records current consent, cannot assign privileges, and Google
         .status,
       400,
     );
+    for (const forged of [{ accountLocale: "de" }, { termsVersion: "forged" }]) {
+      assert.equal((await call("sign-up/email", { ...signup, ...forged })).status, 400);
+      assert.equal(await db.user.count(), 0);
+    }
     const created = await call("sign-up/email", signup);
-    assert.equal(created.status, 200);
+    assert.equal(created.status, 200, created.ok ? undefined : await created.text());
     const user = await db.user.findUniqueOrThrow({
       where: { email: "member@example.test" },
     });
     assert.equal(user.role, "user");
+    assert.equal((await db.storeMember.findUniqueOrThrow({ where: { storeId_userId: { storeId: store.id, userId: user.id } } })).role, "user");
     assert.equal(user.accountLocale, "tr");
     assert.equal(user.termsVersion, "2026-10-24");
     assert.equal(user.privacyVersion, "2026-10-24");
@@ -152,7 +156,7 @@ test("registration records current consent, cannot assign privileges, and Google
     assert.equal(
       (await call("sign-up/email", { ...signup, email: "public@example.test" }))
         .status,
-      400,
+      404,
     );
     assert.equal(await db.user.count(), 1);
   } finally {

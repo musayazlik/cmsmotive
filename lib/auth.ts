@@ -1,4 +1,6 @@
 import { betterAuth } from "better-auth";
+import { oneTimeToken } from "better-auth/plugins/one-time-token";
+import { getStoreRole, isStoreAdmin } from "./store-access";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
 import { sendAccountEmail } from "@/lib/plunk";
@@ -27,6 +29,7 @@ async function authStoreId(source?: Request | Headers | null): Promise<string> {
 }
 
 export const auth = betterAuth({
+  plugins: [oneTimeToken({ disableClientRequest: true, storeToken: "hashed", expiresIn: 1 })],
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // One auth server for every store: links, cookies and the Google callback
   // follow the request's host. Stores live in the database, so any host is
@@ -102,17 +105,21 @@ export const auth = betterAuth({
             },
           };
         },
+        after: async (user, ctx) => {
+          if (ctx?.path !== "/sign-up/email" && !ctx?.path.startsWith("/callback/")) return;
+          const storeId = await authStoreId(ctx.headers ?? ctx.request);
+          await prisma.storeMember.upsert({
+            where: { storeId_userId: { storeId, userId: user.id } },
+            create: { storeId, userId: user.id, role: "user" }, update: {},
+          });
+        },
       },
     },
     session: {
       create: {
         before: async (session, ctx) => {
           if (ctx?.path !== "/callback/:id") return { data: session };
-          const user = await prisma.user.findUnique({
-            where: { id: session.userId },
-            select: { role: true },
-          });
-          if (user?.role === "admin" || user?.role === "superadmin") {
+          if (isStoreAdmin(await getStoreRole(session.userId, await authStoreId(ctx.headers ?? ctx.request)))) {
             const { panelPath } = await getAdminAccessSettings();
             if (
               panelPath !== "/panel" &&
@@ -166,9 +173,9 @@ export const auth = betterAuth({
         return;
       const user = await prisma.user.findUnique({
         where: { email: ctx.body.email.trim().toLowerCase() },
-        select: { role: true },
+        select: { id: true },
       });
-      if (user?.role === "admin" || user?.role === "superadmin") {
+      if (user && isStoreAdmin(await getStoreRole(user.id, await authStoreId(ctx.headers ?? ctx.request)))) {
         // Match the provider's credential failure and hashing cost; do not disclose an admin account or its entry path.
         await ctx.context.password.hash(
           typeof ctx.body.password === "string" ? ctx.body.password : "",
@@ -190,7 +197,7 @@ export const auth = betterAuth({
         subject: "Reset your CMSMotive password",
         actionUrl: url,
         actionText: "Reset password",
-      });
+      }, request ? (await resolveRequestStore(request)).origin : undefined);
     },
   },
   emailVerification: {
@@ -203,7 +210,7 @@ export const auth = betterAuth({
         subject: "Confirm your CMSMotive email",
         actionUrl: url,
         actionText: "Confirm email",
-      });
+      }, request ? (await resolveRequestStore(request)).origin : undefined);
     },
   },
   rateLimit: {

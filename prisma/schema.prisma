@@ -39,8 +39,44 @@ model Store {
   media         MediaAsset[]
   subscribers   NewsletterSubscriber[]
   pageViews     PageViewDaily[]
+  activities    AssistantActivity[]
+  members       StoreMember[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
+}
+
+/// A shared account's access to one store.
+model StoreMember {
+  storeId   String
+  userId    String
+  /// Store-local permission: admin | user. Superadmin remains installation-wide.
+  role      String   @default("user")
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([storeId, userId])
+  @@index([userId])
+}
+
+/// Operational summaries only; never store prompts, credentials or tool arguments.
+model AssistantActivity {
+  id         String   @id @default(cuid())
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  source     String
+  title      String
+  status     String   @default("running")
+  detail     String
+  steps      Json     @default("[]")
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  finishedAt DateTime?
+
+  @@index([storeId, status, expiresAt])
+  @@index([storeId, createdAt])
 }
 
 model StoreDomain {
@@ -76,6 +112,7 @@ model User {
   uploads         MediaAsset[]
   posts           Post[]
   customers       Customer[]
+  storeMemberships StoreMember[]
 
   @@map("user")
 }

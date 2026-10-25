@@ -1,6 +1,7 @@
 import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import UsersManager from "./users-manager";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export default async function UsersPage() {
   const session = await requirePanelUser();
 
   // The seeded superadmin is hidden from the panel, so it is not counted either.
-  const totalUsers = await prisma.user.count({ where: { role: { not: "superadmin" } } });
+  const totalUsers = await prisma.storeMember.count({ where: { storeId: (await panelStore()).id, user: { role: { not: "superadmin" } } } });
 
   return (
     <>
@@ -22,8 +23,8 @@ export default async function UsersPage() {
             <em>access.</em>
           </h1>
           <p>
-            Every account that can sign in to the workspace. Admins reach the full panel, standard accounts see their
-            own work only. Search, add, edit or remove accounts — every change is applied immediately.
+            Members of this store. Admins manage the panel for this store; standard members use their own account.
+            Add an existing account by e-mail, or create a new one. Roles and removals apply to this store only.
           </p>
         </div>
         <span className="workspace-index">02 / 05</span>

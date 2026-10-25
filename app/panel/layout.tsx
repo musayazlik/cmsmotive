@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import "../panel.css";
+import "./workspace-shell.css";
+import "./assistant-activity.css";
 import { requirePanelUser } from "@/lib/panel-auth";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
 import { getSiteSettings, getUploadSettings } from "@/lib/settings";
 import { isLocale } from "@/lib/i18n/config";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/site-settings-shared";
-import { listStores } from "@/lib/stores";
+import { accessibleStores } from "@/lib/store-access";
 import { UploadSettingsProvider } from "./_components/upload-settings";
 import { PanelNavigationProvider } from "./_components/panel-navigation";
 import PanelShell from "./_components/panel-shell";
@@ -20,7 +22,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     getAdminAccessSettings(),
     getUploadSettings(store.id),
     getSiteSettings(store.id),
-    listStores(),
+    accessibleStores(user.id),
     panelStoreOrigin(),
   ]);
   return (

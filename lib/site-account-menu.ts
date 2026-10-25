@@ -61,15 +61,11 @@ export function injectAccountMenu(
     /(<div class="header-actions">)\s*<a\b[^>]*class="btn btn-primary"[^>]*>[\s\S]*?<\/a\s*>/,
     (_all, open) => open + menu,
   );
+  // The avatar menu in the header covers the account on mobile too, so the
+  // signed-in mobile navigation carries no account link of its own.
   out = out.replace(
     /(<nav\b[^>]*class="mobile-nav"[^>]*>)([\s\S]*?)(<\/nav\s*>)/,
-    (_all, open, body, close) =>
-      open +
-      body.replace(
-        /<a\b[^>]*class="btn btn-primary"[^>]*>[\s\S]*?<\/a\s*>/,
-        `<a href="/account?lang=${l}">${esc(copy(l, "My account", "Mein Konto", "Hesabım"))}</a>`,
-      ) +
-      close,
+    (_all, open, body, close) => open + body.replace(/<a\b[^>]*class="btn btn-primary"[^>]*>[\s\S]*?<\/a\s*>/, "") + close,
   );
   return out.replace(
     "</head>",

@@ -12,6 +12,12 @@ const betterAuth = toNextJsHandler(auth);
 
 /** Better Auth builds links from the request host, so only store domains may reach it (lib/auth.ts). */
 async function unknownHost(request: Request) {
+  // Store-switch tokens can only be redeemed through the audience-checked POST handoff.
+  let pathname: string;
+  try { pathname = decodeURIComponent(new URL(request.url).pathname); } catch { return new Response(null, { status: 404 }); }
+  if (/^\/api\/auth\/one-time-token(?:\/|$)/i.test(pathname)) {
+    return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
   if (isAccountHost(await resolveRequestStore(request), request)) return null;
   return Response.json({ message: "Not found." }, { status: 404, headers: { "cache-control": "no-store" } });
 }

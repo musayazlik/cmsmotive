@@ -1,5 +1,6 @@
-import { isAdminRole } from "@/lib/admin-guard";
+import { getStoreRole, isStoreAdmin } from "@/lib/store-access";
 import { prisma } from "@/lib/prisma";
+import { activityStep, trackActivity } from "@/lib/assistant-activity";
 import {
   consumePairingCode,
   getTelegramConfig,
@@ -107,7 +108,7 @@ async function linkAccount(config: TelegramConfig, message: TgMessage, code: str
     return;
   }
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, role: true } });
-  if (!user || !isAdminRole(user.role)) {
+  if (!user || !isStoreAdmin(await getStoreRole(userId, config.storeId))) {
     await sendText(token, message.chat.id, "The panel account that created this code is not an admin.");
     return;
   }
@@ -185,16 +186,21 @@ async function handleMessage(config: TelegramConfig, message: TgMessage) {
   }
   if (command === "whoami") {
     const user = await prisma.user.findUnique({ where: { id: link.userId }, select: { email: true, role: true } });
-    return sendText(token, chatId, user ? `Acting as **${user.email}** (${user.role}).` : "The linked panel account no longer exists.");
+    const role = await getStoreRole(link.userId, config.storeId);
+    return sendText(token, chatId, user ? `Acting as **${user.email}** (${role ?? "no store access"}).` : "The linked panel account no longer exists.");
   }
 
   await withChatLock(chatId, async () => {
     try {
       if (await dropPending(chatId)) await sendText(token, chatId, "The action that was waiting for confirmation was cancelled.");
-      const attachment = await storeAttachment(config, message, link.userId);
-      const prompt = [request, attachment].filter(Boolean).join("\n\n");
-      if (!prompt) return;
-      await runAsActor(link.userId, () => runAgent(agentContext(config, chatId), prompt));
+      if (!request && !message.photo && !message.document) return;
+      await trackActivity({ storeId: config.storeId, source: "telegram", title: "Telegram assistant" }, async () => {
+        if (message.photo || message.document) await activityStep("Saving the Telegram attachment…");
+        const attachment = await storeAttachment(config, message, link.userId);
+        const prompt = [request, attachment].filter(Boolean).join("\n\n");
+        if (!prompt) return;
+        await runAsActor(link.userId, () => runAgent(agentContext(config, chatId), prompt));
+      });
     } catch (error) {
       await reportError(token, chatId, error);
     }
@@ -237,7 +243,9 @@ async function handleCallback(config: TelegramConfig, query: TgCallbackQuery) {
       }
       if (!match) {
         // Publish / Discard on a post card: the user's own decision, no model involved.
-        const decision = await runAsActor(link.userId, () => handleDraftAction(agentContext(config, chatId), data));
+        const decision = await trackActivity({ storeId: config.storeId, source: "telegram", title: "Telegram post action" }, () =>
+          runAsActor(link.userId, () => handleDraftAction(agentContext(config, chatId), data)),
+        );
         if (decision) await appendHistory(chatId, [{ role: "user", content: `(Tapped a button) ${decision}` }]);
         return;
       }

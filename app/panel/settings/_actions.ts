@@ -6,7 +6,8 @@ import { auth } from "@/lib/auth";
 import { saveAdminAccessSettings } from "@/lib/admin-access";
 import { validateAdminAccessSettings } from "@/lib/admin-access-shared";
 import { adminEntryConfigured } from "@/lib/admin-entry";
-import { isAdminRole, requireAdmin } from "@/lib/admin-guard";
+import { requireAdmin, requireSuperAdmin } from "@/lib/admin-guard";
+import { getStoreRole, isStoreAdmin } from "@/lib/store-access";
 import { issueMcpToken, revokeMcpToken, saveMcpAccess } from "@/lib/mcp-settings";
 import { MCP_NAME_ERROR, normalizeMcpName } from "@/lib/mcp-settings-shared";
 import { prisma } from "@/lib/prisma";
@@ -45,7 +46,7 @@ import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
 const FORBIDDEN = "You are not allowed to perform this action.";
 
 export async function saveAdminAccessSettingsAction(input: Record<string, unknown>): Promise<{ ok: true; panelPath: string } | { ok: false; error: string }> {
-  const { failure } = await requireAdmin();
+  const { failure } = await requireSuperAdmin();
   if (failure) return { ok: false, error: FORBIDDEN };
   const parsed = validateAdminAccessSettings(input ?? {});
   if ("error" in parsed) return { ok: false, error: parsed.error };
@@ -84,7 +85,7 @@ async function saveGroup<T>(
 
   try {
     await save((await panelStore()).id, parsed.data);
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true };
   } catch (error) {
     console.error(`save ${name} settings failed`, error);
@@ -154,7 +155,7 @@ export async function saveUploadSettingsAction(
 
   try {
     await saveUploadSettings((await panelStore()).id, { convertWebp, webpQuality });
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true };
   } catch (error) {
     console.error("saveUploadSettingsAction failed", error);
@@ -177,12 +178,12 @@ export async function saveMcpAccessAction(
   if (actorUserId) {
     const user = await prisma.user.findUnique({ where: { id: actorUserId }, select: { role: true } });
     if (!user) return { ok: false, error: "The selected account no longer exists." };
-    if (!isAdminRole(user.role)) return { ok: false, error: "MCP can only act as an admin or superadmin account." };
+    if (!isStoreAdmin(await getStoreRole(actorUserId, (await panelStore()).id))) return { ok: false, error: "MCP must act as an admin of this store." };
   }
 
   try {
     await saveMcpAccess((await panelStore()).id, { name: serverName, httpEnabled, actorUserId });
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true };
   } catch (error) {
     console.error("saveMcpAccessAction failed", error);
@@ -197,7 +198,7 @@ export async function issueMcpTokenAction(): Promise<{ ok: true; token: string }
 
   try {
     const token = await issueMcpToken((await panelStore()).id);
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true, token };
   } catch (error) {
     console.error("issueMcpTokenAction failed", error);
@@ -211,7 +212,7 @@ export async function revokeMcpTokenAction(): Promise<ActionResult> {
 
   try {
     await revokeMcpToken((await panelStore()).id);
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true };
   } catch (error) {
     console.error("revokeMcpTokenAction failed", error);
@@ -250,7 +251,7 @@ export async function connectTelegramBotAction(
       });
     }
     await telegram(trimmed, "setMyCommands", { commands: BOT_COMMANDS }).catch(() => undefined);
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true, username: bot.username ?? String(bot.id), webhook };
   } catch (error) {
     console.error("connectTelegramBotAction failed", error);
@@ -267,7 +268,7 @@ export async function disconnectTelegramBotAction(): Promise<ActionResult> {
     const { token } = await getTelegramConfig(storeId);
     if (token) await telegram(token, "deleteWebhook").catch(() => undefined);
     await clearTelegramBot(storeId);
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true };
   } catch (error) {
     console.error("disconnectTelegramBotAction failed", error);
@@ -287,7 +288,7 @@ export async function saveTelegramOptionsAction(input: Record<string, unknown>):
   }
   try {
     await saveTelegramOptions((await panelStore()).id, { enabled: input.enabled, model, contentModel, imageModel });
-    revalidatePath("/panel/settings");
+    revalidatePath("/panel/settings", "layout");
     return { ok: true };
   } catch (error) {
     console.error("saveTelegramOptionsAction failed", error);
@@ -313,6 +314,6 @@ export async function removeTelegramLinkAction(telegramUserId: number): Promise<
   if (!Number.isSafeInteger(telegramUserId)) return { ok: false, error: "Invalid account." };
 
   await removeTelegramLink((await panelStore()).id, telegramUserId);
-  revalidatePath("/panel/settings");
+  revalidatePath("/panel/settings", "layout");
   return { ok: true };
 }

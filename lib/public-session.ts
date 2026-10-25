@@ -1,16 +1,19 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAdminRole } from "@/lib/admin-guard";
+import { getStoreRole, isStoreAdmin } from "./store-access";
+import { currentStoreId } from "./current-store";
+import { resolveRequestStore } from "./stores";
 import { cache } from "react";
 export const getPublicAccount = cache(async () => {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) return null;
-    return prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { name: true, email: true, image: true, role: true },
     });
+    return user ? { ...user, role: await getStoreRole(session.user.id, await currentStoreId()) ?? "user" } : null;
   } catch {
     return null;
   }
@@ -21,11 +24,7 @@ export function hasPanelSessionFor(requestHeaders: Headers): Promise<boolean> {
     try {
       const session = await auth.api.getSession({ headers: requestHeaders });
       if (!session) return false;
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { role: true },
-      });
-      return isAdminRole(user?.role);
+      return isStoreAdmin(await getStoreRole(session.user.id, (await resolveRequestStore(requestHeaders)).store.id));
     } catch (error) {
       console.error("hasPanelSession failed", error);
       return false;

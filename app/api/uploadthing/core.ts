@@ -1,7 +1,7 @@
 import { createUploadthing, UploadThingError, type FileRouter } from "uploadthing/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAdminRole } from "@/lib/admin-guard";
+import { getStoreRole, isStoreAdmin } from "@/lib/store-access";
 import { z } from "zod";
 import { readCompliance } from "@/lib/product-compliance";
 import { panelStoreFromRequest } from "@/lib/panel-store";
@@ -17,12 +17,11 @@ async function requireAdminUpload(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session) throw new UploadThingError("Unauthorized");
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true, role: true } });
-  // Same roles as the panel guard (lib/admin-guard.ts): superadmins upload too.
-  if (!user || !isAdminRole(user.role)) throw new UploadThingError("Forbidden");
+  const storeId = (await panelStoreFromRequest(req)).id;
+  if (!isStoreAdmin(await getStoreRole(session.user.id, storeId))) throw new UploadThingError("Forbidden");
 
   // The store the panel is editing receives the upload (lib/panel-store.ts).
-  return { userId: user.id, storeId: (await panelStoreFromRequest(req)).id };
+  return { userId: session.user.id, storeId };
 }
 
 /** Every upload lands in its store's MediaAsset library so the media library can track it. */

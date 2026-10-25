@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin-guard";
+import { requireSuperAdmin } from "@/lib/admin-guard";
 import { adminEntryConfigured } from "@/lib/admin-entry";
 import { auth } from "@/lib/auth";
 import { exportBackup, importBackup } from "@/lib/backup";
@@ -12,7 +12,7 @@ const privateHeaders = { "Cache-Control": "no-store", "X-Content-Type-Options": 
 const error = (message: string, status = 400) => Response.json({ error: message }, { status, headers: privateHeaders });
 
 export async function GET() {
-  const { failure } = await requireAdmin();
+  const { failure } = await requireSuperAdmin();
   if (failure) return failure;
   try {
     const backup = JSON.stringify(await exportBackup());
@@ -49,7 +49,7 @@ async function readBody(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { failure } = await requireAdmin();
+  const { failure } = await requireSuperAdmin();
   if (failure) return failure;
   if (!request.headers.get("content-type")?.startsWith("application/json")) return error("Upload a JSON backup.", 415);
   // JSON requests require a same-origin browser request; cross-site forms cannot restore a backup.

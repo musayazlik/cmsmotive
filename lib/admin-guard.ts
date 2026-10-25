@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { panelStore } from "./panel-store";
+import { getStoreRole } from "./store-access";
 
 export const USER_ROLES = ["superadmin", "admin", "user"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -27,15 +29,21 @@ export async function requireAdmin() {
     return { session: null, failure: Response.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!isAdminRole(user?.role)) {
+  const role = await getStoreRole(session.user.id, (await panelStore()).id);
+  if (!isAdminRole(role)) {
     return { session: null, failure: Response.json({ error: "Forbidden." }, { status: 403 }) };
   }
 
   return { session, failure: null };
+}
+
+/** Operations affecting the entire installation are reserved for its owner. */
+export async function requireSuperAdmin() {
+  const result = await requireAdmin();
+  if (result.failure) return result;
+  const user = await prisma.user.findUnique({ where: { id: result.session.user.id }, select: { role: true } });
+  if (user?.role !== "superadmin") return { session: null, failure: Response.json({ error: "Forbidden." }, { status: 403 }) };
+  return result;
 }
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

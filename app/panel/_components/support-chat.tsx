@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n/config";
-import { assistantReply, CHAT_COPY } from "./support-chat-copy";
+import { SUPPORT_HISTORY_LIMIT, SUPPORT_MESSAGE_LIMIT } from "@/lib/support-chat-shared";
+import { CHAT_COPY } from "./support-chat-copy";
+import { usePathname } from "./panel-navigation";
 
 /**
  * Floating support chat for the panel.
@@ -10,12 +12,8 @@ import { assistantReply, CHAT_COPY } from "./support-chat-copy";
  * A launcher sits in the bottom-right corner of every panel page. A few seconds
  * after the page loads, a cloud-shaped "need help?" bubble pops up above it
  * with a soft chime (once per browser session). Clicking either the launcher
- * or the cloud opens an animated chat sheet with a small local assistant.
- *
- * The assistant answers from a canned keyword map (support-chat-copy.ts) in
- * the system language chosen under Settings → General; wiring a real model
- * later only means calling an endpoint inside `assistantReply` and pushing its
- * text instead.
+ * or the cloud opens a compact chat sheet. Replies come from the authenticated
+ * OpenRouter endpoint, using recent turns and the panel's system language.
  */
 
 type ChatMessage = { id: number; from: "user" | "assistant"; text: string };
@@ -23,9 +21,6 @@ type ChatMessage = { id: number; from: "user" | "assistant"; text: string };
 const CLOUD_DELAY_MS = 6_500; // a few seconds of browsing before it offers help
 const CLOUD_LINGER_MS = 12_000; // how long the cloud stays when ignored
 const SESSION_SEEN_KEY = "cm-support-cloud-seen";
-
-const TYPING_MIN_MS = 900;
-const TYPING_EXTRA_MS = 500;
 
 /**
  * WebAudio needs a user gesture before it may play. A first pointer/keydown
@@ -84,12 +79,15 @@ function useChimeOnce() {
 
 export default function SupportChat({ firstName, language }: { firstName: string; language: Locale }) {
   const copy = CHAT_COPY[language];
+  const pathname = usePathname();
   const chime = useChimeOnce();
   const [cloud, setCloud] = useState<"waiting" | "shown" | "leaving" | "done">("waiting");
   const [sheet, setSheet] = useState<"closed" | "open" | "closing">("closed");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
-  const [pendingReplies, setPendingReplies] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
   const nextId = useRef(0);
   const timersRef = useRef<number[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,15 +108,15 @@ export default function SupportChat({ firstName, language }: { firstName: string
   // The cloud waits a few seconds, rings, lingers, then fades away on its own.
   useEffect(() => {
     if (cloud !== "waiting") return;
-    try {
-      if (sessionStorage.getItem(SESSION_SEEN_KEY)) {
-        setCloud("done");
-        return;
-      }
-    } catch {
-      /* sessionStorage unavailable: show the cloud on every load */
-    }
     const showTimer = window.setTimeout(() => {
+      try {
+        if (sessionStorage.getItem(SESSION_SEEN_KEY)) {
+          setCloud("done");
+          return;
+        }
+      } catch {
+        /* sessionStorage unavailable: show the cloud on every load */
+      }
       setCloud("shown");
       chime();
     }, CLOUD_DELAY_MS);
@@ -157,10 +155,9 @@ export default function SupportChat({ firstName, language }: { firstName: string
     focusReturnRef.current = document.activeElement as HTMLButtonElement | null;
     setMessages((current) => {
       if (current.length > 0) return current;
-      nextId.current += 1;
       return [
         {
-          id: nextId.current,
+          id: 0,
           from: "assistant",
           text: copy.greeting(firstName),
         },
@@ -194,31 +191,56 @@ export default function SupportChat({ firstName, language }: { firstName: string
   }, [sheet, closeSheet]);
 
   useEffect(() => () => clearAllTimers(), [clearAllTimers]);
+  useEffect(() => () => requestRef.current?.abort(), []);
 
   // Keep the newest message in view while the conversation grows.
   useEffect(() => {
     const scroller = scrollRef.current;
     if (scroller) scroller.scrollTop = scroller.scrollHeight;
-  }, [messages, pendingReplies]);
+  }, [messages, pending, error]);
 
-  const send = useCallback((text: string) => {
+  const send = useCallback(async (text: string, retry = false) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    nextId.current += 1;
-    setMessages((current) => [...current, { id: nextId.current, from: "user", text: trimmed }]);
-    setDraft("");
-    setPendingReplies((count) => count + 1);
-    // Simulated typing; a real backend would resolve a fetch into the same push.
-    const delay = TYPING_MIN_MS + Math.random() * TYPING_EXTRA_MS;
-    const timer = window.setTimeout(() => {
-      // The reply id is only claimed when the reply appears, so rapid messages
-      // can never collide.
+    if (!trimmed || requestRef.current || (!retry && error)) return;
+    const conversation: ChatMessage[] = retry
+      ? messages
+      : [...messages, { id: ++nextId.current, from: "user", text: trimmed }];
+    if (!retry) {
+      setMessages(conversation);
+      setDraft("");
+    }
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language,
+          pathname,
+          messages: conversation.filter((message) => message.id !== 0).slice(-SUPPORT_HISTORY_LIMIT)
+            .map((message) => ({ role: message.from, content: message.text })),
+        }),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60_000)]),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(response.status === 401 || response.status === 403 ? "unauthorized" : result.error === "not_configured" ? "not_configured" : "unavailable");
+        return;
+      }
+      if (typeof result.content !== "string" || !result.content.trim()) throw new Error("Empty reply");
       nextId.current += 1;
-      setPendingReplies((count) => count - 1);
-      setMessages((current) => [...current, { id: nextId.current, from: "assistant", text: assistantReply(trimmed, language) }]);
-    }, delay);
-    timersRef.current.push(timer);
-  }, [language]);
+      const reply: ChatMessage = { id: nextId.current, from: "assistant", text: result.content };
+      setMessages((current) => [...current, reply]);
+    } catch {
+      if (!controller.signal.aborted) setError("unavailable");
+    } finally {
+      requestRef.current = null;
+      setPending(false);
+    }
+  }, [language, pathname, messages, error]);
 
   return (
     <div className="wchat-dock">
@@ -226,19 +248,7 @@ export default function SupportChat({ firstName, language }: { firstName: string
         /* The "need help?" bubble, drawn from white blobs so it reads as a cloud. */
         <div className={`wchat-cloud-wrap${cloud === "leaving" ? " is-leaving" : ""}`}>
           <div className="wchat-cloud-bob">
-            <div
-              className="wchat-cloud"
-              role="button"
-              tabIndex={0}
-              aria-label={copy.openChat}
-              onClick={openSheet}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openSheet();
-                }
-              }}
-            >
+            <div className="wchat-cloud">
               <span className="wchat-cloud-bump wchat-cloud-bump-left" aria-hidden="true" />
               <span className="wchat-cloud-bump wchat-cloud-bump-mid" aria-hidden="true" />
               <span className="wchat-cloud-bump wchat-cloud-bump-right" aria-hidden="true" />
@@ -253,8 +263,10 @@ export default function SupportChat({ firstName, language }: { firstName: string
               >
                 ×
               </button>
-              <strong>{copy.cloudTitle}</strong>
-              <small>{copy.cloudText}</small>
+              <button type="button" className="wchat-cloud-open" aria-label={copy.openChat} onClick={openSheet}>
+                <strong>{copy.cloudTitle}</strong>
+                <small>{copy.cloudText}</small>
+              </button>
               <span className="wchat-cloud-tail" aria-hidden="true" />
             </div>
           </div>
@@ -262,22 +274,13 @@ export default function SupportChat({ firstName, language }: { firstName: string
       ) : null}
 
       <section
+        id="panel-support-chat"
         className={`wchat-sheet${sheet === "closing" ? " is-closing" : ""}`}
         role="dialog"
         aria-label={copy.dialog}
         style={sheet === "closed" ? { display: "none" } : undefined}
       >
         <header className="wchat-head">
-          <div className="wchat-head-top">
-            <span className="wchat-head-eyebrow" aria-hidden="true">
-              {copy.eyebrow}
-            </span>
-            <button type="button" className="wchat-close" aria-label={copy.closeChat} onClick={closeSheet}>
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </button>
-          </div>
           <div className="wchat-head-identity">
             <span className="wchat-avatar" aria-hidden="true">
               ✦
@@ -289,16 +292,22 @@ export default function SupportChat({ firstName, language }: { firstName: string
               </span>
             </div>
           </div>
+          <button type="button" className="wchat-close" aria-label={copy.closeChat} onClick={closeSheet}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
         </header>
 
-        <div className="wchat-scroll" ref={scrollRef} aria-live="polite">
+        <div className="wchat-scroll" ref={scrollRef} role="log" aria-label={copy.dialog} aria-live="polite">
           {messages.map((message) => (
             <div key={message.id} className={`wchat-msg wchat-msg-${message.from}`}>
               <p>{message.text}</p>
             </div>
           ))}
-          {pendingReplies > 0 ? (
-            <div className="wchat-msg wchat-msg-assistant" aria-label={copy.typing}>
+          {pending ? (
+            <div className="wchat-msg wchat-msg-assistant" role="status">
+              <span className="wchat-sr-only">{copy.typing}</span>
               <p className="wchat-typing">
                 <i />
                 <i />
@@ -309,10 +318,16 @@ export default function SupportChat({ firstName, language }: { firstName: string
         </div>
 
         <div className="wchat-foot">
+          {error ? (
+            <div className="wchat-error" role="alert">
+              <p>{copy.errors[error] ?? copy.errors.unavailable}</p>
+              <button type="button" onClick={() => void send(messages.at(-1)?.text ?? "", true)} disabled={pending}>{copy.retry}</button>
+            </div>
+          ) : null}
           {messages.every((message) => message.from === "assistant") && messages.length < 3 ? (
             <div className="wchat-chips" aria-label={copy.suggestions}>
               {copy.quickPrompts.map((prompt) => (
-                <button key={prompt} type="button" onClick={() => send(prompt)}>
+                <button key={prompt} type="button" disabled={pending || Boolean(error)} onClick={() => void send(prompt)}>
                   {prompt}
                 </button>
               ))}
@@ -322,13 +337,14 @@ export default function SupportChat({ firstName, language }: { firstName: string
             className="wchat-composer"
             onSubmit={(event) => {
               event.preventDefault();
-              send(draft);
+              void send(draft);
             }}
           >
             <input
               ref={inputRef}
               value={draft}
-              maxLength={500}
+              maxLength={SUPPORT_MESSAGE_LIMIT}
+              readOnly={Boolean(error)}
               placeholder={copy.placeholder}
               aria-label={copy.messageLabel}
               onChange={(event) => setDraft(event.target.value)}
@@ -337,7 +353,7 @@ export default function SupportChat({ firstName, language }: { firstName: string
               type="submit"
               className="wchat-send"
               aria-label={copy.send}
-              disabled={draft.trim().length === 0 || pendingReplies > 3}
+              disabled={draft.trim().length === 0 || pending || Boolean(error)}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M12 19V5" />
@@ -345,6 +361,7 @@ export default function SupportChat({ firstName, language }: { firstName: string
               </svg>
             </button>
           </form>
+          <small className="wchat-disclaimer">{copy.disclaimer}</small>
         </div>
       </section>
 
@@ -353,6 +370,7 @@ export default function SupportChat({ firstName, language }: { firstName: string
         className={`wchat-launch${sheet === "open" || sheet === "closing" ? " is-open" : ""}`}
         aria-label={sheet === "open" ? copy.launchClose : copy.launchOpen}
         aria-expanded={sheet === "open"}
+        aria-controls="panel-support-chat"
         onClick={() => (sheet === "open" || sheet === "closing" ? closeSheet() : openSheet())}
       >
         <svg className="wchat-launch-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

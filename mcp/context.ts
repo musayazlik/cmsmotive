@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getMcpActorUserId } from "@/lib/mcp-settings";
 import { prisma } from "@/lib/prisma";
+import { getStoreRole, storeAdminWhere } from "@/lib/store-access";
 
 /**
  * The panel identity MCP writes are attributed to. The panel itself reads the
@@ -88,8 +89,9 @@ export async function resolveMcpActor(): Promise<McpActor> {
   if (pinned) {
     const user = await prisma.user.findUnique({ where: { id: pinned }, select: ACTOR_SELECT });
     if (!user) throw new Error("The linked panel account no longer exists.");
-    if (!isAdminRole(user.role)) throw new Error(`${user.email} is no longer an admin.`);
-    return user;
+    const role = await getStoreRole(user.id, mcpStoreId());
+    if (!role || !isAdminRole(role)) throw new Error(`${user.email} is not an admin of this store.`);
+    return { ...user, role };
   }
 
   const configured = await getMcpActorUserId(mcpStoreId());
@@ -105,7 +107,7 @@ export async function resolveMcpActor(): Promise<McpActor> {
 
   if (!user) {
     user = await prisma.user.findFirst({
-      where: { role: { in: [...ADMIN_ROLES] } },
+      where: storeAdminWhere(mcpStoreId()),
       orderBy: { createdAt: "asc" },
       select: ACTOR_SELECT,
     });
@@ -117,11 +119,12 @@ export async function resolveMcpActor(): Promise<McpActor> {
     );
   }
 
-  if (!isAdminRole(user.role)) {
+  const role = await getStoreRole(user.id, mcpStoreId());
+  if (!role || !isAdminRole(role)) {
     throw new Error(
       `The MCP user ${user.email} has the "${user.role}" role. MCP tools require an admin or superadmin account.`,
     );
   }
 
-  return user;
+  return { ...user, role };
 }

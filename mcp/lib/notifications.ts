@@ -22,7 +22,7 @@ export async function listNotifications() {
   const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, unpublishedProducts, pendingReviews] =
     await Promise.all([
       getAdminAccessSettings(),
-      prisma.user.count({ where: { emailVerified: false } }),
+      prisma.user.count({ where: { emailVerified: false, storeMemberships: { some: { storeId: mcpStoreId() } } } }),
       prisma.contactInquiry.count({ where: { storeId: mcpStoreId(), readAt: null, archivedAt: null } }),
       prisma.contactInquiry.count({
         where: { storeId: mcpStoreId(), readAt: null, archivedAt: null, emailSent: false },

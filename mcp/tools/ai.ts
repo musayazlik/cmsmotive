@@ -5,6 +5,7 @@ import { DEFAULT_IMAGE_MODELS, DEFAULT_TEXT_MODELS, pickModel, type AiSettings }
 import { insertInlineImages, markdownToHtml, writePost, type WriteRequest } from "@/lib/ai-writer";
 import { imageGeneration, isOpenRouterConfigured, listTextAndImageModels } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
+import { activityStep } from "@/lib/assistant-activity";
 import { getAiSettings } from "@/lib/settings";
 import { slugify } from "@/lib/slug";
 import { getModelOverrides, resolveMcpActor } from "../context";
@@ -102,6 +103,7 @@ async function generateImage(
 ) {
   const model = await resolveImageModel(input.model);
   const editing = Boolean(input.sourceUrl);
+  await activityStep(editing ? "Editing the image…" : input.purpose === "cover" ? "Generating the cover image…" : "Generating an image…");
   const dataUrl = await imageGeneration({
     model,
     prompt: editing
@@ -112,6 +114,7 @@ async function generateImage(
   const mime = dataUrl.match(/^data:([^;]+);/)?.[1] ?? "image/png";
   // Long enough for a 40-character title plus a suffix such as "-inline-2".
   const base = slugify(input.fileBase).slice(0, 60) || "ai-image";
+  await activityStep("Saving the generated image to the media library…");
   let media = await uploadMediaRecord(
     { fileName: `${base}-ai${editing ? "-edit" : ""}.${mime.split("/")[1] || "png"}`, dataUrl },
     actorId,
@@ -210,7 +213,9 @@ export function registerAiTools(server: McpServer) {
           category: true,
           tags: true,
         });
+        await activityStep(request.webSearch ? "Researching sources and writing the blog post…" : "Writing the blog post…");
         const written = await writePost(request);
+        await activityStep("Blog text generated. Preparing the draft…");
         if (!written.title || !written.content) {
           throw new ToolError("The content model returned no title or body. Try again or pick another model under Settings → AI.");
         }
@@ -230,6 +235,7 @@ export function registerAiTools(server: McpServer) {
             );
             inline.push({ id: media.id, url: media.url, alt: scene });
           } catch (error) {
+            await activityStep(`Illustration ${index + 1} could not be generated. Continuing with the draft.`, { failed: true });
             warnings.push(`Inline image ${index + 1} failed: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
@@ -244,11 +250,13 @@ export function registerAiTools(server: McpServer) {
             );
             coverId = media.id;
           } catch (error) {
+            await activityStep("The cover could not be generated. Continuing with the draft.", { failed: true });
             warnings.push(`Cover image failed: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
 
         const taxonomy = await matchTaxonomy(written.category, written.tags);
+        await activityStep("Saving the blog draft and its categories and tags…");
         const saved = await savePostRecord(
           {
             title: written.title,
@@ -337,11 +345,13 @@ export function registerAiTools(server: McpServer) {
           },
           { title: post.title, excerpt: post.excerpt, content: post.content },
         );
+        await activityStep(request.webSearch ? "Researching sources and rewriting the blog post…" : "Rewriting the blog post…");
         const written = await writePost(request);
         if (parts.has("content") && !written.content) throw new ToolError("The content model returned no body.");
 
         const title = parts.has("title") && written.title ? written.title : post.title;
         const excerpt = parts.has("excerpt") && written.description !== undefined ? written.description : post.excerpt;
+        await activityStep("Saving the rewritten blog post…");
         await savePostRecord(
           {
             id: post.id,

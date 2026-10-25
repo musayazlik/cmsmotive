@@ -1,253 +1,355 @@
 "use client";
 
+import RowActions from "@/app/panel/_components/row-actions";
+
 import { useRouter } from "@/app/panel/_components/panel-navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ConfirmDialog from "../../../_components/confirm-dialog";
-import { TextArea, TextField } from "../../../_components/ui";
+import { deleteProductTypeAction, saveProductTypeAction } from "../_actions";
+import type { ProductTypeRow } from "../_lib";
 
-export type ProductTypeRow = {
-  id: string;
-  key: string;
-  name: string;
-  pluralName: string;
-  description: string | null;
-  listPath: string | null;
-  position: number;
-  products: number;
-  createdAt: string;
-  updatedAt: string;
-};
+type DialogKind = "create" | "edit" | null;
 
-const API = "/api/admin/product-types";
+const EMPTY_FORM = { key: "", name: "", pluralName: "", description: "", listPath: "", position: "0" };
 
-/** Types tab: the kinds of product (theme, extension, …) shared by every store. */
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+/** Follows the name while untouched, like the category and post slugs. */
+function previewKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Where the type's listing lives, for the table cell. */
+function listingLabel(type: Pick<ProductTypeRow, "key" | "listPath">) {
+  return type.listPath || `/products?type=${type.key}`;
+}
+
 export default function TypeManager({ types }: { types: ProductTypeRow[] }) {
   const router = useRouter();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [kind, setKind] = useState<DialogKind>(null);
   const [editing, setEditing] = useState<ProductTypeRow | null>(null);
-  const [key, setKey] = useState("");
+  const [form, setForm] = useState(EMPTY_FORM);
   const [keyTouched, setKeyTouched] = useState(false);
-  const [name, setName] = useState("");
-  const [pluralName, setPluralName] = useState("");
-  const [description, setDescription] = useState("");
-  const [listPath, setListPath] = useState("");
-  const [position, setPosition] = useState("0");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<ProductTypeRow | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ProductTypeRow | null>(null);
 
-  const fresh = () => {
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (kind && !dialog.open) dialog.showModal();
+    if (!kind && dialog.open) dialog.close();
+  }, [kind]);
+
+  function openCreate() {
     setEditing(null);
-    setKey("");
+    setForm(EMPTY_FORM);
     setKeyTouched(false);
-    setName("");
-    setPluralName("");
-    setDescription("");
-    setListPath("");
-    setPosition("0");
     setError("");
-    setSaved("");
-  };
+    setKind("create");
+  }
 
-  const startEdit = (type: ProductTypeRow) => {
+  function openEdit(type: ProductTypeRow) {
     setEditing(type);
-    setKey(type.key);
+    setForm({
+      key: type.key,
+      name: type.name,
+      pluralName: type.pluralName,
+      description: type.description ?? "",
+      listPath: type.listPath ?? "",
+      position: String(type.position),
+    });
     setKeyTouched(true);
-    setName(type.name);
-    setPluralName(type.pluralName);
-    setDescription(type.description ?? "");
-    setListPath(type.listPath ?? "");
-    setPosition(String(type.position));
     setError("");
-    setSaved("");
-  };
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    setSaved("");
-    try {
-      const response = await fetch(editing ? `${API}/${editing.id}` : API, {
-        method: editing ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, name, pluralName, description, listPath, position: position.trim() === "" ? 0 : Number(position) }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.error ?? "The type could not be saved.");
-        return;
-      }
-      setSaved(editing ? "Type saved." : "Type created.");
-      fresh();
-      router.refresh();
-    } catch {
-      setError("Could not reach the server.");
-    } finally {
-      setSaving(false);
-    }
+    setKind("edit");
   }
 
-  async function handleDelete() {
-    if (!confirmDelete) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`${API}/${confirmDelete.id}`, { method: "DELETE" });
-      const data = await response.json();
-      if (!response.ok) setError(data.error ?? "The type could not be deleted.");
-      else {
-        if (editing?.id === confirmDelete.id) fresh();
-        setSaved("Type removed.");
-        router.refresh();
-      }
-    } catch {
-      setError("Could not reach the server.");
-    } finally {
-      setSaving(false);
-      setConfirmDelete(null);
-    }
+  function closeDialog() {
+    setKind(null);
   }
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    const result = await saveProductTypeAction({
+      id: editing?.id,
+      key: form.key,
+      name: form.name,
+      pluralName: form.pluralName,
+      description: form.description,
+      listPath: form.listPath,
+      position: form.position.trim() === "" ? 0 : Number(form.position),
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    closeDialog();
+    router.refresh();
+  }
+
+  async function confirmDeleteType() {
+    if (!pendingDelete) return;
+    setBusy(true);
+    const result = await deleteProductTypeAction(pendingDelete.id);
+    setBusy(false);
+    setPendingDelete(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  const productsTyped = types.reduce((sum, type) => sum + type.products, 0);
+  const mostUsed = types.reduce<ProductTypeRow | null>((top, type) => (!top || type.products > top.products ? type : top), null);
+  const withoutProducts = types.filter((type) => type.products === 0).length;
 
   return (
-    <div className="wform-stack">
-      <form className="wfield-card" onSubmit={handleSubmit}>
-        <div className="wmedia-head">
-          <p className="wsection-label">{editing ? `Edit “${editing.name}”` : "Add a type"}</p>
-          {editing ? (
-            <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={fresh} disabled={saving}>
+    <>
+      <div className="wpage-stats">
+        <div>
+          <span>Total types</span>
+          <strong>{types.length}</strong>
+        </div>
+        <div>
+          <span>Products typed</span>
+          <strong>{productsTyped}</strong>
+        </div>
+        <div>
+          <span>Most used</span>
+          <strong>{mostUsed ? mostUsed.name : "—"}</strong>
+        </div>
+        <div>
+          <span>Without products</span>
+          <strong>{withoutProducts}</strong>
+        </div>
+      </div>
+
+      <div className="wtable-card">
+        <div className="wtable-toolbar">
+          <p className="wtable-count">Every kind of product, shared by every store.</p>
+          <div className="wtable-tools">
+            <button type="button" className="wbtn wbtn-primary wbtn-add" onClick={openCreate}>
               New type
             </button>
-          ) : null}
-        </div>
-        <div className="wform">
-          <div className="wfield-row">
-            <TextField
-              id="pt-key"
-              label="Key"
-              value={key}
-              onChange={(value) => {
-                setKeyTouched(true);
-                setKey(value);
-              }}
-              required
-              pattern="[a-z0-9]+(-[a-z0-9]+)*"
-              maxLength={40}
-              placeholder="theme"
-              disabled={Boolean(editing)}
-              note="Stable handle for URL filters (type=theme) and catalogue markers."
-            />
-            <TextField
-              id="pt-name"
-              label="Name"
-              value={name}
-              onChange={(value) => {
-                setName(value);
-                if (!keyTouched) setKey(value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
-              }}
-              required
-              maxLength={40}
-              placeholder="Theme"
-              note={editing ? undefined : "The key follows the name until you edit it."}
-            />
-            <TextField id="pt-plural" label="Plural name" value={pluralName} onChange={setPluralName} required maxLength={40} placeholder="Themes" />
-          </div>
-          <TextArea
-            id="pt-description"
-            label="Description"
-            hint="optional"
-            value={description}
-            onChange={setDescription}
-            rows={2}
-            maxLength={300}
-            placeholder="What this kind of product is, shown on its listing page intro."
-          />
-          <div className="wfield-row">
-            <TextField
-              id="pt-list-path"
-              label="Listing page"
-              hint="optional"
-              value={listPath}
-              onChange={setListPath}
-              placeholder="/themes"
-              note="Public page of this type; empty = /products?type=<key>."
-            />
-            <TextField id="pt-position" label="Sort order" value={position} onChange={setPosition} pattern="[0-9]*" note="Lower numbers come first in pickers." />
           </div>
         </div>
-        <div className="wpub-actions">
-          <button className="wbtn wbtn-primary" type="submit" disabled={saving}>
-            {saving ? "Saving…" : editing ? "Save type" : "Create type"}
-          </button>
-        </div>
+
         {error ? (
-          <p className="wdialog-error wpost-feedback" role="alert">
+          <p className="wdialog-error" role="alert" style={{ margin: "14px 19px 0" }}>
             {error}
           </p>
         ) : null}
-        {saved ? (
-          <p className="wfield-hint-block wpost-feedback" role="status">
-            {saved}
-          </p>
-        ) : null}
-      </form>
 
-      <div className="wfield-card">
-        <p className="wsection-label">Existing types</p>
-        {types.length === 0 ? (
-          <p className="wrepeat-empty">No types yet. Every product needs one, so add the first kind above.</p>
-        ) : (
-          <div className="wrepeat wrepeat-table" role="table" aria-label="Product types">
-            <div className="wrepeat-head" role="row">
-              <span role="columnheader">Type</span>
-              <span role="columnheader">Key</span>
-              <span role="columnheader">Listing</span>
-              <span role="columnheader">Products</span>
-              <span aria-hidden="true" />
-            </div>
-            {types.map((type) => (
-              <div className="wrepeat-row" role="row" key={type.id}>
-                <span role="cell">
-                  <strong>{type.name}</strong>
-                  <small>{type.pluralName}</small>
-                </span>
-                <span role="cell">
-                  <small className="status-slug">{type.key}</small>
-                </span>
-                <span role="cell">
-                  <small>{type.listPath ?? `/products?type=${type.key}`}</small>
-                </span>
-                <span role="cell">
-                  <span className={`wbadge ${type.products > 0 ? "wbadge-user" : "wbadge-missing"}`}>{type.products}</span>
-                </span>
-                <div className="wrepeat-tools">
-                  <button type="button" onClick={() => startEdit(type)} aria-label={`Edit ${type.name}`}>
-                    ✎
-                  </button>
-                  <button
-                    type="button"
-                    className="is-danger"
-                    onClick={() => setConfirmDelete(type)}
-                    disabled={type.products > 0}
-                    aria-label={`Remove ${type.name}`}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="wfield-hint-block">Types are shared by every store. A type with products cannot be deleted; move its products first.</p>
+        <div className="wtable-scroll">
+          <table className="wtable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Plural</th>
+                <th>Listing</th>
+                <th>Products</th>
+                <th>Updated</th>
+                <th scope="col" className="wtable-actions-col"><span className="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {types.length === 0 ? (
+                <tr>
+                  <td className="wtable-state" colSpan={6}>
+                    No types yet — every product needs one, so create the first kind.
+                  </td>
+                </tr>
+              ) : (
+                types.map((type) => (
+                  <tr key={type.id}>
+                    <td>
+                      <div className="wtable-user">
+                        <span className="wtable-avatar" aria-hidden="true">
+                          {type.name[0]?.toUpperCase() ?? "?"}
+                        </span>
+                        <div>
+                          <strong>{type.name}</strong>
+                          <small className="status-slug" title={type.description ?? undefined}>
+                            {type.key}
+                          </small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{type.pluralName}</td>
+                    <td>
+                      <span className="status-slug" title={listingLabel(type)}>
+                        {listingLabel(type)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`wbadge ${type.products > 0 ? "wbadge-user" : "wbadge-missing"}`}>{type.products}</span>
+                    </td>
+                    <td className="wtable-date">{formatDate(type.updatedAt)}</td>
+                    <td className="wtable-actions-col">
+                      <RowActions label={type.name} actions={[
+                        { label: "Edit", onSelect: () => openEdit(type) },
+                        ...(type.products === 0
+                          ? [{ label: "Delete", danger: true, separated: true, onSelect: () => setPendingDelete(type) }]
+                          : []),
+                      ]} />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      <dialog
+        ref={dialogRef}
+        className="wdialog"
+        onClose={closeDialog}
+        onClick={(event) => {
+          if (event.target === dialogRef.current) closeDialog();
+        }}
+      >
+        <div className="wdialog-head">
+          <div>
+            <span className="wdialog-eyebrow">Products / Types</span>
+            <h2>{kind === "edit" ? `Edit ${editing?.name}` : "New type"}</h2>
+          </div>
+          <button type="button" className="wdialog-close" aria-label="Close" onClick={closeDialog}>
+            ×
+          </button>
+        </div>
+        <div className="wdialog-body">
+          <div className="wform">
+            <div className="wfield">
+              <label htmlFor="type-name">Name</label>
+              <input
+                id="type-name"
+                type="text"
+                value={form.name}
+                maxLength={40}
+                onChange={(event) => {
+                  const name = event.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    name,
+                    key: keyTouched || kind === "edit" ? prev.key : previewKey(name),
+                  }));
+                }}
+                placeholder="Theme"
+                required
+              />
+            </div>
+            <div className="wfield-row">
+              <div className="wfield">
+                <label htmlFor="type-key">
+                  Key<span className="wfield-hint">{kind === "edit" ? "fixed once products use it" : "follows the name"}</span>
+                </label>
+                <input
+                  id="type-key"
+                  type="text"
+                  value={form.key}
+                  maxLength={40}
+                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                  disabled={kind === "edit"}
+                  onChange={(event) => {
+                    setKeyTouched(true);
+                    setForm((prev) => ({ ...prev, key: event.target.value }));
+                  }}
+                  placeholder="theme"
+                  required
+                />
+              </div>
+              <div className="wfield">
+                <label htmlFor="type-plural">
+                  Plural name<span className="wfield-hint">listing title</span>
+                </label>
+                <input
+                  id="type-plural"
+                  type="text"
+                  value={form.pluralName}
+                  maxLength={40}
+                  onChange={(event) => setForm((prev) => ({ ...prev, pluralName: event.target.value }))}
+                  placeholder="Themes"
+                  required
+                />
+              </div>
+            </div>
+            <div className="wfield">
+              <label htmlFor="type-description">
+                Description<span className="wfield-hint">optional</span>
+              </label>
+              <textarea
+                id="type-description"
+                value={form.description}
+                maxLength={300}
+                rows={2}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="What this kind of product is, shown on its listing page intro."
+              />
+            </div>
+            <div className="wfield-row">
+              <div className="wfield">
+                <label htmlFor="type-list-path">
+                  Listing page<span className="wfield-hint">optional</span>
+                </label>
+                <input
+                  id="type-list-path"
+                  type="text"
+                  value={form.listPath}
+                  onChange={(event) => setForm((prev) => ({ ...prev, listPath: event.target.value }))}
+                  placeholder="/themes"
+                />
+                <span className="wfield-hint-block">Public page of this type; empty = /products?type=&lt;key&gt;.</span>
+              </div>
+              <div className="wfield">
+                <label htmlFor="type-position">
+                  Sort order<span className="wfield-hint">pickers first</span>
+                </label>
+                <input
+                  id="type-position"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={form.position}
+                  onChange={(event) => setForm((prev) => ({ ...prev, position: event.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            {error ? (
+              <p className="wdialog-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div className="wdialog-foot">
+          <button type="button" className="wbtn wbtn-ghost" onClick={closeDialog} disabled={busy}>
+            Cancel
+          </button>
+          <button type="button" className="wbtn wbtn-primary" onClick={submit} disabled={busy || !form.name.trim() || !form.key.trim() || !form.pluralName.trim()}>
+            {busy ? "Saving…" : kind === "edit" ? "Save changes" : "Create type"}
+          </button>
+        </div>
+      </dialog>
+
       <ConfirmDialog
-        open={confirmDelete !== null}
-        title={`Remove ${confirmDelete?.name ?? "type"}?`}
+        open={pendingDelete !== null}
+        title={`Delete ${pendingDelete?.name ?? "type"}?`}
         body="Only types no product uses can be removed. The key stays reserved in URLs that already point at it."
-        busy={saving}
-        onConfirm={handleDelete}
-        onClose={() => setConfirmDelete(null)}
+        confirmLabel="Delete type"
+        busy={busy}
+        onConfirm={confirmDeleteType}
+        onClose={() => setPendingDelete(null)}
       />
-    </div>
+    </>
   );
 }

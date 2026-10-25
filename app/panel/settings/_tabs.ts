@@ -1,6 +1,8 @@
 /**
- * Sections of the settings page, in tab order. The first entry is the
- * default. Add a section here, then render its panel in page.tsx.
+ * Sections of the settings area, one page each under /panel/settings/<id>.
+ * The sidebar's Settings group lists them in this order, the first entry is
+ * where /panel/settings redirects. Add a section here, then render its panel
+ * in [section]/page.tsx.
  */
 export const SETTINGS_TABS = [
   { id: "legal", label: "Legal", intro: "Seller identity, privacy information, document versions and the release checklist." },
@@ -66,7 +68,3 @@ export const SETTINGS_TABS = [
 ] as const;
 
 export type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
-
-export function resolveSettingsTab(value: string | undefined) {
-  return SETTINGS_TABS.find((tab) => tab.id === value) ?? SETTINGS_TABS[0];
-}

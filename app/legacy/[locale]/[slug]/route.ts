@@ -1,6 +1,6 @@
 import { getLegalSettings } from "@/lib/legal";
 import { notFound } from "next/navigation";
-import { htmlResponse, injectAdminPanelLink, injectMaintenanceNotice, readLegacyPage } from "@/lib/legacy";
+import { htmlResponse, injectMaintenanceNotice, readLegacyPage } from "@/lib/legacy";
 import { trackPageView } from "@/lib/analytics";
 import { isLocale } from "@/lib/i18n/config";
 import { localizeLegacyHtml } from "@/lib/i18n/legacy";
@@ -36,6 +36,7 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     // Search tags and JSON-LD are read from the translated page, so they match its language.
     let localized = localizeLegacyHtml(base, locale, pagePath);
     localized = localized.replace(/href="\/account"/g, `href="/account?lang=${locale}"`);
+    localized = localized.replace(/href="\/auth\/sign-in"/g, `href="/auth/sign-in?lang=${locale}"`);
     const legal = await getLegalSettings(storeId);
     localized = localized.replace(/data-consent-version="[^"]*"/g, `data-consent-version="${legal.privacyVersion.replace(/[^a-zA-Z0-9.-]/g, "")}"`);
     // Inject after URL localization: private admin paths never get a public language prefix.
@@ -45,9 +46,7 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     if(account)localized=injectAccountMenu(localized,account,locale,adminHref);
     if (showAdmin) {
       const t = getTranslator(locale);
-      const [admin, maintenance] = await Promise.all([getAdminAccessSettings(), getMaintenanceSettings(storeId)]);
-      localized = injectAdminPanelLink(localized, admin.panelPath, t("Admin panel"));
-      if (maintenance.enabled) {
+      if ((await getMaintenanceSettings(storeId)).enabled) {
         localized = injectMaintenanceNotice(localized, t("This site is currently in maintenance mode."));
       }
     }

@@ -57,12 +57,12 @@ async function send(storeId: string, message: { to: string; subject: string; bod
   if (!response.ok) throw await plunkError(response);
 }
 
-export async function sendAccountEmail(storeId: string, message: Message) {
+export async function sendAccountEmail(storeId: string, message: Message, requestOrigin?: string) {
   const subject = escapeHtml(message.subject);
   const actionUrl = escapeHtml(message.actionUrl);
   const actionText = escapeHtml(message.actionText);
   const legal=await getLegalSettings(storeId);
-  const origin=await originOfStore(storeId);
+  const origin=requestOrigin ?? await originOfStore(storeId);
   const footer=`<p style="font-size:12px;color:#5e666d">${escapeHtml(legal.legalName)}<br>${escapeHtml(legal.address)}<br>${escapeHtml(legal.country)}<br><a href="mailto:${escapeHtml(legal.contactEmail)}">${escapeHtml(legal.contactEmail)}</a><br><a href="${escapeHtml(origin)}/imprint">Impressum</a> · <a href="${escapeHtml(origin)}/privacy">Privacy / Datenschutz / Gizlilik</a></p>`;
   await send(storeId, {
     to: message.to,
@@ -146,7 +146,7 @@ export async function sendTestEmail(storeId: string): Promise<string> {
       ["Sent to", to],
       ["Sent at", new Date().toUTCString()],
     ],
-    actionPath: "/panel/settings?tab=email",
+    actionPath: "/panel/settings/email",
     actionText: "Back to the settings",
   });
   return to;

@@ -1,5 +1,6 @@
 import { postPreviewPath } from "@/lib/post-preview";
 import { prisma } from "@/lib/prisma";
+import { activityStep } from "@/lib/assistant-activity";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { deletePostRecord, setPostStatusRecord } from "@/mcp/lib/posts";
 import { sendText, type InlineKeyboard } from "./api";
@@ -77,13 +78,16 @@ export async function handleDraftAction(chat: Chat, data: string): Promise<strin
   const post = await prisma.post.findFirst({ where: { id: postId, storeId: mcpStoreId() }, select: { id: true, title: true, slug: true } });
   if (!post) {
     await sendText(chat.token, chat.chatId, "This post no longer exists.");
+    await activityStep("The post no longer exists.", { status: "failed", failed: true });
     return null;
   }
 
   if (action === PUBLISH) {
+    await activityStep("Publishing the post…");
     try {
       await setPostStatusRecord(post.id, "published");
     } catch (error) {
+      await activityStep("The post could not be published. Check the Telegram response.", { status: "failed", failed: true });
       await sendText(chat.token, chat.chatId, `Not published: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
@@ -104,6 +108,7 @@ export async function handleDraftAction(chat: Chat, data: string): Promise<strin
   }
 
   if (action === DISCARD_CONFIRMED) {
+    await activityStep("Deleting the draft…");
     await deletePostRecord(post.id);
     await sendText(chat.token, chat.chatId, `Deleted the draft “${post.title}”.`);
     return `The user deleted the draft "${post.title}" (id ${post.id}).`;

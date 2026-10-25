@@ -8,7 +8,8 @@ import {
   getSystemStatus,
 } from "@/lib/status";
 import { getMcpActorUserId } from "@/lib/mcp-settings";
-import { ADMIN_ROLES, resolveMcpActor } from "../context";
+import { resolveMcpActor } from "../context";
+import { storeAdminWhere } from "@/lib/store-access";
 import { listNotifications } from "../lib/notifications";
 import { changelogInStore } from "../lib/catalog";
 import { runTool } from "../lib/result";
@@ -46,8 +47,8 @@ export function registerStatsTools(server: McpServer) {
           prisma.product.groupBy({ by: ["typeId"], where: { storeId: mcpStoreId() }, _count: { _all: true } }),
           prisma.productType.findMany({ select: { id: true, key: true } }),
           prisma.changelogEntry.count({ where: changelogInStore(mcpStoreId()) }),
-          prisma.user.count({ where: { role: { not: "superadmin" } } }),
-          prisma.user.count({ where: { role: { in: [...ADMIN_ROLES] } } }),
+          prisma.storeMember.count({ where: { storeId: mcpStoreId(), user: { role: { not: "superadmin" } } } }),
+          prisma.user.count({ where: storeAdminWhere(mcpStoreId()) }),
           prisma.newsletterSubscriber.count({ where: { storeId: mcpStoreId() } }),
           prisma.productReview.count({ where: { storeId: mcpStoreId(), status: "pending" } }),
           prisma.contactInquiry.count({ where: { storeId: mcpStoreId(), readAt: null, archivedAt: null } }),

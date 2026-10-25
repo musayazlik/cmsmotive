@@ -11,6 +11,7 @@ import {
   type ToolDefinition,
 } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
+import { activityStep, cancelActivity, currentActivityId, trackActivity, waitingActivityStep } from "@/lib/assistant-activity";
 import { getAiSettings } from "@/lib/settings";
 import { mcpStoreId, resolveMcpActor, runWithModelOverrides } from "@/mcp/context";
 import { readStoreValues, upsertStoreValue } from "@/lib/settings-store";
@@ -52,6 +53,7 @@ export type AgentContext = {
 
 /** A run in progress: the conversation so far and tool calls still to execute. */
 type RunState = {
+  activityId?: string;
   userText: string;
   /** The tool mode the run started in; a confirmed call resumes with the same tools. */
   mode: ToolMode;
@@ -92,11 +94,16 @@ async function saveJson(key: string, value: unknown) {
 }
 
 export async function clearConversation(chatId: number) {
+  await dropPending(chatId);
   await prisma.storeSetting.deleteMany({ where: { storeId: mcpStoreId(), key: { in: [historyKey(chatId), pendingKey(chatId)] } } });
 }
 
 /** Drops a waiting confirmation; returns whether there was one. */
-export async function dropPending(chatId: number): Promise<boolean> {
+export async function dropPending(chatId: number, cancel = true): Promise<boolean> {
+  if (cancel) {
+    const pending = await loadJson<Pending | null>(pendingKey(chatId), null);
+    await cancelActivity(mcpStoreId(), pending?.activityId);
+  }
   const { count } = await prisma.storeSetting.deleteMany({ where: { storeId: mcpStoreId(), key: pendingKey(chatId) } });
   return count > 0;
 }
@@ -214,6 +221,7 @@ async function executeCall(ctx: AgentContext, tools: Tools, call: ToolCall, stat
 
   if (call.function.name === SEND_PHOTO_TOOL.name) {
     if (typeof args.url !== "string") return "Error: url is required.";
+    await activityStep("Sending the image to Telegram…");
     await sendPhoto(ctx.token, ctx.chatId, args.url, typeof args.caption === "string" ? args.caption : undefined);
     return "The image was shown to the user.";
   }
@@ -231,6 +239,7 @@ async function executeCall(ctx: AgentContext, tools: Tools, call: ToolCall, stat
     content = resultText(result);
   } catch (error) {
     content = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    await activityStep("The tool call could not be completed.", { failed: true });
   }
   const postId = touchedPostId(call.function.name, content);
   if (postId && !state.touchedPosts.includes(postId)) state.touchedPosts.push(postId);
@@ -296,7 +305,10 @@ async function finish(ctx: AgentContext, state: RunState, reply: string) {
  * AI tools called inside use the Telegram content and image models.
  */
 function drive(ctx: AgentContext, state: RunState) {
-  return runWithModelOverrides({ text: ctx.contentModel, image: ctx.imageModel }, () => driveSteps(ctx, state));
+  return trackActivity({ storeId: mcpStoreId(), source: "telegram", title: "Telegram assistant", resumeId: state.activityId }, async () => {
+    state.activityId = currentActivityId();
+    return runWithModelOverrides({ text: ctx.contentModel, image: ctx.imageModel }, () => driveSteps(ctx, state));
+  });
 }
 
 async function driveSteps(ctx: AgentContext, state: RunState) {
@@ -326,6 +338,7 @@ async function driveSteps(ctx: AgentContext, state: RunState) {
       }
 
       state.steps += 1;
+      await activityStep("Preparing the next assistant response…");
       const step = await chatWithTools({
         model: models.chat,
         messages: state.messages,
@@ -345,6 +358,7 @@ async function driveSteps(ctx: AgentContext, state: RunState) {
       state.messages.push({ role: "assistant", content: step.content, tool_calls: step.toolCalls });
       state.queue = [...step.toolCalls];
     }
+    await activityStep("The assistant reached its step limit before finishing.", { status: "failed", failed: true });
     await finish(ctx, state, "I stopped after many steps without finishing. Tell me how to continue, or send /new to start over.");
   } finally {
     clearInterval(typing);
@@ -397,6 +411,7 @@ async function askApproval(ctx: AgentContext, state: RunState, tools: Tools, cal
       ],
     ],
   });
+  await activityStep("Waiting for confirmation in Telegram.", { status: "waiting" });
 }
 
 /* ------------------------------------------------------ new post questions */
@@ -428,6 +443,7 @@ async function askPostLanguage(ctx: AgentContext, state: RunState, call: ToolCal
       [{ text: "✖️ Cancel", callback_data: `cancel:${nonce}` }],
     ],
   });
+  await activityStep("Waiting for the content language in Telegram.", { status: "waiting" });
 }
 
 /** The user picked the language; the same message turns into the image question. */
@@ -447,6 +463,7 @@ export async function askPostImages(ctx: AgentContext, nonce: string, language: 
       ],
     },
   );
+  await waitingActivityStep(mcpStoreId(), state?.activityId, "Waiting for the number of illustrations in Telegram.");
   return true;
 }
 
@@ -461,7 +478,7 @@ export async function resumeWithPostOptions(
   const state = await openPending(ctx.chatId, nonce);
   const call = state?.queue[0];
   if (!state || call?.function.name !== "ai_write_post") return false;
-  await dropPending(ctx.chatId);
+  await dropPending(ctx.chatId, false);
 
   await editText(
     ctx.token,
@@ -477,35 +494,38 @@ export async function resumeWithPostOptions(
 
 /** A new message from the user. */
 export async function runAgent(ctx: AgentContext, userText: string) {
-  const history = await loadJson<AgentMessage[]>(historyKey(ctx.chatId), []);
-  const models = await resolveModels(ctx);
-  const mode = await getChatMode(ctx.chatId);
-  const state: RunState = {
-    userText,
-    mode,
-    messages: [
-      { role: "system", content: await systemPrompt(ctx, models, mode) },
-      ...history,
-      { role: "user", content: userText },
-    ],
-    queue: [],
-    approved: [],
-    touchedPosts: [],
-    postOptionsSet: [],
-    steps: 0,
-  };
-  await drive(ctx, state);
+  return trackActivity({ storeId: mcpStoreId(), source: "telegram", title: "Telegram assistant" }, async () => {
+    const history = await loadJson<AgentMessage[]>(historyKey(ctx.chatId), []);
+    const models = await resolveModels(ctx);
+    const mode = await getChatMode(ctx.chatId);
+    const state: RunState = {
+      userText,
+      mode,
+      messages: [
+        { role: "system", content: await systemPrompt(ctx, models, mode) },
+        ...history,
+        { role: "user", content: userText },
+      ],
+      queue: [],
+      approved: [],
+      touchedPosts: [],
+      postOptionsSet: [],
+      steps: 0,
+    };
+    await drive(ctx, state);
+  });
 }
 
 /** The user tapped Confirm or Cancel; returns false when the buttons are stale. */
 export async function resumeAgent(ctx: AgentContext, nonce: string, confirmed: boolean): Promise<boolean> {
   const state = await openPending(ctx.chatId, nonce);
   if (!state) return false;
-  await dropPending(ctx.chatId);
+  await dropPending(ctx.chatId, !confirmed);
 
   if (confirmed) {
     state.approved = [...state.approved, ...state.queue.map((call) => call.id)];
   } else {
+    state.activityId = undefined;
     // Every call left from this step is answered as declined so the model can re-plan.
     for (const call of state.queue) {
       if (!state.approved.includes(call.id)) {

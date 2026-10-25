@@ -9,11 +9,13 @@ import {
   INTERVAL_LABELS,
   PRICE_LIMITS,
   TAX_MODES,
+  creemProductMismatch,
   describeBilling,
   formatAmount,
 } from "@/lib/prices";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { Select, Switch, TextArea, TextField } from "../../_components/ui";
+import CreemProductPicker, { type CreemProductOption } from "./creem-product-picker";
 
 /** A price of the product as the edit page loads it. */
 export type PriceRow = {
@@ -66,6 +68,9 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<PriceRow | null>(null);
+  const [picking, setPicking] = useState(false);
+  /** The Creem product last chosen from the picker; drives the match note. */
+  const [picked, setPicked] = useState<CreemProductOption | null>(null);
 
   const fresh = () => {
     setEditing(null);
@@ -82,6 +87,7 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
     setLiveId("");
     setEnabled(false);
     setPosition("0");
+    setPicked(null);
   };
 
   const startEdit = (price: PriceRow) => {
@@ -99,6 +105,7 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
     setLiveId(price.creemLiveProductId ?? "");
     setEnabled(price.enabled);
     setPosition(String(price.position));
+    setPicked(null);
     setError("");
     setSaved("");
   };
@@ -166,6 +173,29 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
 
   const remoteId = mode === "prod" ? liveId : testId;
   const sold = editing?.sold ?? false;
+
+  /** The picked Creem product only while it still fills the active mode's field. */
+  const pickedForMode =
+    picked && ((mode === "prod" && picked.id === liveId.trim()) || (mode === "test" && picked.id === testId.trim())) ? picked : null;
+  const pickedMismatch = pickedForMode
+    ? creemProductMismatch(
+        {
+          status: pickedForMode.status ?? undefined,
+          billing_type: pickedForMode.billingType,
+          billing_period: pickedForMode.billingPeriod ?? undefined,
+          price: pickedForMode.amountCents,
+          currency: pickedForMode.currency,
+          tax_mode: pickedForMode.taxMode ?? undefined,
+        },
+        {
+          billingType,
+          interval: billingType === "recurring" ? interval : null,
+          amountCents: Math.round(Number(amount) * 100) || 0,
+          currency,
+          taxMode,
+        },
+      )
+    : null;
 
   return (
     <div className="wform-stack">
@@ -246,8 +276,44 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
             note={`Up to ${PRICE_LIMITS.features} lines listed under the price.`}
           />
           <div className="wfield-row">
-            <TextField id="pr-test" label="Creem test product ID" value={testId} onChange={setTestId} placeholder="prod_…" disabled={sold} />
-            <TextField id="pr-live" label="Creem live product ID" value={liveId} onChange={setLiveId} placeholder="prod_…" disabled={sold} />
+            <TextField
+              id="pr-test"
+              label="Creem test product ID"
+              value={testId}
+              onChange={(next) => {
+                setTestId(next);
+                setPicked((current) => (mode === "prod" ? current : null));
+              }}
+              placeholder="prod_…"
+              disabled={sold}
+            />
+            <TextField
+              id="pr-live"
+              label="Creem live product ID"
+              value={liveId}
+              onChange={(next) => {
+                setLiveId(next);
+                setPicked((current) => (mode === "test" ? current : null));
+              }}
+              placeholder="prod_…"
+              disabled={sold}
+            />
+          </div>
+          <div className="wcreem-browse">
+            <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={() => setPicking(true)} disabled={!configured || sold}>
+              Browse Creem {mode} products
+            </button>
+            {pickedForMode ? (
+              pickedMismatch ? (
+                <p className="wfield-error" role="alert">
+                  The Creem product does not match this price: {pickedMismatch}
+                </p>
+              ) : (
+                <p className="wfield-hint-block">
+                  Matches: {formatAmount(pickedForMode.amountCents, pickedForMode.currency)} · {pickedForMode.name}
+                </p>
+              )
+            ) : null}
           </div>
           <Switch id="pr-enabled" label="Buyable" checked={enabled} onChange={setEnabled} note={remoteId ? undefined : `Add the ${mode} product ID above before enabling.`} />
         </div>
@@ -316,6 +382,17 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
           A sold price keeps its terms forever so past invoices stay truthful. Disable it and add a new price for changed terms.
         </p>
       </div>
+
+      <CreemProductPicker
+        open={picking}
+        mode={mode}
+        onClose={() => setPicking(false)}
+        onSelect={(product) => {
+          setPicked(product);
+          if (mode === "prod") setLiveId(product.id);
+          else setTestId(product.id);
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDelete !== null}

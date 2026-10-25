@@ -23,7 +23,8 @@ export default async function ProductTypesPage() {
           </h1>
           <p>
             A product type is a kind of product — theme, extension, starter kit — with its own listing page and
-            catalogue filters. Types are shared by every store of this installation.
+            catalogue filters. Types are shared by every store of this installation; the key is the handle used in
+            URL filters and catalogue markers.
           </p>
         </div>
         <span className="workspace-index">CATALOGUE</span>

@@ -150,6 +150,20 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
       </div>
 
       <div className="wsettings-section">
+        <p className="wsection-label">Support chat</p>
+        <ModelDefault
+          label="Chat model"
+          models={catalogue?.text ?? null}
+          value={values.chatModel}
+          onChange={(id) => set("chatModel", id)}
+        />
+        <p className="wfield-hint-block" style={{ marginTop: 0 }}>
+          Answers the floating assistant in the corner of every panel page. Picked separately from the blog&apos;s
+          text model — short questions are usually best served by a fast, inexpensive model.
+        </p>
+      </div>
+
+      <div className="wsettings-section">
         <p className="wsection-label">Research</p>
         <CheckBox
           checked={values.webSearch}

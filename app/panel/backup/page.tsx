@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import BackupManager from "./backup-manager";
+import { requirePanelUser } from "@/lib/panel-auth";
+import { notFound } from "next/navigation";
 
 export const metadata: Metadata = { title: "Export / Import · CMSMotive" };
 
 export default async function BackupPage({ searchParams }: { searchParams: Promise<{ restored?: string }> }) {
+  if ((await requirePanelUser()).role !== "superadmin") notFound();
   const { restored } = await searchParams;
   return (
     <>

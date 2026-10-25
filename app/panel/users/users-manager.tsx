@@ -14,6 +14,7 @@ type UserRow = {
   role: Role;
   emailVerified: boolean;
   createdAt: string;
+  canEditIdentity: boolean;
 };
 
 type DialogKind = "create" | "edit" | "delete" | null;
@@ -69,7 +70,7 @@ function Dialog({
   const titles: Record<string, string> = {
     create: "Add user",
     edit: "Edit user",
-    delete: "Delete user",
+    delete: "Remove store access",
   };
 
   return (
@@ -87,14 +88,17 @@ function Dialog({
       <div className="wdialog-body">
         {kind === "delete" ? (
           <p className="wdialog-text">
-            <strong>{user?.name}</strong> ({user?.email}) will be permanently removed, including their sessions and
-            password. This cannot be undone.
+            <strong>{user?.name}</strong> ({user?.email}) will lose access to this store. Their account, password
+            and access to other stores will be kept.
           </p>
         ) : (
           <div className="wform">
+            {kind === "create" ? <p className="wdialog-text">To add an existing account, enter its e-mail and leave the password empty. Its identity and password will be kept.</p> : null}
+            {kind === "edit" && user?.canEditIdentity === false ? <p className="wdialog-text">This is a shared account. You can change its role in this store.</p> : null}
             <TextField
               id="w-user-name"
               label="Name"
+              disabled={kind === "edit" && user?.canEditIdentity === false}
               value={form.name}
               onChange={(name) => onFormChange({ ...form, name })}
               placeholder="Full name"
@@ -103,6 +107,7 @@ function Dialog({
             <TextField
               id="w-user-email"
               label="E-mail"
+              disabled={kind === "edit" && user?.canEditIdentity === false}
               type="email"
               value={form.email}
               onChange={(email) => onFormChange({ ...form, email })}
@@ -111,7 +116,7 @@ function Dialog({
             />
             <Select
               id="w-user-role"
-              label="Role"
+              label="Store role"
               value={form.role}
               onChange={(role) => onFormChange({ ...form, role: role as Role })}
               options={ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }))}
@@ -119,6 +124,7 @@ function Dialog({
             <TextField
               id="w-user-password"
               label="Password"
+              disabled={kind === "edit" && user?.canEditIdentity === false}
               hint={kind === "edit" ? "leave empty to keep current" : undefined}
               type="password"
               value={form.password}
@@ -142,11 +148,11 @@ function Dialog({
         </button>
         {kind === "delete" ? (
           <button className="wbtn wbtn-danger" type="button" onClick={onConfirmDelete} disabled={busy}>
-            {busy ? "Deleting…" : "Delete user"}
+            {busy ? "Removing…" : "Remove access"}
           </button>
         ) : (
           <button className="wbtn wbtn-primary" type="button" onClick={onSubmit} disabled={busy}>
-            {busy ? "Saving…" : kind === "edit" ? "Save changes" : "Create user"}
+            {busy ? "Saving…" : kind === "edit" ? "Save changes" : "Add user"}
           </button>
         )}
       </footer>

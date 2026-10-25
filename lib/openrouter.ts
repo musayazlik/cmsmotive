@@ -7,6 +7,16 @@
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
+/** An OpenRouter call failed with an HTTP status; 401/402/403 mean the key or its credit is the problem. */
+export class OpenRouterStatusError extends Error {
+  constructor(
+    readonly status: number,
+    detail: string,
+  ) {
+    super(`OpenRouter request failed (${status})${detail ? `: ${detail}` : ""}`);
+  }
+}
+
 export type OpenRouterModel = {
   id: string;
   name: string;
@@ -62,7 +72,7 @@ export async function listTextAndImageModels(): Promise<{ text: OpenRouterModel[
     headers: headers(requireKey()),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!response.ok) throw new Error(`OpenRouter models request failed (${response.status}).`);
+  if (!response.ok) throw new OpenRouterStatusError(response.status, `OpenRouter models request failed.`);
 
   const payload = (await response.json()) as { data?: OpenRouterModelRow[] };
   const text: OpenRouterModel[] = [];
@@ -103,6 +113,9 @@ export async function chatCompletion(options: {
   model: string;
   system: string;
   user: string;
+  /** Earlier turns, before the current user message. */
+  history?: { role: "user" | "assistant"; content: string }[];
+  maxTokens?: number;
   webSearch?: boolean;
   /** Results the web plugin fetches; 5 by default. */
   maxResults?: number;
@@ -117,8 +130,10 @@ export async function chatCompletion(options: {
       model: options.model,
       messages: [
         { role: "system", content: options.system },
+        ...(options.history ?? []),
         { role: "user", content: options.user },
       ],
+      ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
       ...(plugin ? { plugins: [{ id: "web", max_results: options.maxResults ?? 5 }] } : {}),
     }),
     signal: options.signal
@@ -127,7 +142,7 @@ export async function chatCompletion(options: {
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error(`OpenRouter request failed (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ""}`);
+    throw new OpenRouterStatusError(response.status, detail.slice(0, 300));
   }
   const payload = (await response.json()) as {
     choices?: {

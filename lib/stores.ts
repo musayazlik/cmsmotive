@@ -88,6 +88,16 @@ export function requestHost(source: Request | Headers): string {
   return headers.get("x-forwarded-host")?.split(",")[0]?.trim() || headers.get("host") || fromUrl || "localhost";
 }
 
+/** Actual browser origin, including aliases and the development port. */
+export function requestOrigin(source: Request | Headers): string {
+  const headers = source instanceof Request ? source.headers : source;
+  const host = requestHost(source);
+  const protocol = headers.get("x-forwarded-proto")?.split(",")[0]?.trim()
+    || (source instanceof Request ? new URL(source.url).protocol.slice(0, -1) : LOCAL_HOSTNAME.test(splitHost(host)?.hostname ?? "") ? "http" : "https");
+  if (protocol !== "http" && protocol !== "https") throw new Error("Unsupported request protocol.");
+  return new URL(`${protocol}://${host}`).origin;
+}
+
 /** Resolves the store, match kind and canonical origin for a request (or its headers). */
 export async function resolveRequestStore(source: Request | Headers): Promise<RequestStore> {
   const headers = source instanceof Request ? source.headers : source;
@@ -126,6 +136,14 @@ export function storeOriginFrom(store: Store, source: Request | Headers): string
     return `http://${store.key}${DEV_ALIAS}${parts.port ? `:${parts.port}` : ""}`;
   }
   return store.hosts[0] ? `https://${store.hosts[0]}` : `https://${requestHost(source)}`;
+}
+
+/** Store switching must reach the selected host, never silently reuse another store's host. */
+export function storePanelHref(store: Store, source: Request | Headers, panelPath: string): string | null {
+  const hostname = splitHost(requestHost(source))?.hostname ?? "";
+  const localPreview = process.env.NODE_ENV === "development" && LOCAL_HOSTNAME.test(hostname);
+  if (!localPreview && !store.hosts.length) return null;
+  return new URL(panelPath, storeOriginFrom(store, source)).href;
 }
 
 /**

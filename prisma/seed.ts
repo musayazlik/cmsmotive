@@ -70,6 +70,14 @@ async function upsertCredentialUser({ name, email, role, password }: SeedUser & 
     update: { name, role, emailVerified: true },
     select: { id: true, email: true, name: true, role: true },
   });
+  const stores = await prisma.store.findMany({ where: role === "user" ? { isDefault: true } : {} });
+  for (const store of stores) {
+    await prisma.storeMember.upsert({
+      where: { storeId_userId: { storeId: store.id, userId: user.id } },
+      create: { storeId: store.id, userId: user.id, role: role === "user" ? "user" : "admin" },
+      update: { role: role === "user" ? "user" : "admin" },
+    });
+  }
 
   const existingAccount = await prisma.account.findFirst({
     where: { userId: user.id, providerId: CREDENTIAL_PROVIDER },

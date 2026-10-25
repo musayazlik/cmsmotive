@@ -23,7 +23,8 @@ function privateAuthRoute(suffix: string): string | null {
 function privateResponse(response: NextResponse) {
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("X-Robots-Tag", "noindex, nofollow");
-  response.headers.set("Referrer-Policy", "no-referrer");
+  // Hide private paths while preserving Origin on the store-switch POST.
+  response.headers.set("Referrer-Policy", "strict-origin");
   return response;
 }
 

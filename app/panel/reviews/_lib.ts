@@ -8,9 +8,7 @@ import type { ReviewStatus } from "@/lib/reviews";
 
 export type ReviewRow = {
   id: string;
-  /** null when the reviewed product has been deleted. */
-  productType: "theme" | "extension" | null;
-  /** "theme:<id>" / "extension:<id>", the value of the product filter. */
+  /** The product's id, or "slug:<slug>" when the reviewed product has been deleted. */
   productKey: string;
   productSlug: string;
   productName: string;

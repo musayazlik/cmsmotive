@@ -1,13 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Prisma } from "@/generated/prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import {
-  CHANGE_KINDS,
-  CHANGELOG_LIMITS,
-  validateChangelog,
-} from "@/lib/catalog-guard";
-import { changelogInStore, productExists, readChanges } from "@/lib/changelog";
+import { CHANGE_KINDS, CHANGELOG_LIMITS, validateChangelog } from "@/lib/catalog-guard";
+import { findStoreProduct } from "@/lib/product-admin";
+import { readChanges } from "@/lib/changelog";
+import { changelogInStore } from "../lib/catalog";
 import { runTool, ToolError } from "../lib/result";
 import { mcpStoreId } from "@/mcp/context";
 
@@ -23,20 +20,11 @@ const changesSchema = z
   .min(1)
   .max(CHANGELOG_LIMITS.changes);
 
-/** "theme:<id>", "extension:<id>", "type:theme" or "type:extension" → a Prisma filter. */
-function productFilter(value: string | undefined): Prisma.ChangelogEntryWhereInput {
-  if (!value) return {};
-  if (value === "type:theme") return { themeId: { not: null } };
-  if (value === "type:extension") return { extensionId: { not: null } };
-  const match = value.match(/^(theme|extension):(\S+)$/);
-  if (!match) return {};
-  return match[1] === "theme" ? { themeId: match[2] } : { extensionId: match[2] };
-}
-
-function productRef(themeId: string | null, extensionId: string | null): string {
-  if (themeId) return `theme:${themeId}`;
-  if (extensionId) return `extension:${extensionId}`;
-  return "";
+/** Writes require the same visibility reads have: the product is owned or listed. */
+async function assertProductInStore(productId: string) {
+  if (!(await findStoreProduct(mcpStoreId(), productId))) {
+    throw new ToolError("The chosen product no longer exists in this store.");
+  }
 }
 
 export function registerChangelogTools(server: McpServer) {
@@ -45,9 +33,9 @@ export function registerChangelogTools(server: McpServer) {
     {
       title: "List changelog entries",
       description:
-        "List release notes for themes and extensions, newest first. Filter by product with theme:<id> or extension:<id>, or by type with type:theme / type:extension.",
+        "List release notes for this store's products, newest first. Filter by product with productId, or search in version, title and product name.",
       inputSchema: {
-        product: z.string().optional().describe("theme:<id>, extension:<id>, type:theme or type:extension."),
+        productId: z.string().optional(),
         q: z.string().optional().describe("Search in version, title and product name."),
         page: z.number().int().min(1).default(1),
         pageSize: z.union([z.literal(20), z.literal(50), z.literal(100)]).default(20),
@@ -56,17 +44,16 @@ export function registerChangelogTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const where: Prisma.ChangelogEntryWhereInput = {
+        const where = {
           AND: [
             changelogInStore(mcpStoreId()),
-            productFilter(args.product),
+            ...(args.productId ? [{ productId: args.productId }] : []),
             args.q
               ? {
                   OR: [
-                    { version: { contains: args.q, mode: "insensitive" } },
-                    { title: { contains: args.q, mode: "insensitive" } },
-                    { theme: { name: { contains: args.q, mode: "insensitive" } } },
-                    { extension: { name: { contains: args.q, mode: "insensitive" } } },
+                    { version: { contains: args.q, mode: "insensitive" as const } },
+                    { title: { contains: args.q, mode: "insensitive" as const } },
+                    { product: { name: { contains: args.q, mode: "insensitive" as const } } },
                   ],
                 }
               : {},
@@ -87,20 +74,14 @@ export function registerChangelogTools(server: McpServer) {
               releasedAt: true,
               changes: true,
               createdAt: true,
-              theme: productSelect,
-              extension: productSelect,
+              product: productSelect,
             },
           }),
         ]);
 
         return {
-          entries: entries.map(({ theme, extension, changes, ...entry }) => ({
+          entries: entries.map(({ changes, ...entry }) => ({
             ...entry,
-            product: theme
-              ? { type: "theme", ...theme }
-              : extension
-                ? { type: "extension", ...extension }
-                : null,
             changes: readChanges(changes),
             changeCount: Array.isArray(changes) ? changes.length : 0,
             releasedAt: entry.releasedAt.toISOString(),
@@ -134,21 +115,13 @@ export function registerChangelogTools(server: McpServer) {
             changes: true,
             createdAt: true,
             updatedAt: true,
-            theme: productSelect,
-            extension: productSelect,
+            product: productSelect,
           },
         });
         if (!entry) throw new ToolError("Changelog entry not found.");
         return {
           ...entry,
           changes: readChanges(entry.changes),
-          product: entry.theme
-            ? { type: "theme", ...entry.theme }
-            : entry.extension
-              ? { type: "extension", ...entry.extension }
-              : null,
-          theme: undefined,
-          extension: undefined,
           releasedAt: entry.releasedAt.toISOString(),
           createdAt: entry.createdAt.toISOString(),
           updatedAt: entry.updatedAt.toISOString(),
@@ -161,9 +134,9 @@ export function registerChangelogTools(server: McpServer) {
     {
       title: "Create a changelog entry",
       description:
-        "Create a release note for a theme or extension. The product is written as theme:<id> or extension:<id>.",
+        "Create a release note for a product. productId accepts every product this store owns or lists.",
       inputSchema: {
-        product: z.string().describe("theme:<id> or extension:<id>."),
+        productId: z.string().describe("Product id the entry belongs to (products_list to discover)."),
         version: z.string().max(CHANGELOG_LIMITS.version),
         title: z.string().max(CHANGELOG_LIMITS.title),
         releasedAt: z.string().describe("ISO release date, for example 2026-10-18."),
@@ -175,9 +148,7 @@ export function registerChangelogTools(server: McpServer) {
       runTool(async () => {
         const validated = validateChangelog(args);
         if ("error" in validated) throw new ToolError(validated.error);
-        if (!(await productExists(mcpStoreId(), validated.data))) {
-          throw new ToolError("The chosen theme or extension no longer exists.");
-        }
+        await assertProductInStore(validated.data.productId);
         const entry = await prisma.changelogEntry.create({
           data: validated.data,
           select: { id: true },
@@ -194,7 +165,7 @@ export function registerChangelogTools(server: McpServer) {
         "Update any subset of a changelog entry. Omitted fields keep their stored values.",
       inputSchema: {
         id: z.string(),
-        product: z.string().optional().describe("theme:<id> or extension:<id>."),
+        productId: z.string().optional().describe("Move the entry to another product."),
         version: z.string().max(CHANGELOG_LIMITS.version).optional(),
         title: z.string().max(CHANGELOG_LIMITS.title).optional(),
         releasedAt: z.string().optional(),
@@ -208,8 +179,7 @@ export function registerChangelogTools(server: McpServer) {
           where: { id: args.id, ...changelogInStore(mcpStoreId()) },
           select: {
             id: true,
-            themeId: true,
-            extensionId: true,
+            productId: true,
             version: true,
             title: true,
             releasedAt: true,
@@ -219,7 +189,7 @@ export function registerChangelogTools(server: McpServer) {
         if (!existing) throw new ToolError("Changelog entry not found.");
 
         const body = {
-          product: args.product ?? productRef(existing.themeId, existing.extensionId),
+          productId: args.productId ?? existing.productId,
           version: args.version ?? existing.version,
           title: args.title ?? existing.title,
           releasedAt: args.releasedAt ?? existing.releasedAt.toISOString(),
@@ -228,9 +198,7 @@ export function registerChangelogTools(server: McpServer) {
 
         const validated = validateChangelog(body);
         if ("error" in validated) throw new ToolError(validated.error);
-        if (!(await productExists(mcpStoreId(), validated.data))) {
-          throw new ToolError("The chosen theme or extension no longer exists.");
-        }
+        await assertProductInStore(validated.data.productId);
 
         const entry = await prisma.changelogEntry.update({
           where: { id: args.id },

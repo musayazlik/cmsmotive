@@ -13,19 +13,40 @@ export function subscriptionHasAccess(
   now = new Date(),
 ) {
   return (
-    ["active", "scheduled_cancel"].includes(s.status) &&
+    ["active", "scheduled_cancel", "trialing"].includes(s.status) &&
     s.currentPeriodEnd > now
   );
 }
-export function releaseIsIncluded(
-  s: { status: string; currentPeriodStart: Date; currentPeriodEnd: Date },
+
+/** Subscription statuses that take every right away (set locally from refund and dispute events). */
+export const REVERSED_STATUSES = ["refunded", "disputed"] as const;
+
+/**
+ * The one download rule, for one-time purchases and subscriptions alike: an
+ * entitlement that was not revoked covers every release published on or
+ * before `updatesUntil` (null = lifetime updates). Releases delivered during
+ * a paid term stay downloadable after it ends; only refunds and disputes
+ * revoke them.
+ */
+export function entitlementCovers(
+  entitlement: { revokedAt: Date | null; updatesUntil: Date | null },
   release: { createdAt: Date },
+) {
+  return !entitlement.revokedAt && (entitlement.updatesUntil === null || release.createdAt <= entitlement.updatesUntil);
+}
+
+/** Whether the entitlement still receives new releases. */
+export function entitlementReceivesUpdates(
+  entitlement: { revokedAt: Date | null; updatesUntil: Date | null },
   now = new Date(),
 ) {
-  // Retain downloads of versions delivered during the paid term; expiry only stops new releases and support.
-  return (
-    (subscriptionHasAccess(s, now) ||
-      ["canceled", "expired", "past_due", "unpaid"].includes(s.status)) &&
-    release.createdAt <= s.currentPeriodEnd
-  );
+  return !entitlement.revokedAt && (entitlement.updatesUntil === null || entitlement.updatesUntil > now);
+}
+
+/** End of the update window a one-time purchase includes; null = lifetime. */
+export function updatesUntilForPurchase(updatesMonths: number | null, placedAt: Date): Date | null {
+  if (updatesMonths === null) return null;
+  const until = new Date(placedAt);
+  until.setUTCMonth(until.getUTCMonth() + updatesMonths);
+  return until;
 }

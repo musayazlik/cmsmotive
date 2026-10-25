@@ -42,10 +42,7 @@ export function publicationMissing(data: ProductCompliance) {
   const missing = Object.entries(data)
     .filter(([, v]) => !v)
     .map(([key]) => key);
-  if (
-    data.codeLicense &&
-    !["GPL-2.0-or-later", "GPL-3.0-or-later"].includes(data.codeLicense)
-  )
-    missing.push("GPL-compatible code license for the TYPO3 package");
+  // Each product names its own licence (GPL for TYPO3 packages, a commercial
+  // licence for a CMS or starter kit); the code licence only has to be set.
   return missing;
 }

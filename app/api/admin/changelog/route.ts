@@ -7,18 +7,7 @@ import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
-const productSelect = { select: { id: true, name: true, slug: true } } as const;
-
-/** "theme:<id>", "extension:<id>", "type:theme" or "type:extension" → a Prisma filter. */
-function productFilter(value: string | null) {
-  if (value === "type:theme") return { themeId: { not: null } };
-  if (value === "type:extension") return { extensionId: { not: null } };
-  const match = value?.match(/^(theme|extension):(\S+)$/);
-  if (!match) return {};
-  return match[1] === "theme" ? { themeId: match[2] } : { extensionId: match[2] };
-}
-
-/** GET /api/admin/changelog?product=&q=&page=&pageSize= — newest entries first. */
+/** GET /api/admin/changelog?product=&q=&page=&pageSize= - newest entries first. */
 export async function GET(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
@@ -28,18 +17,18 @@ export async function GET(request: Request) {
   const q = (params.get("q") ?? "").trim();
   const page = Math.max(1, Number(params.get("page")) || 1);
   const pageSize = [20, 50, 100].includes(Number(params.get("pageSize"))) ? Number(params.get("pageSize")) : 20;
+  const product = (params.get("product") ?? "").trim();
 
   const where = {
     AND: [
       changelogInStore(storeId),
-      productFilter(params.get("product")),
+      ...(product ? [{ productId: product }] : []),
       q
         ? {
             OR: [
               { version: { contains: q, mode: "insensitive" as const } },
               { title: { contains: q, mode: "insensitive" as const } },
-              { theme: { name: { contains: q, mode: "insensitive" as const } } },
-              { extension: { name: { contains: q, mode: "insensitive" as const } } },
+              { product: { name: { contains: q, mode: "insensitive" as const } } },
             ],
           }
         : {},
@@ -55,16 +44,15 @@ export async function GET(request: Request) {
       take: pageSize,
       select: {
         id: true, version: true, title: true, releasedAt: true, changes: true, createdAt: true,
-        theme: productSelect,
-        extension: productSelect,
+        product: { select: { id: true, name: true, slug: true } },
       },
     }),
   ]);
 
   return Response.json({
-    entries: entries.map(({ theme, extension, changes, ...entry }) => ({
+    entries: entries.map(({ product, changes, ...entry }) => ({
       ...entry,
-      product: theme ? { type: "theme", ...theme } : extension ? { type: "extension", ...extension } : null,
+      product: product ?? null,
       changeCount: Array.isArray(changes) ? changes.length : 0,
       releasedAt: entry.releasedAt.toISOString(),
       createdAt: entry.createdAt.toISOString(),
@@ -88,8 +76,8 @@ export async function POST(request: Request) {
 
   const validated = validateChangelog(body);
   if ("error" in validated) return Response.json({ error: validated.error }, { status: 400 });
-  if (!(await productExists(storeId, validated.data))) {
-    return Response.json({ error: "The chosen theme or extension no longer exists." }, { status: 400 });
+  if (!(await productExists(storeId, validated.data.productId))) {
+    return Response.json({ error: "The chosen product no longer exists." }, { status: 400 });
   }
 
   try {

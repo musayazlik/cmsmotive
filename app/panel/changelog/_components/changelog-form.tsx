@@ -12,7 +12,7 @@ type Props = {
   products: ProductOption[];
   /** The entry to edit; omitted on the create page. */
   record?: ChangelogRecord;
-  /** "theme:<id>" / "extension:<id>" chosen before the form opened (from a theme's edit page). */
+  /** The product chosen before the form opened (from a product's edit page). */
   initialProduct?: string;
 };
 
@@ -20,7 +20,7 @@ type Draft = { kind: ChangeKind; text: string };
 
 const KIND_OPTIONS = CHANGE_KINDS.map((kind) => ({ value: kind, label: CHANGE_LABELS[kind] }));
 
-/** Create and edit form for one release note of one theme or extension. */
+/** Create and edit form for one release note of one product. */
 export default function ChangelogForm({ products, record, initialProduct = "" }: Props) {
   const router = useRouter();
   const [product, setProduct] = useState(record?.product ?? (products.some((option) => option.value === initialProduct) ? initialProduct : ""));
@@ -44,7 +44,7 @@ export default function ChangelogForm({ products, record, initialProduct = "" }:
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!product) {
-      setError("Choose the theme or extension this entry belongs to.");
+      setError("Choose the product this entry belongs to.");
       return;
     }
     setSaving(true);
@@ -53,7 +53,7 @@ export default function ChangelogForm({ products, record, initialProduct = "" }:
       const response = await fetch(record ? `/api/admin/changelog/${record.id}` : "/api/admin/changelog", {
         method: record ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product, version, title, releasedAt, changes }),
+        body: JSON.stringify({ productId: product, version, title, releasedAt, changes }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -120,14 +120,14 @@ export default function ChangelogForm({ products, record, initialProduct = "" }:
               <div className="wform">
                 <Select
                   id="cl-product"
-                  label="Theme or extension"
+                  label="Product"
                   value={product}
                   onChange={(value) => {
                     setProduct(value);
                     setError("");
                   }}
                   options={products}
-                  placeholder="Choose a theme or extension"
+                  placeholder="Choose a product"
                   note="Required. The entry appears in the Changelog tab of this product's detail page."
                 />
                 <div className="wfield-row">

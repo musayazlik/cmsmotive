@@ -12,6 +12,7 @@ import {
 import { isLocale } from "@/lib/i18n/config";
 import { safePurchaseReturn } from "@/lib/purchase-flow";
 import { resolveRequestStore } from "@/lib/stores";
+import { creemProductMismatch } from "@/lib/prices";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     return Response.json(
       {
         error: "Sign in first.",
-        loginUrl: `/auth/sign-in?${new URLSearchParams({ lang: locale, next: safePurchaseReturn(form.get("returnPath")) ?? `/account/checkout?${new URLSearchParams({ plan: String(form.get("planId") ?? ""), lang: locale })}` })}`,
+        loginUrl: `/auth/sign-in?${new URLSearchParams({ lang: locale, next: safePurchaseReturn(form.get("returnPath")) ?? `/account/checkout?${new URLSearchParams({ price: String(form.get("priceId") ?? ""), lang: locale })}` })}`,
       },
       { status: 401 },
     );
@@ -52,36 +53,38 @@ export async function POST(request: Request) {
       { error: "Checkout is not available yet." },
       { status: 503 },
     );
+  const price = await prisma.price.findFirst({
+    where: {
+      id: String(form.get("priceId") ?? ""),
+      storeId,
+      enabled: true,
+      product: { listings: { some: { storeId } } },
+    },
+    include: { product: true },
+  });
+  if (!price) return Response.json({ error: "Unknown price." }, { status: 404 });
+  const recurring = price.billingType === "recurring";
   if (
     form.get("terms") !== "on" ||
-    form.get("renewal") !== "on" ||
+    (recurring && form.get("renewal") !== "on") ||
     form.get("termsVersion") !== legal.termsVersion
   )
     return Response.json(
       {
-        error:
-          "Accept the current sales terms and annual recurring billing before continuing.",
+        error: recurring
+          ? "Accept the current sales terms and the recurring billing before continuing."
+          : "Accept the current sales terms before continuing.",
       },
       { status: 400 },
     );
-  const plan = await prisma.billingPlan.findFirst({
-    where: { id: String(form.get("planId") ?? ""), storeId, enabled: true },
-  });
-  if (!plan) return Response.json({ error: "Unknown plan." }, { status: 404 });
-  const product =
-    plan.kind === "theme"
-      ? await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug: plan.productSlug } } })
-      : await prisma.extension.findUnique({
-          where: { storeId_slug: { storeId, slug: plan.productSlug } },
-        });
+  const { product } = price;
   const { readCompliance, publicationMissing } = await import(
     "@/lib/product-compliance"
   );
   if (
-    !product ||
-    (!testCheckout &&
-      (product.status !== "published" ||
-        publicationMissing(readCompliance(product.compliance)).length))
+    !testCheckout &&
+    (product.status !== "published" ||
+      publicationMissing(readCompliance(product.compliance)).length)
   )
     return Response.json(
       { error: "This product is not released yet." },
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
   if (
     !testCheckout &&
     !(await prisma.productRelease.findFirst({
-      where: { storeId, kind: plan.kind, productSlug: plan.productSlug },
+      where: { productId: product.id },
       select: { id: true },
     }))
   )
@@ -99,44 +102,48 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   const productId =
-    creemMode() === "prod" ? plan.creemLiveProductId : plan.creemTestProductId;
+    creemMode() === "prod" ? price.creemLiveProductId : price.creemTestProductId;
   if (!productId)
     return Response.json(
       {
         error:
-          "This plan is not configured for the selected payment environment.",
+          "This price is not configured for the selected payment environment.",
       },
       { status: 503 },
     );
-  const existing = await prisma.productSubscription.findFirst({
-    where: {
-      userId: session.user.id,
-      planId: plan.id,
-      mode: creemMode(),
-      status: { in: ["active", "scheduled_cancel"] },
-      currentPeriodEnd: { gt: new Date() },
-    },
-  });
-  if (existing)
-    return finish(`${await billingOrigin(request)}/account/billing?lang=${locale}`);
+  // Already covered: a running subscription to this price, or a one-time purchase that still receives updates.
+  const owned = recurring
+    ? await prisma.subscription.findFirst({
+        where: {
+          priceId: price.id,
+          mode: creemMode(),
+          customer: { userId: session.user.id },
+          status: { in: ["active", "scheduled_cancel", "trialing"] },
+          currentPeriodEnd: { gt: new Date() },
+        },
+        select: { id: true },
+      })
+    : await prisma.entitlement.findFirst({
+        where: {
+          productId: product.id,
+          storeId,
+          orderId: { not: null },
+          revokedAt: null,
+          customer: { userId: session.user.id, mode: creemMode() },
+          OR: [{ updatesUntil: null }, { updatesUntil: { gt: new Date() } }],
+        },
+        select: { id: true },
+      });
+  if (owned)
+    return finish(`${await billingOrigin(request)}/account?lang=${locale}`);
   try {
     const remote = await creemRequest(
       `/v1/products/${encodeURIComponent(productId)}`,
     );
-    if (
-      remote.billing_type !== "recurring" ||
-      remote.billing_period !== "every-year" ||
-      remote.currency !== plan.currency ||
-      remote.price !== plan.priceCents ||
-      remote.status !== "active" ||
-      remote.tax_mode !== "inclusive" ||
-      remote.trial_period_days
-    )
+    const mismatch = creemProductMismatch(remote, price);
+    if (mismatch)
       return Response.json(
-        {
-          error:
-            "The Creem product must match this yearly, tax-inclusive plan, without a trial.",
-        },
+        { error: `The Creem product does not match this price: ${mismatch}` },
         { status: 409 },
       );
     const recent = await prisma.checkoutAttempt.count({
@@ -153,7 +160,8 @@ export async function POST(request: Request) {
     const attempt = await prisma.checkoutAttempt.create({
       data: {
         userId: session.user.id,
-        planId: plan.id,
+        storeId,
+        priceId: price.id,
         creemProductId: productId,
         mode: creemMode(),
         termsVersion: legal.termsVersion,

@@ -2,15 +2,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DEFAULT_MCP_NAME } from "@/lib/mcp-settings-shared";
 import { registerAiTools } from "./tools/ai";
 import { registerChangelogTools } from "./tools/changelog";
-import { registerExtensionTools } from "./tools/extensions";
 import { registerInboxTools } from "./tools/inbox";
 import { registerMediaTools } from "./tools/media";
 import { registerPostTools } from "./tools/posts";
+import { registerProductTools } from "./tools/products";
 import { registerReviewTools } from "./tools/reviews";
 import { registerSettingsTools } from "./tools/settings";
 import { registerStatsTools } from "./tools/stats";
 import { registerTaxonomyTools } from "./tools/taxonomy";
-import { registerThemeTools } from "./tools/themes";
 import { registerUserTools } from "./tools/users";
 
 /**
@@ -29,8 +28,7 @@ export function createCmsMcpServer(name = DEFAULT_MCP_NAME): McpServer {
 
   registerPostTools(server);
   registerTaxonomyTools(server);
-  registerThemeTools(server);
-  registerExtensionTools(server);
+  registerProductTools(server);
   registerChangelogTools(server);
   registerMediaTools(server);
   registerReviewTools(server);

@@ -59,19 +59,33 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       },
     });
     const store = await db.store.findFirstOrThrow();
-    const plan = await db.billingPlan.create({
+    // The products_and_commerce migration seeds the theme/extension product types.
+    const type = await db.productType.findUniqueOrThrow({ where: { key: "theme" } });
+    const product = await db.product.create({
       data: {
         storeId: store.id,
-        kind: "theme",
-        productSlug: "fixture",
+        typeId: type.id,
+        name: "Fixture",
+        slug: "fixture",
+        summary: "Fixture product",
+        description: "<p>Fixture</p>",
+      },
+    });
+    const price = await db.price.create({
+      data: {
+        productId: product.id,
+        storeId: store.id,
         name: "Annual",
-        priceCents: 26900,
+        billingType: "recurring",
+        interval: "year",
+        amountCents: 26900,
       },
     });
     const attempt = await db.checkoutAttempt.create({
       data: {
         userId: "buyer",
-        planId: plan.id,
+        storeId: store.id,
+        priceId: price.id,
         mode: "test",
         creemProductId: "prod_fixture",
         termsVersion: "1",
@@ -125,16 +139,14 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       (await send("invalid", "subscription.paid", false)).status,
       401,
     );
-    assert.equal(await db.productSubscription.count(), 0);
+    assert.equal(await db.subscription.count(), 0);
     assert.equal((await send("paid")).status, 200);
-    assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).userId,
-      "buyer",
-    );
+    const local = await db.subscription.findFirstOrThrow({ include: { customer: true } });
+    assert.equal(local.customer.userId, "buyer");
     const count = calls;
     assert.equal((await send("paid")).status, 200);
     assert.equal(calls, count);
-    assert.equal(await db.productSubscription.count(), 1);
+    assert.equal(await db.subscription.count(), 1);
     canonical = {
       ...canonical,
       status: "scheduled_cancel",
@@ -145,7 +157,7 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       200,
     );
     assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).status,
+      (await db.subscription.findFirstOrThrow()).status,
       "scheduled_cancel",
     );
     canonical = {
@@ -159,7 +171,7 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       200,
     );
     assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).status,
+      (await db.subscription.findFirstOrThrow()).status,
       "canceled",
     );
     assert.equal(
@@ -173,12 +185,12 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       200,
     );
     assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).status,
+      (await db.subscription.findFirstOrThrow()).status,
       "refunded",
     );
     await send("late-after-refund");
     assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).status,
+      (await db.subscription.findFirstOrThrow()).status,
       "refunded",
     );
     canonical = {
@@ -189,7 +201,7 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
     };
     await send("new-renewal");
     assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).status,
+      (await db.subscription.findFirstOrThrow()).status,
       "active",
     );
     await send("old-refund", "refund.created", true, {
@@ -197,7 +209,7 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       transaction: { id: "tran_fixture", status: "refunded" },
     });
     assert.equal(
-      (await db.productSubscription.findFirstOrThrow()).status,
+      (await db.subscription.findFirstOrThrow()).status,
       "active",
     );
     canonical = { ...canonical, mode: "prod" };

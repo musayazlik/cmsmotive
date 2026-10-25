@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { recaptchaSiteKey, verifyRecaptcha } from "@/lib/recaptcha";
 import { isLocale } from "@/lib/i18n/config";
 import { sendNotificationEmail } from "@/lib/plunk";
-import { REVIEW_CAPTCHA_ACTION, REVIEW_LIMITS, isReviewProductType, publicAuthorName } from "@/lib/reviews";
+import { REVIEW_CAPTCHA_ACTION, REVIEW_LIMITS, publicAuthorName } from "@/lib/reviews";
 import { getEmailSettings, getReviewSettings } from "@/lib/settings";
 import { currentStoreId } from "@/lib/current-store";
 
@@ -22,27 +22,18 @@ function fail(code: string, error: string, status: number) {
   return Response.json({ code, error }, { status });
 }
 
-/**
- * The reviewed theme or extension as a ProductReview filter. `type` is
- * optional for older pages, which only reviewed themes.
- */
-async function findProduct(storeId: string, type: unknown, slug: unknown) {
+/** The reviewed product, listed in the store, as a ProductReview filter. */
+async function findProduct(storeId: string, slug: unknown) {
   if (typeof slug !== "string" || !slug) return null;
-  const kind = type === undefined || type === null || type === "" ? "theme" : type;
-  if (!isReviewProductType(kind)) return null;
-  if (kind === "theme") {
-    const theme = await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug } }, select: { id: true } });
-    return theme ? { themeId: theme.id } : null;
-  }
-  const extension = await prisma.extension.findUnique({ where: { storeId_slug: { storeId, slug } }, select: { id: true } });
-  return extension ? { extensionId: extension.id } : null;
+  const product = await prisma.product.findFirst({ where: { slug, listings: { some: { storeId } } }, select: { id: true } });
+  return product ? { productId: product.id } : null;
 }
 
 /** Approved reviews and the star summary for one product page. */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const storeId = await currentStoreId();
-  const product = await findProduct(storeId, params.get("type"), params.get("product"));
+  const product = await findProduct(storeId, params.get("product"));
   if (!product) return fail("unknown-product", "Unknown product.", 404);
 
   const where = { ...product, storeId, status: "approved" };
@@ -101,7 +92,7 @@ export async function POST(request: Request) {
   const locale = isLocale(text("locale")) ? text("locale") : "de";
 
   const storeId = await currentStoreId();
-  const target = await findProduct(storeId, input.type, product);
+  const target = await findProduct(storeId, product);
   if (!target) return fail("unknown-product", "Unknown product.", 404);
   // Honeypot: real visitors never see or fill the "website" field.
   if (text("website")) return fail("invalid", "Please check the form fields.", 400);
@@ -175,7 +166,7 @@ export async function POST(request: Request) {
       subject: `New ${rating}★ review for ${product}${status === "pending" ? " — awaiting moderation" : ""}`,
       heading: "New product review",
       rows: [
-        ["Product", `${typeof input.type === "string" && input.type ? input.type : "theme"} / ${product}`],
+        ["Product", product],
         ["Rating", `${rating} / 5`],
         ["Name", name],
         ["Email", email],

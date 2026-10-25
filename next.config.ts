@@ -43,11 +43,14 @@ const nextConfig: NextConfig = {
       { source: "/auth/login", destination: "/auth/sign-in", permanent: true },
       { source: "/auth/register", destination: "/auth/sign-up", permanent: true },
       { source: "/auth/:mode.html", destination: "/auth/:mode", permanent: true },
-      // Theme pages moved from the static /theme-<slug> files to /theme/<slug> (app/[locale]/(product)).
-      { source: "/theme-:slug.html", destination: "/theme/:slug", permanent: true },
-      { source: "/theme-:slug", destination: "/theme/:slug", permanent: true },
-      { source: `/:locale(${prefixedLocales})/theme-:slug.html`, destination: "/:locale/theme/:slug", permanent: true },
-      { source: `/:locale(${prefixedLocales})/theme-:slug`, destination: "/:locale/theme/:slug", permanent: true },
+      // Product pages live at /products/<slug> (app/[locale]/(product)); the earlier static
+      // /theme-<slug> files and the /theme/<slug>, /extension/<slug> routes redirect there.
+      { source: "/theme-:slug.html", destination: "/products/:slug", permanent: true },
+      { source: "/theme-:slug", destination: "/products/:slug", permanent: true },
+      { source: `/:locale(${prefixedLocales})/theme-:slug.html`, destination: "/:locale/products/:slug", permanent: true },
+      { source: `/:locale(${prefixedLocales})/theme-:slug`, destination: "/:locale/products/:slug", permanent: true },
+      { source: "/:kind(theme|extension)/:slug", destination: "/products/:slug", permanent: true },
+      { source: `/:locale(${prefixedLocales})/:kind(theme|extension)/:slug`, destination: "/:locale/products/:slug", permanent: true },
       { source: "/:slug.html", destination: "/:slug", permanent: true },
       { source: `/:locale(${prefixedLocales})/index.html`, destination: "/:locale", permanent: true },
       { source: `/:locale(${prefixedLocales})/:slug.html`, destination: "/:locale/:slug", permanent: true },
@@ -64,9 +67,9 @@ const nextConfig: NextConfig = {
         // `/en/blog` matches app/[locale]/blog directly; the German journal needs its locale filled in.
         { source: "/blog", destination: "/de/blog" },
         { source: "/blog/:slug", destination: "/de/blog/:slug" },
-        // Same for the theme and extension detail pages (app/[locale]/(product)).
-        { source: "/theme/:slug", destination: "/de/theme/:slug" },
-        { source: "/extension/:slug", destination: "/de/extension/:slug" },
+        // Same for the product catalogue and detail pages (app/[locale]/(product)).
+        { source: "/products", destination: "/de/products" },
+        { source: "/products/:slug", destination: "/de/products/:slug" },
         ...pages.flatMap((slug) => [
           { source: slug === "index" ? "/" : `/${slug}`, destination: `/legacy/de/${slug}` },
           {

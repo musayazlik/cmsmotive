@@ -15,7 +15,7 @@ type Row = {
   releasedAt: string;
   createdAt: string;
   changeCount: number;
-  product: { type: "theme" | "extension"; id: string; name: string; slug: string } | null;
+  product: { id: string; name: string; slug: string } | null;
 };
 
 const PAGE_SIZES = [20, 50, 100];
@@ -38,11 +38,7 @@ export default function ChangelogList({ products, initialProduct = "" }: { produ
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const filterOptions: ProductOption[] = [
-    { value: "type:theme", label: "All themes" },
-    { value: "type:extension", label: "All extensions" },
-    ...products,
-  ];
+  const filterOptions: ProductOption[] = [...products];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,7 +89,7 @@ export default function ChangelogList({ products, initialProduct = "" }: { produ
 
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
-  const newHref = product && !product.startsWith("type:") ? `/panel/changelog/new?product=${product}` : "/panel/changelog/new";
+  const newHref = product ? `/panel/changelog/new?product=${product}` : "/panel/changelog/new";
 
   return (
     <>
@@ -185,7 +181,6 @@ export default function ChangelogList({ products, initialProduct = "" }: { produ
                 rows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <span className={`wproduct-type is-${row.product?.type ?? "removed"}`}>{row.product?.type ?? "removed"}</span>
                       <strong className="wproduct-name">{row.product?.name ?? "—"}</strong>
                     </td>
                     <td>

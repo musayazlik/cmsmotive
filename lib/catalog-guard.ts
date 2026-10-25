@@ -3,25 +3,22 @@ export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Every catalogue validator returns either a message for the user or parsed data. */
 export type ValidationResult<T> = { error: string } | { data: T };
 
-export const THEME_STATUSES = ["concept", "in-development", "published"] as const;
-export const EXTENSION_STATUSES = ["concept", "planning", "in-development", "published"] as const;
+/** Lifecycle of a product; only `published` products can be sold live. */
+export const PRODUCT_STATUSES = ["concept", "planning", "in-development", "published"] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 
-export const THEME_INDUSTRIES = [
-  "Architecture & corporate",
-  "Free starter",
-  "Agency starter",
-  "Education & public",
-  "Other",
-] as const;
-
-export const VERSION_TARGETS = ["TYPO3 13", "TYPO3 14", "TYPO3 13 / 14", "Not decided"] as const;
+export function isProductStatus(value: unknown): value is ProductStatus {
+  return typeof value === "string" && (PRODUCT_STATUSES as readonly string[]).includes(value);
+}
 
 export const MAX_GALLERY = 12;
 
-/** Upper bound for the indicative catalogue price, in whole euros. */
-export const MAX_PRICE = 100000;
+/** Upper bound for the indicative catalogue price, in whole currency units. */
+export const MAX_LIST_PRICE = 100000;
 
-/** Reads the public sort `position` of a theme or extension payload (empty = 0). */
+export const PRODUCT_LIMITS = { category: 80, technologies: 12, technology: 40 } as const;
+
+/** Reads the public sort `position` of a catalogue payload (empty = 0). */
 export function validatePosition(body: Record<string, unknown>): ValidationResult<number> {
   const position = body.position === undefined || body.position === null || body.position === "" ? 0 : Number(body.position);
   if (!Number.isInteger(position) || position < 0 || position > 9999) {
@@ -30,31 +27,9 @@ export function validatePosition(body: Record<string, unknown>): ValidationResul
   return { data: position };
 }
 
-/**
- * Reads the catalogue fields of a theme payload: `price` in whole euros
- * (empty or null = not set yet, 0 = free) and the public sort `position`.
- */
-export function validateListing(
-  body: Record<string, unknown>,
-): ValidationResult<{ price: number | null; position: number }> {
-  const raw = body.price;
-  let price: number | null = null;
-  if (raw !== null && raw !== undefined && raw !== "") {
-    const value = typeof raw === "number" ? raw : Number(String(raw).trim());
-    if (!Number.isInteger(value) || value < 0 || value > MAX_PRICE) {
-      return { error: `Price must be a whole number of euros between 0 and ${MAX_PRICE}, or empty.` };
-    }
-    price = value;
-  }
-  const position = validatePosition(body);
-  if ("error" in position) return position;
-  return { data: { price, position: position.data } };
-}
-
 /* ---------------------------------------------------------------- detail page fields */
 
 export type CompatibilityRow = { area: string; target: string; status: string };
-export type Licence = { name: string; price: number };
 
 export const DETAIL_LIMITS = {
   tagline: 80,
@@ -65,8 +40,6 @@ export const DETAIL_LIMITS = {
   compatibilityCell: 80,
   ctaLabel: 40,
   url: 300,
-  licences: 6,
-  licenceName: 40,
 } as const;
 
 /** Buttons may point at a page of the site, an external page or an e-mail address. */
@@ -75,7 +48,7 @@ const LINK = /^(?:https?:\/\/\S+|mailto:\S+|\/(?!\/)\S*)$/i;
 const trimmed = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 /**
- * Reads the detail page fields themes and extensions share: hero tagline and
+ * Reads the detail page fields of a product: hero tagline and
  * intro, the highlight lines, the compatibility table and the buy panel links.
  * Empty strings become null so the page can fall back to its defaults.
  */
@@ -151,36 +124,6 @@ export function readCompatibility(value: unknown): CompatibilityRow[] {
     .filter((row) => row.area);
 }
 
-export function readLicences(value: unknown): Licence[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
-    .map((row) => ({ name: String(row.name ?? ""), price: Number(row.price) || 0 }))
-    .filter((row) => row.name);
-}
-
-/** Licence options for a theme's buy panel; rows without a name and price are dropped. */
-export function validateLicences(body: Record<string, unknown>): ValidationResult<Licence[]> {
-  const rows = Array.isArray(body.licences) ? body.licences : [];
-  const licences: Licence[] = [];
-  for (const row of rows) {
-    const record = (row ?? {}) as Record<string, unknown>;
-    const name = trimmed(record.name);
-    const rawPrice = record.price === null || record.price === undefined ? "" : String(record.price).trim();
-    if (!name && !rawPrice) continue;
-    const price = Number(rawPrice);
-    if (!name || name.length > DETAIL_LIMITS.licenceName) {
-      return { error: `Every licence needs a name of at most ${DETAIL_LIMITS.licenceName} characters.` };
-    }
-    if (rawPrice === "" || !Number.isInteger(price) || price < 0 || price > MAX_PRICE) {
-      return { error: `The ${name} licence needs a whole-euro price between 0 and ${MAX_PRICE}.` };
-    }
-    licences.push({ name, price });
-  }
-  if (licences.length > DETAIL_LIMITS.licences) return { error: `Add at most ${DETAIL_LIMITS.licences} licences.` };
-  return { data: licences };
-}
-
 /* ---------------------------------------------------------------- changelog */
 
 export const CHANGE_KINDS = ["new", "improved", "fixed"] as const;
@@ -192,13 +135,9 @@ export const CHANGELOG_LIMITS = { version: 30, title: 120, changes: 20, change: 
 const isChangeKind = (value: unknown): value is ChangeKind =>
   typeof value === "string" && (CHANGE_KINDS as readonly string[]).includes(value);
 
-/**
- * Reads a changelog entry payload. `product` is "theme:<id>" or
- * "extension:<id>"; the caller checks that the record exists.
- */
+/** Reads a changelog entry payload; the caller checks that `productId` exists in its store. */
 export type ChangelogFields = {
-  themeId: string | null;
-  extensionId: string | null;
+  productId: string;
   version: string;
   title: string;
   releasedAt: Date;
@@ -206,9 +145,8 @@ export type ChangelogFields = {
 };
 
 export function validateChangelog(body: Record<string, unknown>): ValidationResult<ChangelogFields> {
-  const product = trimmed(body.product);
-  const match = product.match(/^(theme|extension):(\S+)$/);
-  if (!match) return { error: "Choose the theme or extension this entry belongs to." };
+  const productId = trimmed(body.productId);
+  if (!productId) return { error: "Choose the product this entry belongs to." };
 
   const version = trimmed(body.version);
   if (!version || version.length > CHANGELOG_LIMITS.version) {
@@ -234,11 +172,9 @@ export function validateChangelog(body: Record<string, unknown>): ValidationResu
   if (changes.length === 0) return { error: "Add at least one change." };
   if (changes.length > CHANGELOG_LIMITS.changes) return { error: `Add at most ${CHANGELOG_LIMITS.changes} changes per entry.` };
 
-  const kind = match[1] as "theme" | "extension";
   return {
     data: {
-      themeId: kind === "theme" ? match[2] : null,
-      extensionId: kind === "extension" ? match[2] : null,
+      productId,
       version,
       title,
       releasedAt,
@@ -246,31 +182,6 @@ export function validateChangelog(body: Record<string, unknown>): ValidationResu
     },
   };
 }
-
-export type ThemeStatus = (typeof THEME_STATUSES)[number];
-export type ExtensionStatus = (typeof EXTENSION_STATUSES)[number];
-
-export function isThemeStatus(value: unknown): value is ThemeStatus {
-  return typeof value === "string" && (THEME_STATUSES as readonly string[]).includes(value);
-}
-
-export function isExtensionStatus(value: unknown): value is ExtensionStatus {
-  return typeof value === "string" && (EXTENSION_STATUSES as readonly string[]).includes(value);
-}
-
-export type EditableTheme = {
-  name: string;
-  slug: string;
-  summary: string;
-  description: string;
-  industry: string;
-  versionTarget: string;
-  status: string;
-  price: number | null;
-  position: number;
-  coverId: string | null;
-  galleryIds: string[];
-};
 
 export type CoreFields = {
   name: string;
@@ -281,7 +192,7 @@ export type CoreFields = {
   galleryIds: string[];
 };
 
-/** Validates the shared shape used by both theme and extension payloads. */
+/** Validates the identity and media of a product payload. */
 export function validateCore(body: Record<string, unknown>): ValidationResult<CoreFields> {
   const text = (key: string) => (typeof body[key] === "string" ? (body[key] as string).trim() : "");
 
@@ -317,7 +228,6 @@ export function validateCore(body: Record<string, unknown>): ValidationResult<Co
   return { data: { name, slug, summary, description, coverId, galleryIds } };
 }
 
-/** Confirms the referenced uploads exist before the record is written. */
 /** Every selected image must exist in the store's own media library. */
 export async function assertAssetsExist(storeId: string, assetIds: (string | null)[], prisma: typeof import("@/lib/prisma").prisma) {
   const ids = assetIds.filter((id): id is string => Boolean(id));
@@ -327,4 +237,67 @@ export async function assertAssetsExist(storeId: string, assetIds: (string | nul
     return Response.json({ error: "One or more selected images could not be found." }, { status: 400 });
   }
   return null;
+}
+
+/** Everything a product payload carries besides its detail-page fields and compliance checklist. */
+export type ProductFields = CoreFields & {
+  typeId: string;
+  status: ProductStatus;
+  category: string | null;
+  technologies: string[];
+  listPrice: number | null;
+  position: number;
+};
+
+export function validateProduct(body: Record<string, unknown>): ValidationResult<ProductFields> {
+  const core = validateCore(body);
+  if ("error" in core) return core;
+
+  const typeId = trimmed(body.typeId);
+  if (!typeId) return { error: "Choose the product type." };
+  if (!isProductStatus(body.status)) return { error: `Status must be one of: ${PRODUCT_STATUSES.join(", ")}.` };
+
+  const category = trimmed(body.category);
+  if (category.length > PRODUCT_LIMITS.category) return { error: `The category can be at most ${PRODUCT_LIMITS.category} characters.` };
+
+  const rawTechnologies = Array.isArray(body.technologies) ? body.technologies : trimmed(body.technologies).split(",");
+  const technologies = [...new Set(rawTechnologies.map(trimmed).filter(Boolean))];
+  if (technologies.length > PRODUCT_LIMITS.technologies) return { error: `Add at most ${PRODUCT_LIMITS.technologies} technologies.` };
+  if (technologies.some((item) => item.length > PRODUCT_LIMITS.technology)) {
+    return { error: `Each technology can be at most ${PRODUCT_LIMITS.technology} characters.` };
+  }
+
+  let listPrice: number | null = null;
+  const raw = body.listPrice;
+  if (raw !== null && raw !== undefined && raw !== "") {
+    const value = typeof raw === "number" ? raw : Number(String(raw).trim());
+    if (!Number.isInteger(value) || value < 0 || value > MAX_LIST_PRICE) {
+      return { error: `The indicative price must be a whole number between 0 and ${MAX_LIST_PRICE}, or empty.` };
+    }
+    listPrice = value;
+  }
+
+  const position = validatePosition(body);
+  if ("error" in position) return position;
+
+  return {
+    data: { ...core.data, typeId, status: body.status, category: category || null, technologies, listPrice, position: position.data },
+  };
+}
+
+export type ProductTypeFields = { key: string; name: string; pluralName: string; description: string | null; listPath: string | null; position: number };
+
+export function validateProductType(body: Record<string, unknown>): ValidationResult<ProductTypeFields> {
+  const key = trimmed(body.key).toLowerCase();
+  if (!SLUG_PATTERN.test(key) || key.length > 40) return { error: "The key may only contain lowercase letters, numbers and hyphens (max 40)." };
+  const name = trimmed(body.name);
+  const pluralName = trimmed(body.pluralName);
+  if (!name || name.length > 40 || !pluralName || pluralName.length > 40) return { error: "Enter a name and a plural name of at most 40 characters." };
+  const description = trimmed(body.description);
+  if (description.length > 300) return { error: "The description can be at most 300 characters." };
+  const listPath = trimmed(body.listPath);
+  if (listPath && !/^\/(?!\/)[a-z0-9/-]*$/.test(listPath)) return { error: "The listing page must be a site path such as /themes, or empty." };
+  const position = validatePosition(body);
+  if ("error" in position) return position;
+  return { data: { key, name, pluralName, description: description || null, listPath: listPath || null, position: position.data } };
 }

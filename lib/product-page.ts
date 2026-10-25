@@ -4,19 +4,29 @@ import { getLegalSettings } from "./legal";
 import { legalReadiness } from "./legal-settings-shared";
 import { prisma } from "./prisma";
 import { readChanges } from "./changelog";
-import { readCompatibility, readLicences, type ChangeItem, type CompatibilityRow, type Licence } from "./catalog-guard";
-
-export type ProductKind = "theme" | "extension";
+import { readCompatibility, type ChangeItem, type CompatibilityRow } from "./catalog-guard";
 
 type Image = { url: string; alt: string; width: number; height: number };
 
-/**
- * Everything a theme or extension detail page (/theme/<slug>,
- * /extension/<slug>) shows, all edited under /panel. Extensions leave the
- * theme-only fields (industry, version target, price, licences) empty.
- */
+/** A price as the buy panel and checkout form show it. */
+export type PublicPrice = {
+  id: string;
+  name: string;
+  billingType: string;
+  interval: string | null;
+  amountCents: number;
+  currency: string;
+  taxMode: string;
+  seats: number;
+  updatesMonths: number | null;
+  features: string[];
+};
+
+export type ProductTypeRef = { key: string; name: string; pluralName: string; listPath: string };
+
+/** Everything a product detail page (/products/<slug>) shows, all edited under /panel. */
 export type ProductPageData = {
-  kind: ProductKind;
+  id: string;
   slug: string;
   name: string;
   summary: string;
@@ -24,11 +34,14 @@ export type ProductPageData = {
   status: string;
   tagline: string | null;
   intro: string | null;
-  industry: string | null;
-  versionTarget: string | null;
-  price: number | null;
-  licences: Licence[];
-  plans: {id:string;name:string;priceCents:number;installations:number}[];
+  category: string | null;
+  technologies: string[];
+  listPrice: number | null;
+  type: ProductTypeRef;
+  /** Prices that open a Creem checkout in the current payment mode. */
+  prices: PublicPrice[];
+  /** Every price of the store, shown as indicative when none can be bought yet. */
+  indicativePrices: PublicPrice[];
   checkout: { mode: "test" | "prod"; ready: boolean; termsVersion: string };
   compliance: ProductCompliance;
   highlights: string[];
@@ -43,9 +56,10 @@ export type ProductPageData = {
 };
 
 const assetSelect = { select: { url: true, alt: true, fileName: true, width: true, height: true } } as const;
-const changelogArgs = {
-  orderBy: [{ releasedAt: "desc" as const }, { createdAt: "desc" as const }],
-  select: { id: true, version: true, title: true, releasedAt: true, changes: true },
+
+export const priceSelect = {
+  id: true, name: true, billingType: true, interval: true, amountCents: true, currency: true, taxMode: true,
+  seats: true, updatesMonths: true, features: true, enabled: true, creemTestProductId: true, creemLiveProductId: true,
 } as const;
 
 function toImage(asset: { url: string; alt: string | null; fileName: string; width: number | null; height: number | null }): Image {
@@ -57,79 +71,67 @@ function toImage(asset: { url: string; alt: string | null; fileName: string; wid
   };
 }
 
-function common(row: {
-  compliance: unknown;
-  slug: string;
-  name: string;
-  summary: string;
-  description: string;
-  status: string;
-  tagline: string | null;
-  intro: string | null;
-  highlights: string[];
-  compatibility: unknown;
-  ctaLabel: string | null;
-  ctaUrl: string | null;
-  demoUrl: string | null;
-  cover: Parameters<typeof toImage>[0] | null;
-  gallery: { asset: Parameters<typeof toImage>[0] }[];
-  changelog: { id: string; version: string; title: string; releasedAt: Date; changes: unknown }[];
-}) {
-  return {
-    slug: row.slug,
-    compliance: readCompliance(row.compliance),
-    name: row.name,
-    summary: row.summary,
-    description: row.description,
-    status: row.status,
-    tagline: row.tagline,
-    intro: row.intro,
-    highlights: row.highlights,
-    compatibility: readCompatibility(row.compatibility),
-    ctaLabel: row.ctaLabel,
-    ctaUrl: row.ctaUrl,
-    demoUrl: row.demoUrl,
-    cover: row.cover ? toImage(row.cover) : null,
-    gallery: row.gallery.map((entry) => toImage(entry.asset)),
-    changelog: row.changelog.map((entry) => ({ ...entry, changes: readChanges(entry.changes) })),
-  };
+/** Public listing page of a type: its own page, else the product catalogue filtered to it. */
+export function typeListPath(type: { key: string; listPath: string | null }): string {
+  return type.listPath || `/products?type=${encodeURIComponent(type.key)}`;
 }
 
-/** The product page of `slug` in a store's catalogue, with the store's checkout readiness and plans. */
-export async function loadProductPage(storeId: string, kind: ProductKind, slug: string): Promise<ProductPageData | null> {
-  const legal = await getLegalSettings(storeId);
+type PriceRow = PublicPrice & { enabled: boolean; creemTestProductId: string | null; creemLiveProductId: string | null };
+
+/** Splits a store's prices into buyable (enabled, with a Creem product for this mode) and the rest. */
+export function splitPrices(rows: PriceRow[]): { prices: PublicPrice[]; indicativePrices: PublicPrice[] } {
   const mode = creemMode();
-  const checkout: ProductPageData["checkout"] = { mode, ready: creemConfigured() && (mode === "test" || (!legalReadiness(legal).length && legal.salesTermsReviewed)), termsVersion: legal.termsVersion };
-  const plans = await prisma.billingPlan.findMany({where:{storeId,kind,productSlug:slug,enabled:true,...(creemMode()==="prod"?{creemLiveProductId:{not:null}}:{creemTestProductId:{not:null}})},select:{id:true,name:true,priceCents:true,installations:true},orderBy:{priceCents:"asc"}});
-  if (kind === "theme") {
-    const theme = await prisma.theme.findUnique({
-      where: { storeId_slug: { storeId, slug } },
-      include: {
-        cover: assetSelect,
-        gallery: { orderBy: { position: "asc" }, select: { asset: assetSelect } },
-        changelog: { orderBy: [...changelogArgs.orderBy], select: changelogArgs.select },
-      },
-    });
-    if (!theme) return null;
-    return {
-      kind,
-      plans,
-      checkout,
-      ...common(theme),
-      industry: theme.industry,
-      versionTarget: theme.versionTarget,
-      price: theme.price,
-      licences: readLicences(theme.licences),
-    };
-  }
-  const extension = await prisma.extension.findUnique({
-    where: { storeId_slug: { storeId, slug } },
+  const strip = ({ enabled: _enabled, creemTestProductId: _test, creemLiveProductId: _live, ...price }: PriceRow): PublicPrice => price;
+  const buyable = rows.filter((row) => row.enabled && (mode === "prod" ? row.creemLiveProductId : row.creemTestProductId));
+  return { prices: buyable.map(strip), indicativePrices: rows.map(strip) };
+}
+
+/** The product of `slug` as listed in a store, with that store's prices and checkout readiness. */
+export async function loadProductPage(storeId: string, slug: string): Promise<ProductPageData | null> {
+  const product = await prisma.product.findFirst({
+    where: { slug, listings: { some: { storeId } } },
     include: {
+      type: true,
       cover: assetSelect,
       gallery: { orderBy: { position: "asc" }, select: { asset: assetSelect } },
-      changelog: { orderBy: [...changelogArgs.orderBy], select: changelogArgs.select },
+      changelog: {
+        orderBy: [{ releasedAt: "desc" }, { createdAt: "desc" }],
+        select: { id: true, version: true, title: true, releasedAt: true, changes: true },
+      },
+      prices: { where: { storeId }, orderBy: [{ position: "asc" }, { amountCents: "asc" }], select: priceSelect },
     },
   });
-  if (!extension) return null;
-  return { kind, plans, checkout, ...common(extension), industry: null, versionTarget: null, price: null, licences: [] };
+  if (!product) return null;
+
+  const legal = await getLegalSettings(storeId);
+  const mode = creemMode();
+  return {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    summary: product.summary,
+    description: product.description,
+    status: product.status,
+    tagline: product.tagline,
+    intro: product.intro,
+    category: product.category,
+    technologies: product.technologies,
+    listPrice: product.listPrice,
+    type: { key: product.type.key, name: product.type.name, pluralName: product.type.pluralName, listPath: typeListPath(product.type) },
+    ...splitPrices(product.prices),
+    checkout: {
+      mode,
+      ready: creemConfigured() && (mode === "test" || (!legalReadiness(legal).length && legal.salesTermsReviewed)),
+      termsVersion: legal.termsVersion,
+    },
+    compliance: readCompliance(product.compliance),
+    highlights: product.highlights,
+    compatibility: readCompatibility(product.compatibility),
+    ctaLabel: product.ctaLabel,
+    ctaUrl: product.ctaUrl,
+    demoUrl: product.demoUrl,
+    cover: product.cover ? toImage(product.cover) : null,
+    gallery: product.gallery.map((entry) => toImage(entry.asset)),
+    changelog: product.changelog.map((entry) => ({ ...entry, changes: readChanges(entry.changes) })),
+  };
 }

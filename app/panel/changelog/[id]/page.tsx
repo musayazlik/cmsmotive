@@ -18,7 +18,7 @@ export default async function EditChangelogEntryPage({ params }: { params: Promi
 
   const record: ChangelogRecord = {
     id: entry.id,
-    product: entry.themeId ? `theme:${entry.themeId}` : entry.extensionId ? `extension:${entry.extensionId}` : "",
+    product: entry.productId,
     version: entry.version,
     title: entry.title,
     // Release dates are stored as UTC midnight of the chosen day.

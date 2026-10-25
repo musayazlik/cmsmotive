@@ -8,13 +8,12 @@
 export type MediaSource = "tracked" | "untracked" | "missing";
 
 export type MediaUsage = {
-  /** Covers. */
-  themes: number;
-  extensions: number;
+  /** Product and post covers. */
+  products: number;
   posts: number;
   gallery: number;
-  /** Placed inside post bodies and theme/extension descriptions. */
-  embedded: { posts: number; themes: number; extensions: number };
+  /** Placed inside post bodies and product descriptions. */
+  embedded: { posts: number; products: number };
 };
 
 export type MediaRow = {
@@ -126,11 +125,9 @@ export function usageSummary(usage: MediaUsage): string[] {
   const parts: string[] = [];
   if (usage.posts > 0) parts.push(`Post cover ×${usage.posts}`);
   if (usage.embedded.posts > 0) parts.push(`In posts ×${usage.embedded.posts}`);
-  if (usage.themes > 0) parts.push(`Theme cover ×${usage.themes}`);
-  if (usage.extensions > 0) parts.push(`Extension cover ×${usage.extensions}`);
+  if (usage.products > 0) parts.push(`Product cover ×${usage.products}`);
   if (usage.gallery > 0) parts.push(`Galleries ×${usage.gallery}`);
-  if (usage.embedded.themes > 0) parts.push(`In themes ×${usage.embedded.themes}`);
-  if (usage.embedded.extensions > 0) parts.push(`In extensions ×${usage.embedded.extensions}`);
+  if (usage.embedded.products > 0) parts.push(`In product pages ×${usage.embedded.products}`);
   return parts;
 }
 

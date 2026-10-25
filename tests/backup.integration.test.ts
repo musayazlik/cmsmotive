@@ -44,10 +44,11 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   await db.user.create({ data: { id: "destination-admin", name: "Admin", email: "backup-admin@example.com", role: "admin" } });
   await db.session.create({ data: { id: "session", token: "test-token", userId: "destination-admin", expiresAt: new Date("2099-01-01") } });
   const media = await db.mediaAsset.create({ data: { storeId: store.id, key: "image-key", url: "https://example.com/image.png", fileName: "image.png", fileSize: 42, mimeType: "image/png", uploadedById: "destination-admin" } });
-  const theme = await db.theme.create({ data: { storeId: store.id, name: "Theme", slug: "theme", summary: "Summary", description: "<p>Theme</p>", industry: "Agency", versionTarget: "13", coverId: media.id, highlights: ["Fast"], compatibility: [{ area: "TYPO3", target: "13", status: "ready" }], licences: [{ name: "Single", price: 12 }], gallery: { create: { assetId: media.id } } } });
-  const extension = await db.extension.create({ data: { storeId: store.id, name: "Extension", slug: "extension", summary: "Summary", description: "<p>Extension</p>", coverId: media.id, compatibility: [], gallery: { create: { assetId: media.id } } } });
-  await db.changelogEntry.create({ data: { themeId: theme.id, version: "1.0", title: "First release", releasedAt: new Date(), changes: [{ kind: "new", text: "Initial release" }] } });
-  await db.productReview.create({ data: { storeId: store.id, extensionId: extension.id, productSlug: extension.slug, authorName: "Reader", authorEmail: "reader@example.com", rating: 5, body: "Excellent", requestKey: "review", status: "approved" } });
+  // The products_and_commerce migration seeds the theme/extension product types.
+  const type = await db.productType.findUniqueOrThrow({ where: { key: "theme" } });
+  const product = await db.product.create({ data: { storeId: store.id, typeId: type.id, name: "Theme", slug: "theme", summary: "Summary", description: "<p>Theme</p>", status: "concept", category: "Agency", technologies: ["TYPO3 13"], listPrice: 269, coverId: media.id, highlights: ["Fast"], compatibility: [{ area: "TYPO3", target: "13", status: "ready" }], gallery: { create: { assetId: media.id } }, listings: { create: { storeId: store.id, position: 10 } } } });
+  await db.changelogEntry.create({ data: { productId: product.id, version: "1.0", title: "First release", releasedAt: new Date(), changes: [{ kind: "new", text: "Initial release" }] } });
+  await db.productReview.create({ data: { storeId: store.id, productId: product.id, productSlug: product.slug, authorName: "Reader", authorEmail: "reader@example.com", rating: 5, body: "Excellent", requestKey: "review", status: "approved" } });
   const category = await db.category.create({ data: { storeId: store.id, name: "News", slug: "news" } });
   const tag = await db.tag.create({ data: { storeId: store.id, name: "Release", slug: "release" } });
   const post = await db.post.create({ data: { storeId: store.id, title: "Post", slug: "post", content: "<p>Saved content</p>", status: "scheduled", scheduledAt: new Date("2099-01-01"), coverId: media.id, authorId: "destination-admin", categoryId: category.id, tags: { create: { tagId: tag.id } } } });
@@ -92,8 +93,12 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   assert.equal(restored.data.posts[0].content, "<p>Saved content</p>");
   assert.equal(restored.data.posts[0].authorId, "destination-admin");
   assert.equal(restored.data.media[0].uploadedById, "destination-admin");
-  assert.deepEqual(restored.data.themes[0].licences, [{ name: "Single", price: 12 }]);
-  assert.equal(restored.data.themeGallery[0].assetId, media.id);
+  assert.deepEqual(restored.data.products[0].compatibility, [{ area: "TYPO3", target: "13", status: "ready" }]);
+  assert.deepEqual(restored.data.products[0].technologies, ["TYPO3 13"]);
+  assert.equal(restored.data.productGallery[0].assetId, media.id);
+  assert.equal(restored.data.productStores[0].position, 10);
+  assert.equal(restored.data.changelog[0].productId, restored.data.products[0].id);
+  assert.equal(restored.data.reviews[0].productId, restored.data.products[0].id);
   assert.equal(restored.data.comments.find((row) => row.requestKey === "reply")!.parentId, root.id);
   assert.equal(restored.data.comments.find((row) => row.requestKey === "reply")!.aiStatus, "pending");
   assert.equal(restored.data.comments.find((row) => row.requestKey === "reply")!.aiReviewToken, null);
@@ -107,7 +112,7 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   invalid.data.posts[0].categoryId = "does-not-exist";
   await assert.rejects(db.$transaction((tx) => restoreBackup(tx, invalid), { timeout: 30_000 }));
   assert.equal((await db.post.findUniqueOrThrow({ where: { id: post.id } })).content, "<p>Saved content</p>");
-  assert.equal(await db.theme.count(), 1);
+  assert.equal(await db.product.count(), 1);
 
   const unmatched = structuredClone(backup);
   unmatched.users[0].email = "missing@example.com";

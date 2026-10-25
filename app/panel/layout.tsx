@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import "../panel.css";
-import { prisma } from "@/lib/prisma";
 import { requirePanelUser } from "@/lib/panel-auth";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
@@ -17,15 +16,12 @@ export const dynamic = "force-dynamic";
 export default async function PanelLayout({ children }: { children: ReactNode }) {
   const user = await requirePanelUser();
   const store = await panelStore();
-  const [accessSettings, uploadSettings, site, stores, siteOrigin, unreadInquiries, pendingReviews, pendingComments] = await Promise.all([
+  const [accessSettings, uploadSettings, site, stores, siteOrigin] = await Promise.all([
     getAdminAccessSettings(),
     getUploadSettings(store.id),
     getSiteSettings(store.id),
     listStores(),
     panelStoreOrigin(),
-    prisma.contactInquiry.count({ where: { storeId: store.id, readAt: null, archivedAt: null } }),
-    prisma.productReview.count({ where: { storeId: store.id, status: "pending" } }),
-    prisma.postComment.count({ where: { post: { storeId: store.id }, status: "pending" } }),
   ]);
   return (
     <PanelNavigationProvider basePath={accessSettings.panelPath}>
@@ -37,9 +33,6 @@ export default async function PanelLayout({ children }: { children: ReactNode })
           storeId={store.id}
           siteOrigin={siteOrigin}
           systemLanguage={isLocale(site.systemLanguage) ? site.systemLanguage : DEFAULT_SITE_SETTINGS.systemLanguage}
-          unreadInquiries={unreadInquiries}
-          pendingReviews={pendingReviews}
-          pendingComments={pendingComments}
         >
           {children}
         </PanelShell>

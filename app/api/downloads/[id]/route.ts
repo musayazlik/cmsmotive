@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { utapi } from "@/lib/utapi";
 import { creemMode } from "@/lib/creem";
-import { releaseIsIncluded } from "@/lib/billing-access";
+import { entitlementCovers } from "@/lib/billing-access";
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -14,18 +14,16 @@ export async function GET(
     where: { id: (await params).id },
   });
   if (!release) return new Response("Not found", { status: 404 });
-  const plans = await prisma.billingPlan.findMany({
-    where: { storeId: release.storeId, kind: release.kind, productSlug: release.productSlug },
-    select: { id: true },
-  });
-  const subscriptions = await prisma.productSubscription.findMany({
+  // Any of the account's purchases of this product (any store, this payment mode) may cover the release.
+  const entitlements = await prisma.entitlement.findMany({
     where: {
-      userId: session.user.id,
-      mode: creemMode(),
-      planId: { in: plans.map((p) => p.id) },
+      productId: release.productId,
+      revokedAt: null,
+      customer: { userId: session.user.id, mode: creemMode() },
     },
+    select: { revokedAt: true, updatesUntil: true },
   });
-  if (!subscriptions.some((s) => releaseIsIncluded(s, release)))
+  if (!entitlements.some((entitlement) => entitlementCovers(entitlement, release)))
     return new Response("No download entitlement", { status: 403 });
   try {
     const { ufsUrl } = await utapi.generateSignedURL(release.fileKey, {

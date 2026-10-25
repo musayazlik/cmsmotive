@@ -1,7 +1,7 @@
 import type { ChangeKind } from "@/lib/catalog-guard";
 import type { SelectOption } from "../_components/ui";
 
-/** A changelog entry as the edit page loads it. `product` is "theme:<id>" or "extension:<id>". */
+/** A changelog entry as the edit page loads it. `product` is the product's id. */
 export type ChangelogRecord = {
   id: string;
   product: string;

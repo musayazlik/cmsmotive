@@ -14,10 +14,10 @@ export async function readBackup(tx: Prisma.TransactionClient) {
       stores: await tx.store.findMany(),
       storeDomains: await tx.storeDomain.findMany(),
       storeSettings: await tx.storeSetting.findMany(),
-      themes: await tx.theme.findMany(),
-      extensions: await tx.extension.findMany(),
-      themeGallery: await tx.themeGallery.findMany(),
-      extensionGallery: await tx.extensionGallery.findMany(),
+      productTypes: await tx.productType.findMany(),
+      products: await tx.product.findMany(),
+      productStores: await tx.productStore.findMany(),
+      productGallery: await tx.productGallery.findMany(),
       changelog: await tx.changelogEntry.findMany(),
       media: await tx.mediaAsset.findMany(),
       posts: await tx.post.findMany(),
@@ -93,20 +93,31 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   }
 
   // Delete children before parents. Authentication and storage objects are never deleted.
+  // The backup format carries content, not money: orders, subscriptions and prices
+  // reference products, so a content replace clears them instead of leaving rows that
+  // point at retired products.
   await tx.postComment.deleteMany();
   await tx.postTag.deleteMany();
   await tx.productReview.deleteMany();
   await tx.changelogEntry.deleteMany();
-  await tx.themeGallery.deleteMany();
-  await tx.extensionGallery.deleteMany();
+  await tx.productGallery.deleteMany();
+  await tx.productStore.deleteMany();
+  await tx.licenseKey.deleteMany();
+  await tx.entitlement.deleteMany();
+  await tx.transaction.deleteMany();
+  await tx.order.deleteMany();
+  await tx.subscription.deleteMany();
+  await tx.customer.deleteMany();
+  await tx.checkoutAttempt.deleteMany();
+  await tx.price.deleteMany();
+  await tx.productRelease.deleteMany();
   await tx.post.deleteMany();
-  await tx.theme.deleteMany();
-  await tx.extension.deleteMany();
+  await tx.product.deleteMany();
+  await tx.productType.deleteMany();
   await tx.category.deleteMany();
   await tx.tag.deleteMany();
   await tx.mediaAsset.deleteMany();
   await tx.contactInquiry.deleteMany();
-  // Consent and withdrawals are not replaceable content. Never delete them during a restore.
   await tx.pageViewDaily.deleteMany();
   await tx.setting.deleteMany({ where: { key: { startsWith: "security." } } });
   await tx.storeSetting.deleteMany({ where: { storeId: { in: [...storeIds.values()] } } });
@@ -115,13 +126,13 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
 
   await insert(d.storeDomains.map((row) => ({ ...row, storeId: storeId(row.storeId) })), (data) => tx.storeDomain.createMany({ data }));
   await insert(owned(d.media).map((row) => ({ ...row, uploadedById: userId(row.uploadedById) })), (data) => tx.mediaAsset.createMany({ data }));
+  await insert(d.productTypes, (data) => tx.productType.createMany({ data }));
+  await insert(owned(d.products).map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility) })), (data) => tx.product.createMany({ data }));
+  await insert(d.productStores.map((row) => ({ ...row, storeId: storeId(row.storeId) })), (data) => tx.productStore.createMany({ data }));
+  await insert(d.productGallery, (data) => tx.productGallery.createMany({ data }));
+  await insert(d.changelog.map((row) => ({ ...row, changes: json(row.changes) })), (data) => tx.changelogEntry.createMany({ data }));
   await insert(owned(d.categories), (data) => tx.category.createMany({ data }));
   await insert(owned(d.tags), (data) => tx.tag.createMany({ data }));
-  await insert(owned(d.themes).map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility), licences: json(row.licences) })), (data) => tx.theme.createMany({ data }));
-  await insert(owned(d.extensions).map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility) })), (data) => tx.extension.createMany({ data }));
-  await insert(d.themeGallery, (data) => tx.themeGallery.createMany({ data }));
-  await insert(d.extensionGallery, (data) => tx.extensionGallery.createMany({ data }));
-  await insert(d.changelog.map((row) => ({ ...row, changes: json(row.changes) })), (data) => tx.changelogEntry.createMany({ data }));
   await insert(owned(d.posts).map((row) => ({ ...row, authorId: userId(row.authorId) })), (data) => tx.post.createMany({ data }));
   await insert(d.postTags, (data) => tx.postTag.createMany({ data }));
   // Insert replies without parents first; a second pass reconnects them in any source order.

@@ -44,35 +44,36 @@ async function trackUpload({ userId, storeId }: { userId: string; storeId: strin
 
 export const uploadRouter = {
   productPackage: f({ blob: { maxFileSize: "128MB", maxFileCount: 1, acl: "private" } })
-    .input(z.object({ kind:z.enum(["theme","extension"]), productSlug:z.string().regex(/^[a-z0-9-]+$/), version:z.string().regex(/^[a-zA-Z0-9.+-]{1,40}$/) }))
-    .middleware(async ({req,input,files})=>{
+    .input(z.object({ productId: z.string().min(1), version: z.string().regex(/^[a-zA-Z0-9.+-]{1,40}$/) }))
+    .middleware(async ({ req, input, files }) => {
       const { storeId } = await requireAdminUpload(req);
-      if(files.some(file=>!file.name.toLowerCase().endsWith(".zip")))throw new UploadThingError("Product packages must be ZIP files.");
-      const product=input.kind==="theme"?await prisma.theme.findUnique({where:{storeId_slug:{storeId,slug:input.productSlug}}}):await prisma.extension.findUnique({where:{storeId_slug:{storeId,slug:input.productSlug}}});
-      const license=readCompliance(product?.compliance).codeLicense;
-      if(!product || !["GPL-2.0-or-later","GPL-3.0-or-later"].includes(license))throw new UploadThingError("Complete the product code-license checklist first.");
-      if(await prisma.productRelease.findUnique({where:{storeId_kind_productSlug_version:{storeId,...input}}}))throw new UploadThingError("This release version already exists. Upload a new version instead.");
-      return {...input,license,storeId};
+      if (files.some((file) => !file.name.toLowerCase().endsWith(".zip"))) throw new UploadThingError("Product packages must be ZIP files.");
+      const product = await prisma.product.findFirst({
+        where: { id: input.productId, OR: [{ storeId }, { listings: { some: { storeId } } }] },
+        select: { id: true, compliance: true },
+      });
+      const license = readCompliance(product?.compliance).codeLicense;
+      if (!product || !license) throw new UploadThingError("Complete the product code-license checklist first.");
+      if (await prisma.productRelease.findUnique({ where: { productId_version: { productId: product.id, version: input.version } } })) {
+        throw new UploadThingError("This release version already exists. Upload a new version instead.");
+      }
+      return { productId: product.id, version: input.version, license };
     })
-    .onUploadComplete(async ({metadata,file})=>{
-      const release=await prisma.productRelease.create({data:{storeId:metadata.storeId,kind:metadata.kind,productSlug:metadata.productSlug,version:metadata.version,codeLicense:metadata.license,fileKey:file.key,fileName:file.name}});
+    .onUploadComplete(async ({ metadata, file }) => {
+      const release = await prisma.productRelease.create({
+        data: { productId: metadata.productId, version: metadata.version, codeLicense: metadata.license, fileKey: file.key, fileName: file.name },
+      });
       // Private keys and URLs never enter MediaAsset or the public media library.
-      return {releaseId:release.id};
+      return { releaseId: release.id };
     }),
-  themeMedia: f({
+  productMedia: f({
     image: { maxFileSize: "8MB", maxFileCount: 12 },
   })
     .middleware(({ req }) => requireAdminUpload(req))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
 
-  extensionMedia: f({
-    image: { maxFileSize: "8MB", maxFileCount: 12 },
-  })
-    .middleware(({ req }) => requireAdminUpload(req))
-    .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
-
-  // Images and videos embedded in theme and extension descriptions. Cover and
-  // gallery uploads stay on the image-only endpoints above.
+  // Images and videos embedded in product descriptions. Cover and gallery
+  // uploads stay on the image-only endpoint above.
   catalogContent: f({
     image: { maxFileSize: "8MB", maxFileCount: 8 },
     video: { maxFileSize: "64MB", maxFileCount: 4 },

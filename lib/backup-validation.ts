@@ -8,13 +8,6 @@ const integer = z.number().int().min(-2147483648).max(2147483647);
 const date = z.iso.datetime({ offset: true }).pipe(z.coerce.date());
 const timestamps = { createdAt: date, updatedAt: date };
 const owned = { storeId: id };
-const product = {
-  id, ...owned, compliance: z.json().default({}), slug: id, name: text, summary: text, description: text, status: text,
-  position: integer, tagline: text.nullable(), intro: text.nullable(),
-  highlights: z.array(text), compatibility: z.json(), ctaLabel: text.nullable(),
-  ctaUrl: text.nullable(), demoUrl: text.nullable(), coverId: id.nullable(), ...timestamps,
-};
-const productLink = { themeId: id.nullable(), extensionId: id.nullable() };
 const moderation = {
   id, authorName: text, authorEmail: text, body: text, status: text, locale: text,
   requestKey: id, moderatedAt: date.nullable(), createdAt: date,
@@ -33,11 +26,17 @@ export const backupSchema = z.strictObject({
     stores: rows(z.strictObject({ id, key: id, name: text, defaultLocale: text, locales: z.array(text), isDefault: z.boolean(), ...timestamps })),
     storeDomains: rows(z.strictObject({ id, host: id, storeId: id, primary: z.boolean(), createdAt: date })),
     storeSettings: rows(z.strictObject({ storeId: id, key: id, value: text, updatedAt: date })),
-    themes: rows(z.strictObject({ ...product, industry: text, versionTarget: text, price: integer.nullable(), licences: z.json() })),
-    extensions: rows(z.strictObject(product)),
-    themeGallery: rows(z.strictObject({ id, themeId: id, assetId: id, position: integer })),
-    extensionGallery: rows(z.strictObject({ id, extensionId: id, assetId: id, position: integer })),
-    changelog: rows(z.strictObject({ id, ...productLink, version: text, title: text, releasedAt: date, changes: z.json(), ...timestamps })),
+    productTypes: rows(z.strictObject({ id, key: id, name: text, pluralName: text, description: text.nullable(), listPath: text.nullable(), position: integer, ...timestamps })),
+    products: rows(z.strictObject({
+      id, ...owned, typeId: id, slug: id, name: text, summary: text, description: text, status: text,
+      category: text.nullable(), technologies: z.array(text), listPrice: integer.nullable(),
+      compliance: z.json().default({}), tagline: text.nullable(), intro: text.nullable(),
+      highlights: z.array(text), compatibility: z.json(), ctaLabel: text.nullable(),
+      ctaUrl: text.nullable(), demoUrl: text.nullable(), coverId: id.nullable(), ...timestamps,
+    })),
+    productStores: rows(z.strictObject({ productId: id, storeId: id, position: integer, createdAt: date })),
+    productGallery: rows(z.strictObject({ id, productId: id, assetId: id, position: integer })),
+    changelog: rows(z.strictObject({ id, productId: id, version: text, title: text, releasedAt: date, changes: z.json(), ...timestamps })),
     media: rows(z.strictObject({
       id, ...owned, key: id, url: mediaUrl, fileName: text, fileSize: integer.nonnegative(), mimeType: text,
       alt: text.nullable(), width: integer.nullable(), height: integer.nullable(), uploadedById: id.nullable(), createdAt: date,
@@ -54,7 +53,7 @@ export const backupSchema = z.strictObject({
       ...moderation, postId: id, parentId: id.nullable(), aiStatus: text, aiNote: text.nullable(),
       aiModel: text.nullable(), aiCheckedAt: date.nullable(), aiReviewToken: text.nullable(),
     })),
-    reviews: rows(z.strictObject({ ...moderation, ...owned, ...productLink, productSlug: text, rating: integer.min(1).max(5) })),
+    reviews: rows(z.strictObject({ ...moderation, ...owned, productId: id, productSlug: text, rating: integer.min(1).max(5) })),
     inquiries: rows(z.strictObject({
       id, ...owned, name: text, email: text, agency: text, typo3Version: text, license: text, message: text,
       emailSent: z.boolean(), readAt: date.nullable(), archivedAt: date.nullable(), createdAt: date,
@@ -104,49 +103,52 @@ export function parseBackup(input: unknown): Backup {
   const identities = unique(backup.users, (row) => row.id, "user ID");
   unique(backup.users, (row) => row.email.toLowerCase(), "user email");
   for (const [name, records] of Object.entries(d)) {
-    if (name !== "settings" && name !== "postTags" && name !== "storeSettings") {
+    if (name !== "settings" && name !== "postTags" && name !== "storeSettings" && name !== "productStores") {
       unique(records as { id: string }[], (row) => row.id, `${name} ID`);
     }
   }
-  // Slugs, media keys, subscribers and counters are unique within their store.
-  for (const name of ["themes", "extensions", "posts", "categories", "tags"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
+  // Product slugs are unique across stores; posts, media keys, subscribers and counters within their store.
+  unique(d.products, (row) => row.slug, "product slug");
+  for (const name of ["posts", "categories", "tags"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
+  unique(d.productTypes, (row) => row.key, "product type key");
   unique(d.media, (row) => `${row.storeId}:${row.key}`, "media key");
   unique(d.settings, (row) => row.key, "setting key");
   unique(d.storeSettings, (row) => `${row.storeId}:${row.key}`, "store setting key");
   unique(d.stores, (row) => row.key, "store key");
   unique(d.storeDomains, (row) => row.host, "store domain");
+  unique(d.productStores, (row) => JSON.stringify([row.productId, row.storeId]), "store listing");
   if (d.settings.some((row) => !row.key.startsWith("security."))) fail("Only panel security settings are install-wide; other settings belong to a store.");
   unique(d.reviews, (row) => row.requestKey, "review request key");
   unique(d.comments, (row) => row.requestKey, "comment request key");
   unique(d.subscribers, (row) => `${row.storeId}:${row.email.toLowerCase()}:${row.source}`, "subscriber email/purpose");
   unique(d.postTags, (row) => JSON.stringify([row.postId, row.tagId]), "post tag link");
-  unique(d.themeGallery, (row) => JSON.stringify([row.themeId, row.assetId]), "theme gallery link");
-  unique(d.extensionGallery, (row) => JSON.stringify([row.extensionId, row.assetId]), "extension gallery link");
+  unique(d.productGallery, (row) => JSON.stringify([row.productId, row.assetId]), "product gallery link");
   unique(d.pageViews, (row) => JSON.stringify([row.storeId, row.date.toISOString().slice(0, 10), row.slug]), "page view date and slug");
 
   const ids = (records: { id: string }[]) => new Set(records.map((row) => row.id));
-  const themes = ids(d.themes), extensions = ids(d.extensions), media = ids(d.media);
+  const productTypes = ids(d.productTypes), products = ids(d.products), media = ids(d.media);
   const posts = ids(d.posts), categories = ids(d.categories), tags = ids(d.tags);
   const reference = (set: Set<string>, value: string | null, label: string) => {
     if (value !== null && !set.has(value)) fail(`Missing ${label} reference in backup.`);
   };
   const stores = ids(d.stores);
-  for (const name of ["themes", "extensions", "media", "posts", "categories", "tags", "reviews", "inquiries", "subscribers", "pageViews", "storeDomains", "storeSettings"] as const) {
+  for (const name of ["products", "media", "posts", "categories", "tags", "reviews", "inquiries", "subscribers", "pageViews", "storeDomains", "storeSettings"] as const) {
     for (const row of d[name] as { storeId: string }[]) reference(stores, row.storeId, "store");
   }
-  for (const item of [...d.themes, ...d.extensions]) reference(media, item.coverId, "cover image");
+  for (const product of d.products) {
+    reference(productTypes, product.typeId, "product type");
+    reference(media, product.coverId, "cover image");
+  }
+  for (const row of d.productStores) { reference(products, row.productId, "product"); reference(stores, row.storeId, "store"); }
   for (const row of d.media) reference(identities, row.uploadedById, "uploader");
   for (const row of d.posts) {
     reference(media, row.coverId, "post cover");
     reference(categories, row.categoryId, "category");
     reference(identities, row.authorId, "author");
   }
-  for (const row of d.themeGallery) { reference(themes, row.themeId, "theme"); reference(media, row.assetId, "gallery image"); }
-  for (const row of d.extensionGallery) { reference(extensions, row.extensionId, "extension"); reference(media, row.assetId, "gallery image"); }
-  for (const row of [...d.changelog, ...d.reviews]) {
-    if ((row.themeId === null) === (row.extensionId === null)) fail("Each changelog entry and review must belong to exactly one product.");
-    reference(themes, row.themeId, "theme"); reference(extensions, row.extensionId, "extension");
-  }
+  for (const row of d.productGallery) { reference(products, row.productId, "product"); reference(media, row.assetId, "gallery image"); }
+  for (const row of d.changelog) reference(products, row.productId, "product");
+  for (const row of d.reviews) reference(products, row.productId, "product");
   for (const row of d.postTags) { reference(posts, row.postId, "post"); reference(tags, row.tagId, "tag"); }
   const comments = new Map(d.comments.map((row) => [row.id, row]));
   const visited = new Set<string>();

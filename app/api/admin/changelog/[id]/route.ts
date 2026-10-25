@@ -28,8 +28,8 @@ export async function PATCH(request: Request, context: Context) {
 
   const validated = validateChangelog(body);
   if ("error" in validated) return Response.json({ error: validated.error }, { status: 400 });
-  if (!(await productExists(storeId, validated.data))) {
-    return Response.json({ error: "The chosen theme or extension no longer exists." }, { status: 400 });
+  if (!(await productExists(storeId, validated.data.productId))) {
+    return Response.json({ error: "The chosen product no longer exists." }, { status: 400 });
   }
 
   try {

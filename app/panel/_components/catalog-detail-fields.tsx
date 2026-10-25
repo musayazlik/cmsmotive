@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { DETAIL_LIMITS } from "@/lib/catalog-guard";
 
 export type CompatibilityDraft = { area: string; target: string; status: string };
-export type LicenceDraft = { name: string; price: string };
 
 /** Starting rows for an empty compatibility table; every cell stays editable. */
 const TYPICAL_COMPATIBILITY: CompatibilityDraft[] = [
@@ -108,45 +107,6 @@ export function CompatibilityEditor({ rows, onChange }: { rows: CompatibilityDra
               index={index}
               count={rows.length}
               label={row.area || `row ${index + 1}`}
-              onMove={(by) => onChange(move(rows, index, by))}
-              onRemove={() => onChange(rows.filter((_, i) => i !== index))}
-            />
-          </div>
-        ))}
-      </div>
-    </Repeater>
-  );
-}
-
-/** Licence options for a theme's buy panel; the first one is preselected on the site. */
-export function LicenceEditor({ rows, onChange }: { rows: LicenceDraft[]; onChange: (rows: LicenceDraft[]) => void }) {
-  const update = (index: number, patch: Partial<LicenceDraft>) => onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  const max = DETAIL_LIMITS.licences;
-
-  return (
-    <Repeater
-      title="Proposed annual service plans"
-      count={rows.length}
-      max={max}
-      empty="No licence options. The detail page shows the catalogue price on its own."
-      onAdd={() => onChange([...rows, { name: "", price: "" }])}
-      addLabel="Add licence"
-      hint="Concept display only. Real yearly checkout plans and Creem product IDs are managed under Subscriptions & packages. Installation counts refer to support coverage, not GPL code rights."
-    >
-      <div className="wrepeat wrepeat-licence" role="table" aria-label="Licence options">
-        <div className="wrepeat-head" role="row">
-          <span role="columnheader">Licence</span>
-          <span role="columnheader">Price € / year</span>
-          <span aria-hidden="true" />
-        </div>
-        {rows.map((row, index) => (
-          <div className="wrepeat-row" role="row" key={index}>
-            <input aria-label={`Licence ${index + 1} name`} value={row.name} maxLength={DETAIL_LIMITS.licenceName} placeholder="Single site" onChange={(event) => update(index, { name: event.target.value })} />
-            <input aria-label={`Licence ${index + 1} price in euros`} value={row.price} inputMode="numeric" pattern="[0-9]*" placeholder="Price in € (269)" onChange={(event) => update(index, { price: event.target.value })} />
-            <RowTools
-              index={index}
-              count={rows.length}
-              label={row.name || `licence ${index + 1}`}
               onMove={(by) => onChange(move(rows, index, by))}
               onRemove={() => onChange(rows.filter((_, i) => i !== index))}
             />

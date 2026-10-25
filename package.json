@@ -33,6 +33,7 @@
     "creem:webhook": "creem listen --forward-to http://localhost:3000/api/webhooks"
   },
   "dependencies": {
+    "@iconify/react": "^6.0.3",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
@@ -64,6 +65,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.147",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.0.0",
     "@types/react": "^19.0.0",

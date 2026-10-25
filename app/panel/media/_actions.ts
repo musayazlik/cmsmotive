@@ -26,7 +26,7 @@ export async function deleteMedia(key: string): Promise<ActionResult> {
   const storeId = (await panelStore()).id;
   // A file another store owns is never deleted from this store's library.
   const owner = await prisma.mediaAsset.findFirst({ where: { key, storeId: { not: storeId } }, select: { id: true } });
-  const release = await prisma.productRelease.findFirst({ where: { fileKey: key, storeId: { not: storeId } }, select: { id: true } });
+  const release = await prisma.productRelease.findFirst({ where: { fileKey: key, product: { storeId: { not: storeId } } }, select: { id: true } });
   if (owner || release) return { ok: false, error: "This file belongs to another store." };
   const asset = await prisma.mediaAsset.findUnique({ where: { storeId_key: { storeId, key } }, select: { id: true } });
 

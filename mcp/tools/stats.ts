@@ -10,9 +10,9 @@ import {
 import { getMcpActorUserId } from "@/lib/mcp-settings";
 import { ADMIN_ROLES, resolveMcpActor } from "../context";
 import { listNotifications } from "../lib/notifications";
+import { changelogInStore } from "../lib/catalog";
 import { runTool } from "../lib/result";
 import { mcpStoreId } from "@/mcp/context";
-import { changelogInStore } from "@/lib/changelog";
 
 export function registerStatsTools(server: McpServer) {
   server.registerTool(
@@ -20,7 +20,7 @@ export function registerStatsTools(server: McpServer) {
     {
       title: "Panel overview statistics",
       description:
-        "Return the counts shown across the panel: posts by status, themes, extensions, changelog entries, users, moderation queues, newsletter subscribers, storage usage and host resources.",
+        "Return the counts shown across the panel: posts by status, products by status and type, changelog entries, users, moderation queues, newsletter subscribers, storage usage and host resources.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
@@ -28,8 +28,9 @@ export function registerStatsTools(server: McpServer) {
       runTool(async () => {
         const [
           postsByStatus,
-          themes,
-          extensions,
+          productsByStatus,
+          productsByType,
+          productTypes,
           changelogEntries,
           users,
           admins,
@@ -41,8 +42,9 @@ export function registerStatsTools(server: McpServer) {
           system,
         ] = await Promise.all([
           prisma.post.groupBy({ by: ["status"], where: { storeId: mcpStoreId() }, _count: { _all: true } }),
-          prisma.theme.count({ where: { storeId: mcpStoreId() } }),
-          prisma.extension.count({ where: { storeId: mcpStoreId() } }),
+          prisma.product.groupBy({ by: ["status"], where: { storeId: mcpStoreId() }, _count: { _all: true } }),
+          prisma.product.groupBy({ by: ["typeId"], where: { storeId: mcpStoreId() }, _count: { _all: true } }),
+          prisma.productType.findMany({ select: { id: true, key: true } }),
           prisma.changelogEntry.count({ where: changelogInStore(mcpStoreId()) }),
           prisma.user.count({ where: { role: { not: "superadmin" } } }),
           prisma.user.count({ where: { role: { in: [...ADMIN_ROLES] } } }),
@@ -57,6 +59,7 @@ export function registerStatsTools(server: McpServer) {
         const postCounts = Object.fromEntries(
           postsByStatus.map((row) => [row.status, row._count._all]),
         ) as Record<string, number>;
+        const typeKeys = new Map(productTypes.map((type) => [type.id, type.key]));
 
         return {
           content: {
@@ -66,8 +69,11 @@ export function registerStatsTools(server: McpServer) {
               scheduled: postCounts.scheduled ?? 0,
               published: postCounts.published ?? 0,
             },
-            themes,
-            extensions,
+            products: {
+              total: productsByStatus.reduce((sum, row) => sum + row._count._all, 0),
+              byStatus: Object.fromEntries(productsByStatus.map((row) => [row.status, row._count._all])),
+              byType: Object.fromEntries(productsByType.map((row) => [typeKeys.get(row.typeId) ?? row.typeId, row._count._all])),
+            },
             changelogEntries,
           },
           accounts: { users, admins, subscribers },

@@ -66,25 +66,28 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
     });
     // The store_scoped_content migration leaves a default store in an empty database.
     const store = await db.store.findFirstOrThrow();
-    await db.theme.create({
+    // The products_and_commerce migration seeds the theme/extension product types.
+    const type = await db.productType.findUniqueOrThrow({ where: { key: "theme" } });
+    const product = await db.product.create({
       data: {
         storeId: store.id,
+        typeId: type.id,
         name: "Sample",
         slug: "sample",
         summary: "Sample theme",
         description: "Concept only",
-        industry: "Other",
-        versionTarget: "Not decided",
         status: "concept",
+        listings: { create: { storeId: store.id, position: 10 } },
       },
     });
-    const plan = await db.billingPlan.create({
+    const price = await db.price.create({
       data: {
+        productId: product.id,
         storeId: store.id,
-        kind: "theme",
-        productSlug: "sample",
         name: "Annual",
-        priceCents: 14900,
+        billingType: "recurring",
+        interval: "year",
+        amountCents: 14900,
         creemTestProductId: "prod_fixture",
         enabled: true,
       },
@@ -127,12 +130,12 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
     ) => {
       const form = new FormData();
       for (const [k, v] of Object.entries({
-        planId: plan.id,
+        priceId: price.id,
         terms: options.terms ?? "on",
         renewal: "on",
         termsVersion: "2026-10-24",
         lang: "tr",
-        returnPath: options.next ?? `/tr/theme/sample?plan=${plan.id}`,
+        returnPath: options.next ?? `/tr/theme/sample?plan=${price.id}`,
       }))
         form.set(k, v);
       return POST(
@@ -156,7 +159,7 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
     assert.equal(login.pathname, "/auth/sign-in");
     assert.equal(
       login.searchParams.get("next"),
-      `/tr/theme/sample?plan=${plan.id}`,
+      `/tr/theme/sample?plan=${price.id}`,
     );
     signedIn = true;
     verified = false;
@@ -168,12 +171,13 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
     assert.equal((await result.json()).url, redirect);
     const attempt = await db.checkoutAttempt.findFirstOrThrow();
     assert.equal(attempt.userId, user.id);
-    assert.equal(attempt.planId, plan.id);
+    assert.equal(attempt.priceId, price.id);
+    assert.equal(attempt.storeId, store.id);
     assert.equal(attempt.mode, "test");
     assert.equal(attempt.termsVersion, "2026-10-24");
     assert.equal(checkoutBody?.request_id, attempt.id);
     assert.deepEqual(checkoutBody?.customer, { email: user.email });
-    assert.equal(await db.productSubscription.count(), 0);
+    assert.equal(await db.subscription.count(), 0);
     remotePrice = 999;
     assert.equal((await send()).status, 409);
     remotePrice = 14900;

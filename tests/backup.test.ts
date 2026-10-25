@@ -8,7 +8,7 @@ const now = "2026-10-22T10:00:00.000Z";
 function empty(): z.input<typeof backupSchema> {
   return {
     format: BACKUP_FORMAT, version: BACKUP_VERSION, createdAt: now, users: [],
-    data: { stores: [], storeDomains: [], storeSettings: [], themes: [], extensions: [], themeGallery: [], extensionGallery: [], changelog: [], media: [], posts: [], categories: [], tags: [], postTags: [], comments: [], reviews: [], inquiries: [], subscribers: [], pageViews: [], settings: [] },
+    data: { stores: [], storeDomains: [], storeSettings: [], productTypes: [], products: [], productStores: [], productGallery: [], changelog: [], media: [], posts: [], categories: [], tags: [], postTags: [], comments: [], reviews: [], inquiries: [], subscribers: [], pageViews: [], settings: [] },
   };
 }
 const store = { id: "store", key: "main", name: "Main store", defaultLocale: "en", locales: ["en"], isDefault: true, createdAt: now, updatedAt: now };
@@ -18,6 +18,9 @@ function withStore(): z.input<typeof backupSchema> {
   backup.data.stores.push(store);
   return backup;
 }
+const productType = { id: "type-theme", key: "theme", name: "Theme", pluralName: "Themes", description: null, listPath: "/themes", position: 0, createdAt: now, updatedAt: now };
+const product = { id: "product", storeId: "store", typeId: "type-theme", slug: "nordform", name: "Nordform", summary: "A precise visual system.", description: "<p>Product</p>", status: "concept", category: "Agency", technologies: ["TYPO3 13"], listPrice: 269, compliance: {}, tagline: null, intro: null, highlights: [], compatibility: [], ctaLabel: null, ctaUrl: null, demoUrl: null, coverId: null, createdAt: now, updatedAt: now };
+const review = { id: "review", storeId: "store", productId: "product", productSlug: "nordform", authorName: "Reader", authorEmail: "reader@example.com", rating: 5, body: "Excellent", status: "approved", locale: "en", requestKey: "review-key", moderatedAt: now, createdAt: now };
 const post = { id: "post", storeId: "store", title: "A post", slug: "a-post", excerpt: "", content: "<p>Content</p>", coverId: null, status: "published", scheduledAt: null, featured: false, readingTime: 2, publishedAt: now, authorId: null, categoryId: null, createdAt: now, updatedAt: now };
 const comment = { id: "comment", postId: "post", parentId: null, authorName: "Reader", authorEmail: "reader@example.com", body: "A comment", status: "approved", locale: "en", requestKey: "comment-key", moderatedAt: now, aiStatus: "passed", aiNote: null, aiModel: null, aiCheckedAt: null, aiReviewToken: null, createdAt: now };
 
@@ -103,12 +106,58 @@ test("comment replies accept any source order but reject cross-post parents and 
   assert.throws(() => parseBackup(backup), /Invalid comment parent/);
 });
 
-test("product reviews and release notes must reference exactly one existing product", () => {
-  const backup = empty();
-  backup.data.changelog.push({ id: "release", themeId: null, extensionId: null, version: "1.0", title: "Release", releasedAt: now, changes: [], createdAt: now, updatedAt: now });
-  assert.throws(() => parseBackup(backup), /exactly one product/);
-  backup.data.changelog[0].themeId = "missing";
-  assert.throws(() => parseBackup(backup), /Missing theme reference/);
+test("catalogue rows must reference existing types, covers, products and stores", () => {
+  const backup = withStore();
+  backup.data.productTypes.push(productType);
+  backup.data.products.push({ ...product, typeId: "missing" });
+  assert.throws(() => parseBackup(backup), /Missing product type reference/);
+  backup.data.products[0].typeId = productType.id;
+  backup.data.products[0].coverId = "missing";
+  assert.throws(() => parseBackup(backup), /Missing cover image reference/);
+  backup.data.products[0].coverId = null;
+  backup.data.productStores.push({ productId: product.id, storeId: "missing", position: 10, createdAt: now });
+  assert.throws(() => parseBackup(backup), /Missing store reference/);
+  backup.data.productStores[0].storeId = "store";
+  backup.data.changelog.push({ id: "release", productId: "missing", version: "1.0", title: "Release", releasedAt: now, changes: [], createdAt: now, updatedAt: now });
+  assert.throws(() => parseBackup(backup), /Missing product reference/);
+  backup.data.changelog[0].productId = product.id;
+  backup.data.reviews.push({ ...review, productId: "missing" });
+  assert.throws(() => parseBackup(backup), /Missing product reference/);
+  backup.data.reviews[0].productId = product.id;
+  assert.equal(parseBackup(backup).data.reviews[0].productSlug, review.productSlug);
+});
+
+test("product slugs are global, and type keys, listings and gallery links cannot repeat", () => {
+  const catalogue = withStore();
+  catalogue.data.productTypes.push(productType, { ...productType, id: "type-extension", key: "extension" });
+  assert.equal(parseBackup(catalogue).data.productTypes.length, 2);
+  catalogue.data.productTypes[1].key = "theme";
+  assert.throws(() => parseBackup(catalogue), /Duplicate product type key/);
+  catalogue.data.productTypes[1].key = "extension";
+  catalogue.data.products.push(product);
+  assert.equal(parseBackup(catalogue).data.products.length, 1);
+  // The same slug in two stores is fine for posts, but product slugs are unique across stores.
+  catalogue.data.stores.push({ ...store, id: "other-store", key: "other", isDefault: false });
+  catalogue.data.products.push({ ...product, id: "other", storeId: "other-store" });
+  assert.throws(() => parseBackup(catalogue), /Duplicate product slug/);
+  catalogue.data.products[1].slug = "other";
+  assert.equal(parseBackup(catalogue).data.products.length, 2);
+  // A product can be listed in several stores, but only once per store.
+  catalogue.data.productStores.push({ productId: product.id, storeId: "store", position: 10, createdAt: now });
+  assert.equal(parseBackup(catalogue).data.productStores.length, 1);
+  catalogue.data.productStores.push({ productId: product.id, storeId: "other-store", position: 0, createdAt: now });
+  assert.equal(parseBackup(catalogue).data.productStores.length, 2);
+  catalogue.data.productStores[1].storeId = "store";
+  assert.throws(() => parseBackup(catalogue), /Duplicate store listing/);
+  // One gallery row per product and image.
+  const gallery = withStore();
+  gallery.data.productTypes.push(productType);
+  gallery.data.products.push(product);
+  gallery.data.media.push({ id: "media", storeId: "store", key: "key", url: "/assets/images/cover.webp", fileName: "cover.webp", fileSize: 1, mimeType: "image/webp", alt: null, width: null, height: null, uploadedById: null, createdAt: now });
+  gallery.data.productGallery.push({ id: "gallery-1", productId: product.id, assetId: "media", position: 0 });
+  assert.equal(parseBackup(gallery).data.productGallery.length, 1);
+  gallery.data.productGallery.push({ id: "gallery-2", productId: product.id, assetId: "media", position: 1 });
+  assert.throws(() => parseBackup(gallery), /Duplicate product gallery link/);
 });
 
 test("private panel paths are validated and included in preview", () => {

@@ -1,13 +1,14 @@
 import { statSync } from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
-import type { ChangeItem, CompatibilityRow, Licence } from "@/lib/catalog-guard";
+import type { ChangeItem, CompatibilityRow } from "@/lib/catalog-guard";
+import { DEFAULT_COMPLIANCE } from "@/lib/product-compliance";
 
 /**
  * The theme and extension catalogue the public site launched with, including
- * what the detail pages (/theme/<slug>, /extension/<slug>) show: the copy of
- * the former static theme pages, compatibility rows, licences and changelog.
- * The site renders all of it from these rows (lib/catalog.ts,
+ * what the detail pages (/products/<slug>) show: the copy of the former
+ * static theme pages, compatibility rows, indicative licence prices and the
+ * changelog. The site renders all of it from these rows (lib/catalog.ts,
  * lib/product-page.ts), so the panel is the place to edit them. Covers and
  * galleries point at the bundled images in public/assets/images.
  */
@@ -51,20 +52,29 @@ const IMAGES = {
 
 const VERIFY = "To verify at release";
 
-const seedThemes: (SeedDetails & {
+/** One catalogue row; themes and extensions share the shape and differ in their type. */
+type SeedProductCore = SeedDetails & {
   slug: string;
   name: string;
   summary: string;
   description: string;
-  industry: string;
-  versionTarget: string;
   status: string;
-  price: number | null;
+  /** Order on the store's catalogue (ProductStore.position). */
   position: number;
-  licences?: Licence[];
-  cover: SeedImage;
   gallery: SeedImage[];
-})[] = [
+  /** Card kicker such as an industry; empty = the type name. */
+  category?: string;
+  /** Stacks and versions it targets, e.g. ["TYPO3 13", "TYPO3 14"]. */
+  technologies?: string[];
+  /** Indicative whole-unit price on the card: 0 = free, null = not set. */
+  listPrice?: number | null;
+  /** Indicative licence tiers, seeded as disabled yearly prices. */
+  licences?: { name: string; price: number }[];
+};
+
+type SeedProduct = SeedProductCore & { type: "theme" | "extension"; cover?: SeedImage };
+
+const seedThemes: (SeedProductCore & { cover: SeedImage })[] = [
   {
     slug: "nordform",
     name: "Nordform",
@@ -85,10 +95,10 @@ const seedThemes: (SeedDetails & {
     ].join(""),
     legacyDescription:
       "<p>Nordform brings together decisive typography, space for large project imagery and a disciplined content rhythm. It is a visual preview of a planned TYPO3 product, built to make architecture and corporate stories feel specific rather than templated.</p>",
-    industry: "Architecture & corporate",
-    versionTarget: "TYPO3 13 / 14",
+    category: "Architecture & corporate",
+    technologies: ["TYPO3 13", "TYPO3 14"],
     status: "concept",
-    price: 269,
+    listPrice: 269,
     position: 10,
     licences: [
       { name: "Single site", price: 269 },
@@ -154,10 +164,10 @@ const seedThemes: (SeedDetails & {
     ].join(""),
     legacyDescription:
       "<p>Foundation is planned as a free starter. Availability and the final feature set will be announced after a verified release.</p>",
-    industry: "Free starter",
-    versionTarget: "TYPO3 13 / 14",
+    category: "Free starter",
+    technologies: ["TYPO3 13", "TYPO3 14"],
     status: "concept",
-    price: 0,
+    listPrice: 0,
     position: 20,
     cover: IMAGES.studio,
     gallery: [IMAGES.studio, IMAGES.template],
@@ -194,10 +204,10 @@ const seedThemes: (SeedDetails & {
       "<p>Campus is a roadmap concept. Pricing, compatibility and delivery timing have not been set.</p>",
     ].join(""),
     legacyDescription: "<p>Campus is a roadmap concept. Pricing, compatibility and delivery timing have not been set.</p>",
-    industry: "Education & public",
-    versionTarget: "TYPO3 13 / 14",
+    category: "Education & public",
+    technologies: ["TYPO3 13", "TYPO3 14"],
     status: "in-development",
-    price: null,
+    listPrice: null,
     position: 30,
     cover: IMAGES.campus,
     gallery: [IMAGES.campus, IMAGES.cultural],
@@ -224,15 +234,7 @@ const roadmapRelease = (releasedAt: string): SeedRelease[] => [
   { version: "v0.1.0", releasedAt, title: "Roadmap concept", changes: [{ kind: "new", text: "Use case and scope outlined." }] },
 ];
 
-const seedExtensions: (SeedDetails & {
-  slug: string;
-  name: string;
-  summary: string;
-  description: string;
-  status: string;
-  position: number;
-  gallery: SeedImage[];
-})[] = [
+const seedExtensions: SeedProductCore[] = [
   {
     slug: "editorial-workflow",
     name: "Editorial Workflow",
@@ -344,88 +346,106 @@ function missingDetails(row: ExistingRow, seed: SeedDetails & { description: str
 
 const detailSelect = {
   id: true, description: true, tagline: true, intro: true, highlights: true, compatibility: true, ctaLabel: true, ctaUrl: true, demoUrl: true,
-  _count: { select: { gallery: true, changelog: true } },
+  _count: { select: { gallery: true, changelog: true, listings: true, prices: true } },
 } as const;
 
+/** The product types the catalogue markers reference (type=<key>); the panel manages them. */
+const PRODUCT_TYPES = [
+  { key: "theme", name: "Theme", pluralName: "Themes", listPath: "/themes", position: 0 },
+  { key: "extension", name: "Extension", pluralName: "Extensions", listPath: "/extensions", position: 1 },
+] as const;
+
+/** The themes' indicative licence list becomes disabled yearly prices (shown, not buyable). */
+const licencePriceRows = (storeId: string, licences: NonNullable<SeedProduct["licences"]>) =>
+  licences.map((licence, index) => ({
+    storeId,
+    name: licence.name,
+    billingType: "recurring",
+    interval: "year",
+    amountCents: licence.price * 100,
+    currency: "EUR",
+    taxMode: "inclusive",
+    enabled: false,
+    position: 10 + index + 1,
+  }));
+
 /**
- * Adds the launch themes and extensions when they are missing. For launch
- * records that exist, it only fills what is still empty: the gallery, the
+ * Adds the launch themes and extensions as products of their type when they
+ * are missing. For launch records that exist, it only fills what is still
+ * empty: the gallery, the store listing, the disabled licence prices, the
  * detail page fields, the changelog, and a description nobody has edited.
  * Everything changed in the panel is left alone, so re-running the seed
  * never undoes it.
  */
 export async function seedCatalog(storeId: string) {
-  for (const { cover, gallery, changelog, licences, legacyDescription, ...seed } of seedThemes) {
-    const coverId = await staticAsset(storeId, cover);
-    const galleryIds = await staticAssets(storeId, gallery);
-    const existing = await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug: seed.slug } }, select: { ...detailSelect, licences: true } });
-    const { slug, name, summary, description, industry, versionTarget, status, price, position } = seed;
-
-    if (!existing) {
-      await prisma.theme.create({
-        data: {
-          storeId, slug, name, summary, description, industry, versionTarget, status, price, position,
-          ...detailData(seed),
-          licences: licences ?? [],
-          coverId,
-          gallery: { create: galleryRows(galleryIds) },
-          changelog: { create: changelogRows(changelog) },
-        },
-      });
-      console.log(`  theme      ${slug}  created`);
-      continue;
-    }
-
-    const filled: string[] = [];
-    if (existing._count.gallery === 0) {
-      await prisma.themeGallery.createMany({ data: galleryRows(galleryIds).map((row) => ({ ...row, themeId: existing.id })) });
-      filled.push("gallery");
-    }
-    const update = missingDetails(existing, { ...seed, changelog, legacyDescription });
-    if ((!Array.isArray(existing.licences) || existing.licences.length === 0) && licences?.length) update.licences = licences;
-    if (Object.keys(update).length > 0) {
-      await prisma.theme.update({ where: { id: existing.id }, data: update });
-      filled.push(...Object.keys(update));
-    }
-    if (existing._count.changelog === 0 && changelog.length > 0) {
-      await prisma.changelogEntry.createMany({ data: changelogRows(changelog).map((row) => ({ ...row, themeId: existing.id })) });
-      filled.push("changelog");
-    }
-    console.log(`  theme      ${slug}  (exists, ${filled.length ? `filled: ${filled.join(", ")}` : "left as is"})`);
+  const typeIds: Record<(typeof PRODUCT_TYPES)[number]["key"], string> = { theme: "", extension: "" };
+  for (const type of PRODUCT_TYPES) {
+    const row = await prisma.productType.upsert({
+      where: { key: type.key },
+      create: { ...type, description: null },
+      update: {},
+      select: { id: true },
+    });
+    typeIds[type.key] = row.id;
   }
 
-  for (const { gallery, changelog, legacyDescription, ...seed } of seedExtensions) {
-    const galleryIds = await staticAssets(storeId, gallery);
-    const existing = await prisma.extension.findUnique({ where: { storeId_slug: { storeId, slug: seed.slug } }, select: detailSelect });
-    const { slug, name, summary, description, status, position } = seed;
+  for (const [type, seeds] of [
+    ["theme", seedThemes],
+    ["extension", seedExtensions],
+  ] as const) {
+    for (const partial of seeds) {
+      const seed: SeedProduct = { ...partial, type };
+      const { cover, gallery, changelog, licences, legacyDescription, ...core } = seed;
+      const coverId = cover ? await staticAsset(storeId, cover) : null;
+      const galleryIds = await staticAssets(storeId, gallery);
+      const existing = await prisma.product.findUnique({ where: { slug: core.slug }, select: detailSelect });
+      const { slug, name, summary, description, status, position } = core;
 
-    if (!existing) {
-      await prisma.extension.create({
-        data: {
-          storeId, slug, name, summary, description, status, position,
-          ...detailData(seed),
-          gallery: { create: galleryRows(galleryIds) },
-          changelog: { create: changelogRows(changelog) },
-        },
-      });
-      console.log(`  extension  ${slug}  created`);
-      continue;
-    }
+      if (!existing) {
+        await prisma.product.create({
+          data: {
+            storeId,
+            typeId: typeIds[type],
+            slug, name, summary, description, status,
+            category: core.category ?? null,
+            technologies: core.technologies ?? [],
+            listPrice: core.listPrice ?? null,
+            compliance: DEFAULT_COMPLIANCE,
+            ...detailData(core),
+            coverId,
+            gallery: { create: galleryRows(galleryIds) },
+            listings: { create: { storeId, position } },
+            prices: { create: licencePriceRows(storeId, licences ?? []) },
+            changelog: { create: changelogRows(changelog) },
+          },
+        });
+        console.log(`  ${type.padEnd(10)} ${slug}  created`);
+        continue;
+      }
 
-    const filled: string[] = [];
-    if (existing._count.gallery === 0) {
-      await prisma.extensionGallery.createMany({ data: galleryRows(galleryIds).map((row) => ({ ...row, extensionId: existing.id })) });
-      filled.push("gallery");
+      const filled: string[] = [];
+      if (existing._count.gallery === 0) {
+        await prisma.productGallery.createMany({ data: galleryRows(galleryIds).map((row) => ({ ...row, productId: existing.id })) });
+        filled.push("gallery");
+      }
+      if (existing._count.listings === 0) {
+        await prisma.productStore.create({ data: { productId: existing.id, storeId, position } });
+        filled.push("listing");
+      }
+      const update = missingDetails(existing, seed);
+      if (Object.keys(update).length > 0) {
+        await prisma.product.update({ where: { id: existing.id }, data: update });
+        filled.push(...Object.keys(update));
+      }
+      if (existing._count.changelog === 0 && changelog.length > 0) {
+        await prisma.changelogEntry.createMany({ data: changelogRows(changelog).map((row) => ({ ...row, productId: existing.id })) });
+        filled.push("changelog");
+      }
+      if (existing._count.prices === 0 && licences?.length) {
+        await prisma.price.createMany({ data: licencePriceRows(storeId, licences).map((row) => ({ ...row, productId: existing.id })) });
+        filled.push("prices");
+      }
+      console.log(`  ${type.padEnd(10)} ${slug}  (exists, ${filled.length ? `filled: ${filled.join(", ")}` : "left as is"})`);
     }
-    const update = missingDetails(existing, { ...seed, changelog, legacyDescription });
-    if (Object.keys(update).length > 0) {
-      await prisma.extension.update({ where: { id: existing.id }, data: update });
-      filled.push(...Object.keys(update));
-    }
-    if (existing._count.changelog === 0 && changelog.length > 0) {
-      await prisma.changelogEntry.createMany({ data: changelogRows(changelog).map((row) => ({ ...row, extensionId: existing.id })) });
-      filled.push("changelog");
-    }
-    console.log(`  extension  ${slug}  (exists, ${filled.length ? `filled: ${filled.join(", ")}` : "left as is"})`);
   }
 }

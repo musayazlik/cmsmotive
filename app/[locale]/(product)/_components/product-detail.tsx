@@ -5,12 +5,13 @@ import { LOCALE_TAGS, SOURCE_LOCALE, localizePath, type Locale } from "@/lib/i18
 import { loadAppCatalog } from "@/lib/i18n/catalog";
 import { translateHtml } from "@/lib/i18n/html";
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
-import type { ProductPageData } from "@/lib/product-page";
+import type { ProductPageData, PublicPrice } from "@/lib/product-page";
+import { billingSuffix, formatAmount } from "@/lib/prices";
 import { SiteFrame } from "../../_components/site-chrome";
 import ProductCheckoutForm from "@/app/_components/product-checkout-form";
 
 /**
- * Theme and extension detail page, built from what /panel stores: hero,
+ * Product detail page (/products/<slug>), built from what /panel stores: hero,
  * cover and gallery, the Description / Compatibility / Reviews / Changelog
  * tabs and the product box. The markup mirrors the static product pages
  * (product.css styles it, product.js runs the tabs, reviews and licence
@@ -28,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 const CHANGE_LABELS: Record<string, string> = { new: "New", improved: "Improved", fixed: "Fixed" };
 
 const CHANGELOG_NOTE =
-  "Concept milestones from the design phase. Versioned release notes with upgrade instructions will follow with the first TYPO3 package.";
+  "Concept milestones from the design phase. Versioned release notes with upgrade instructions will follow with the first package.";
 
 function Arrow({ up = false }: { up?: boolean }) {
   return (
@@ -67,7 +68,7 @@ function ReviewsPanel({ product, t, locale }: { product: ProductPageData; t: Tra
         title={t("What teams say about {name}.", { name })}
         text={copy(locale,"Reviews are moderated. Purchases and actual product use are not independently verified unless explicitly stated.","Bewertungen werden moderiert. Kauf und tatsächliche Nutzung werden ohne ausdrücklichen Hinweis nicht unabhängig verifiziert.","Değerlendirmeler denetlenir. Aksi belirtilmedikçe satın alma ve gerçek ürün kullanımı bağımsız olarak doğrulanmaz.")}
       />
-      <div className="review-layout" data-reviews data-product={product.slug} data-product-type={product.kind}>
+      <div className="review-layout" data-reviews data-product={product.slug} data-product-type={product.type.key}>
         <aside className="review-summary" aria-label={t("Rating summary")}>
           <div className="review-score">
             <strong data-review-average>–</strong>
@@ -169,20 +170,24 @@ function ReviewsPanel({ product, t, locale }: { product: ProductPageData; t: Tra
   );
 }
 
-/** Price, licence picker, buttons and highlight lines in the sticky product box. */
-function BuyPanel({ product, t, c, href, locale, initialPlanId }: { product: ProductPageData; t: Translate; c: Translate; href: (path: string) => string; locale: Locale; initialPlanId?: string }) {
-  const { name, price, licences } = product;
+/** Price, price picker, buttons and highlight lines in the sticky product box. */
+function BuyPanel({ product, t, c, href, locale, initialPriceId }: { product: ProductPageData; t: Translate; c: Translate; href: (path: string) => string; locale: Locale; initialPriceId?: string }) {
+  const { name, listPrice } = product;
   const published = product.status === "published";
-  const hasCheckout = product.plans.length > 0 && (published || product.checkout.mode === "test");
-  const isTheme = product.kind === "theme";
+  const hasCheckout = product.prices.length > 0 && (published || product.checkout.mode === "test");
   const badges: [string, string][] = [];
-  if (product.versionTarget && product.versionTarget !== "Not decided") badges.push([c(`${product.versionTarget} target`), "orange"]);
+  if (product.technologies.length > 0) badges.push([product.technologies.join(" / "), "orange"]);
   if (published) badges.push([t("Available"), "green"]);
-  else if (price === 0) badges.push([t("Planned free"), "green"]);
+  else if (listPrice === 0) badges.push([t("Planned free"), "green"]);
 
-  const startPrice = product.plans[0] ? product.plans[0].priceCents / 100 : licences[0]?.price ?? price;
-  const priceText = startPrice ? `€${startPrice}` : startPrice === 0 ? t("Free") : t("TBD");
-  const priceLabel = startPrice === null ? t("Roadmap price") : startPrice === 0 ? t("Planned price") : published ? t("Price") : t("Indicative concept price");
+  // Before anything can be bought: the store's prices as indicative options, else the list price.
+  const tag = LOCALE_TAGS[locale];
+  const options = product.indicativePrices;
+  const first: PublicPrice | undefined = options[0];
+  const display = (price: PublicPrice) => formatAmount(price.amountCents, price.currency, tag);
+  const priceText = first ? display(first) : listPrice ? `€${listPrice}` : listPrice === 0 ? t("Free") : t("TBD");
+  const priceLabel = !first && listPrice === null ? t("Roadmap price") : !first && listPrice === 0 ? t("Planned price") : published ? t("Price") : t("Indicative concept price");
+  const suffix = first ? billingSuffix(first) : "";
   const ctaUrl = product.ctaUrl ?? "/contact";
 
   return (
@@ -199,31 +204,31 @@ function BuyPanel({ product, t, c, href, locale, initialPlanId }: { product: Pro
           ))}
         </div>
       ) : null}
-      {isTheme && !hasCheckout ? (
+      {!hasCheckout && (first || listPrice !== null) ? (
         <div className="buy-price">
           <small>{priceLabel}</small>
-          <span id="licence-price">{product.plans.length && published ? `€${(product.plans[0].priceCents/100).toFixed(2)}` : priceText}</span>
-          {Boolean(startPrice || product.plans.length) && <small>{t("/ year")}</small>}
+          <span id="licence-price">{priceText}</span>
+          {suffix ? <small>{suffix}</small> : null}
         </div>
       ) : null}
-      {licences.length > 1 && !product.plans.length ? (
+      {!hasCheckout && options.length > 1 ? (
         <>
           <span id="licence-select-label" className="control-caption">
-            {copy(locale,"Select annual service plan","Jährlichen Serviceplan auswählen","Yıllık hizmet planı seçin")}
+            {copy(locale, "Compare options", "Optionen vergleichen", "Seçenekleri karşılaştırın")}
           </span>
           <div className="purchase-select select-wrap">
-            <select id="licence-select" aria-labelledby="licence-select-label" data-custom-select="" defaultValue={String(licences[0].price)}>
-              {licences.map((licence) => (
-                <option key={licence.name} value={licence.price}>
-                  {c(licence.name)} · €{licence.price}
+            <select id="licence-select" aria-labelledby="licence-select-label" data-custom-select="" defaultValue={options[0].id}>
+              {options.map((option) => (
+                <option key={option.id} value={option.id} data-display={display(option)}>
+                  {c(option.name)} · {display(option)} {billingSuffix(option)}
                 </option>
               ))}
             </select>
           </div>
         </>
       ) : null}
-      {hasCheckout && <ProductCheckoutForm plans={product.plans} locale={locale} termsVersion={product.checkout.termsVersion} ready={product.checkout.ready} testMode={product.checkout.mode === "test"} returnPath={href(`/${product.kind}/${product.slug}`)} initialPlanId={initialPlanId} />}
-      <p className="micro">{copy(locale,"12 months of updates and support. Renews annually until cancelled. Support scope does not restrict GPL code rights.","12 Monate Updates und Support. Jährliche Verlängerung bis zur Kündigung. Der Supportumfang beschränkt keine GPL-Rechte.","12 ay güncelleme ve destek. İptale kadar yıllık yenilenir. Destek kapsamı GPL kod haklarını kısıtlamaz.")}</p>
+      {hasCheckout && <ProductCheckoutForm prices={product.prices} locale={locale} termsVersion={product.checkout.termsVersion} ready={product.checkout.ready} testMode={product.checkout.mode === "test"} returnPath={href(`/products/${product.slug}`)} initialPriceId={initialPriceId} />}
+      <p className="micro">{copy(locale,"Support scope does not restrict the code rights of the licence.","Der Supportumfang beschränkt keine Rechte aus der Code-Lizenz.","Destek kapsamı lisansın kod haklarını kısıtlamaz.")}</p>
       {product.compliance.codeLicense && <p className="micro">Code: {product.compliance.codeLicense} {product.compliance.noticesUrl&&<a href={product.compliance.noticesUrl}>{copy(locale,"License notices","Lizenzhinweise","Lisans bildirimleri")}</a>}</p>}
       {!hasCheckout && <Button href={/^\//.test(ctaUrl) ? href(ctaUrl) : ctaUrl}>{product.ctaLabel ? c(product.ctaLabel) : t("Ask about {name}", { name })}</Button>}
       {product.demoUrl ? (
@@ -231,8 +236,8 @@ function BuyPanel({ product, t, c, href, locale, initialPlanId }: { product: Pro
           {t("View visual demo")}
         </Button>
       ) : (
-        <Button href={href(isTheme ? "/themes" : "/extensions")} kind="outline">
-          {t(isTheme ? "Back to themes" : "Back to extensions")}
+        <Button href={href(product.type.listPath)} kind="outline">
+          {t("Back to {list}", { list: c(product.type.pluralName).toLocaleLowerCase(LOCALE_TAGS[locale]) })}
         </Button>
       )}
       {product.highlights.length > 0 ? (
@@ -246,13 +251,13 @@ function BuyPanel({ product, t, c, href, locale, initialPlanId }: { product: Pro
   );
 }
 
-export default function ProductDetail({ product, locale, initialPlanId }: { product: ProductPageData; locale: Locale; initialPlanId?: string }) {
+export default function ProductDetail({ product, locale, initialPriceId }: { product: ProductPageData; locale: Locale; initialPriceId?: string }) {
   const t = getTranslator(locale);
   // Panel copy: translated where it matches catalog text, otherwise shown as written.
   const c = getTranslator(locale, { quiet: true });
   const href = (path: string) => localizePath(path, locale);
-  const { kind, name, slug } = product;
-  const listPath = kind === "theme" ? "/themes" : "/extensions";
+  const { name, slug } = product;
+  const listPath = product.type.listPath;
   const month = new Intl.DateTimeFormat(LOCALE_TAGS[locale], { month: "long", year: "numeric", timeZone: "UTC" });
 
   // Description HTML from the editor: catalog-matching text is translated, internal links keep the language.
@@ -336,17 +341,17 @@ export default function ProductDetail({ product, locale, initialPlanId }: { prod
   }
 
   return (
-    <SiteFrame locale={locale} path={`/${kind}/${slug}`} current={listPath}>
+    <SiteFrame locale={locale} path={`/products/${slug}`} current={listPath}>
       <section className="page-hero compact">
         <div className="container">
           <div className="crumbs">
             <a href={href("/")}>{t("Home")}</a>
             <span>/</span>
-            <a href={href(listPath)}>{t(kind === "theme" ? "Themes" : "Extensions")}</a>
+            <a href={href(listPath)}>{c(product.type.pluralName)}</a>
             <span>/</span>
             <span>{name}</span>
           </div>
-          <span className="eyebrow">{product.tagline ? c(product.tagline) : product.industry ? c(product.industry) : t("Extension")}</span>
+          <span className="eyebrow">{product.tagline ? c(product.tagline) : product.category ? c(product.category) : c(product.type.name)}</span>
           <h1>
             {name}
             <em>.</em>
@@ -414,7 +419,7 @@ export default function ProductDetail({ product, locale, initialPlanId }: { prod
             </div>
           </div>
 
-          <BuyPanel product={product} t={t} c={c} href={href} locale={locale} initialPlanId={initialPlanId} />
+          <BuyPanel product={product} t={t} c={c} href={href} locale={locale} initialPriceId={initialPriceId} />
         </div>
       </section>
       <Script src="/assets/js/product.js" strategy="afterInteractive" />

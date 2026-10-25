@@ -19,7 +19,7 @@ export type McpNotification = {
 };
 
 export async function listNotifications() {
-  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions] =
+  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, unpublishedProducts, pendingReviews] =
     await Promise.all([
       getAdminAccessSettings(),
       prisma.user.count({ where: { emailVerified: false } }),
@@ -27,10 +27,9 @@ export async function listNotifications() {
       prisma.contactInquiry.count({
         where: { storeId: mcpStoreId(), readAt: null, archivedAt: null, emailSent: false },
       }),
-      prisma.theme.count({ where: { storeId: mcpStoreId(), status: { in: ["concept", "in-development"] } } }),
-      prisma.extension.count({
-        where: { storeId: mcpStoreId(), status: { in: ["concept", "planning", "in-development"] } },
-      }),
+      // Products on the roadmap: only published ones appear in the catalogue.
+      prisma.product.count({ where: { storeId: mcpStoreId(), status: { not: "published" } } }),
+      prisma.productReview.count({ where: { storeId: mcpStoreId(), status: "pending" } }),
     ]);
 
   const items: McpNotification[] = [];
@@ -62,27 +61,27 @@ export async function listNotifications() {
     });
   }
 
-  if (draftThemes > 0) {
+  if (unpublishedProducts > 0) {
     items.push({
-      id: "themes-draft",
+      id: "products-unpublished",
       tone: "info",
-      title: `${draftThemes} theme${draftThemes === 1 ? "" : "s"} not published`,
-      detail: "Themes still in concept or development are hidden from the catalogue.",
-      href: "/panel/themes",
-      count: draftThemes,
+      title: `${unpublishedProducts} product${unpublishedProducts === 1 ? "" : "s"} not published`,
+      detail: "Products in concept, planning or development are hidden from the catalogue.",
+      href: "/panel/products",
+      count: unpublishedProducts,
       actionable: false,
     });
   }
 
-  if (draftExtensions > 0) {
+  if (pendingReviews > 0) {
     items.push({
-      id: "extensions-draft",
-      tone: "info",
-      title: `${draftExtensions} extension${draftExtensions === 1 ? "" : "s"} on the roadmap`,
-      detail: "Extensions in planning are shown as concept cards only.",
-      href: "/panel/extensions",
-      count: draftExtensions,
-      actionable: false,
+      id: "reviews-pending",
+      tone: "warn",
+      title: `${pendingReviews} review${pendingReviews === 1 ? "" : "s"} awaiting moderation`,
+      detail: "New guest reviews stay hidden from the product pages until they are approved.",
+      href: "/panel/reviews",
+      count: pendingReviews,
+      actionable: true,
     });
   }
 

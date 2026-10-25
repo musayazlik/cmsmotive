@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyCreemSignature } from "@/lib/billing-access";
-import {
-  creemMode,
-  creemRequest,
-  objectId,
-  subscriptionSchema,
-} from "@/lib/creem";
+import { syncCheckout, syncReversal, syncSubscription, type SyncResult } from "@/lib/commerce";
 const eventSchema = z.object({
   id: z.string().min(1),
   eventType: z.string(),
@@ -19,6 +14,12 @@ const id = (value: unknown) =>
     : value && typeof value === "object" && "id" in value
       ? String(value.id)
       : null;
+
+/**
+ * Creem webhook: verified on the exact raw bytes, then handed to lib/commerce,
+ * which reconciles each event with the Creem API. A 4xx/5xx answer makes
+ * Creem retry; recorded and foreign events answer 200.
+ */
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   const secret = process.env.CREEM_WEBHOOK_SECRET;
@@ -55,95 +56,23 @@ export async function POST(request: Request) {
   const event = parsed.data;
   if (await prisma.paymentEvent.findUnique({ where: { id: event.id } }))
     return Response.json({ received: true });
-  const subscriptionId = event.eventType.startsWith("subscription.")
-    ? id(event.object)
-    : id(event.object.subscription);
-  if (!subscriptionId?.startsWith("sub_"))
-    return Response.json({ received: true, ignored: true });
+  const ref = { id: event.id, type: event.eventType };
   try {
-    // Reconcile with the authoritative API, not arrival order or the success-page URL.
-    const s = subscriptionSchema.parse(
-      await creemRequest(
-        `/v1/subscriptions?subscription_id=${encodeURIComponent(subscriptionId)}`,
-      ),
-    );
-    if (s.mode !== creemMode())
-      return new Response("Wrong payment environment", { status: 400 });
-    const previous = await prisma.productSubscription.findUnique({
-      where: { creemSubscriptionId: s.id },
-    });
-    const attemptId = s.metadata?.checkoutAttemptId;
-    const attempt =
-      typeof attemptId === "string"
-        ? await prisma.checkoutAttempt.findUnique({ where: { id: attemptId } })
-        : null;
-    if (!previous && !attempt)
-      return Response.json({ received: true, ignored: true });
-    if (
-      attempt &&
-      (attempt.creemProductId !== objectId(s.product) ||
-        attempt.mode !== s.mode)
-    )
-      return new Response("Product mismatch", { status: 400 });
-    const userId = previous?.userId ?? attempt!.userId;
-    if (
-      !(await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true },
-      }))
-    )
-      return Response.json({ received: true, ignored: true });
-    const transaction = event.object.transaction;
-    const reversed =
-      transaction &&
-      typeof transaction === "object" &&
-      "id" in transaction &&
-      transaction.id === s.last_transaction_id;
-    const status =
-      reversed &&
-      event.eventType === "refund.created" &&
-      "status" in transaction &&
-      transaction.status === "refunded"
-        ? "refunded"
-        : reversed && event.eventType === "dispute.created"
-          ? "disputed"
-          : s.status;
-    const data = {
-      userId,
-      planId: previous?.planId ?? attempt!.planId,
-      creemCustomerId: objectId(s.customer),
-      mode: s.mode,
-      status,
-      currentPeriodStart: new Date(s.current_period_start_date),
-      currentPeriodEnd: new Date(s.current_period_end_date),
-      providerUpdatedAt: new Date(s.updated_at),
-    };
-    await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${s.id}))`;
-      if (await tx.paymentEvent.findUnique({ where: { id: event.id } })) return;
-      const current = await tx.productSubscription.findUnique({
-        where: { creemSubscriptionId: s.id },
-      });
-      if (
-        !current ||
-        current.providerUpdatedAt < data.providerUpdatedAt ||
-        (current.providerUpdatedAt.getTime() ===
-          data.providerUpdatedAt.getTime() &&
-          !["refunded", "disputed"].includes(current.status))
-      )
-        await tx.productSubscription.upsert({
-          where: { creemSubscriptionId: s.id },
-          create: { ...data, creemSubscriptionId: s.id },
-          update: data,
-        });
-      await tx.paymentEvent.create({
-        data: { id: event.id, type: event.eventType, mode: s.mode },
-      });
-    });
-    return Response.json({ received: true });
-  } catch {
-    return new Response("Payment reconciliation failed; retry required", {
-      status: 500,
-    });
+    let result: SyncResult;
+    if (event.eventType === "checkout.completed") {
+      result = await syncCheckout(ref, event.object);
+    } else if (event.eventType.startsWith("subscription.")) {
+      const subscriptionId = id(event.object);
+      result = subscriptionId?.startsWith("sub_") ? await syncSubscription(ref, subscriptionId) : { status: "ignored" };
+    } else if (event.eventType === "refund.created" || event.eventType === "dispute.created") {
+      result = await syncReversal(ref, event.object);
+    } else {
+      result = { status: "ignored" };
+    }
+    if (result.status === "rejected") return new Response(result.message, { status: result.code });
+    return Response.json(result.status === "ignored" ? { received: true, ignored: true } : { received: true });
+  } catch (error) {
+    console.error("creem webhook: reconciliation failed", event.eventType, error instanceof Error ? error.message : error);
+    return new Response("Payment reconciliation failed; retry required", { status: 500 });
   }
 }

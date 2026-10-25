@@ -30,14 +30,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   pages.push({ path: "/blog" });
 
   try {
-    const [themes, extensions, posts] = await Promise.all([
-      prisma.theme.findMany({ where: { storeId }, select: { slug: true, updatedAt: true } }),
-      prisma.extension.findMany({ where: { storeId }, select: { slug: true, updatedAt: true } }),
+    const [products, posts] = await Promise.all([
+      prisma.product.findMany({ where: { listings: { some: { storeId } } }, select: { slug: true, updatedAt: true } }),
       prisma.post.findMany({ where: { storeId, status: "published" }, select: { slug: true, updatedAt: true } }),
     ]);
     pages.push(
-      ...themes.map((theme) => ({ path: `/theme/${theme.slug}`, lastModified: theme.updatedAt })),
-      ...extensions.map((extension) => ({ path: `/extension/${extension.slug}`, lastModified: extension.updatedAt })),
+      { path: "/products" },
+      ...products.map((product) => ({ path: `/products/${product.slug}`, lastModified: product.updatedAt })),
       ...posts.map((post) => ({ path: `/blog/${post.slug}`, lastModified: post.updatedAt })),
     );
   } catch (error) {

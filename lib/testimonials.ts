@@ -36,8 +36,7 @@ type Review = {
   rating: number;
   body: string;
   locale: string;
-  theme: { slug: string; name: string } | null;
-  extension: { slug: string; name: string } | null;
+  product: { slug: string; name: string; type: { name: string } };
 };
 
 function reviewCard(review: Review) {
@@ -45,13 +44,9 @@ function reviewCard(review: Review) {
   const initials = name.split(/\s+/).map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase();
   const body = review.body.trim().replace(/\s+/g, " ");
   const quote = body.length > QUOTE_LENGTH ? `${body.slice(0, QUOTE_LENGTH - 1).trimEnd()}…` : body;
-  const product = review.theme
-    ? { href: `/theme/${review.theme.slug}`, name: review.theme.name, kind: "TYPO3 theme" }
-    : review.extension
-      ? { href: `/extension/${review.extension.slug}`, name: review.extension.name, kind: "TYPO3 extension" }
-      : null;
+  const product = { href: `/products/${review.product.slug}`, name: review.product.name, kind: review.product.type.name };
   const rating = Math.min(5, Math.max(1, Math.round(review.rating)));
-  return `<figure class="voice-card"><span class="voice-stars" role="img" aria-label="Rated ${rating} out of 5">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><blockquote lang="${escapeHtml(review.locale)}"><p>${escapeHtml(quote)}</p></blockquote><figcaption><span class="voice-avatar" aria-hidden="true">${escapeHtml(initials)}</span><span class="voice-meta"><strong>${escapeHtml(name)}</strong>${product ? `<small><a href="${escapeHtml(product.href)}">${escapeHtml(product.name)}</a> · <span>${product.kind}</span></small>` : ""}</span></figcaption></figure>`;
+  return `<figure class="voice-card"><span class="voice-stars" role="img" aria-label="Rated ${rating} out of 5">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><blockquote lang="${escapeHtml(review.locale)}"><p>${escapeHtml(quote)}</p></blockquote><figcaption><span class="voice-avatar" aria-hidden="true">${escapeHtml(initials)}</span><span class="voice-meta"><strong>${escapeHtml(name)}</strong><small><a href="${escapeHtml(product.href)}">${escapeHtml(product.name)}</a> · <span>${escapeHtml(product.kind)}</span></small></span></figcaption></figure>`;
 }
 
 export async function injectTestimonials(html: string, storeId: string): Promise<string> {
@@ -74,8 +69,7 @@ export async function injectTestimonials(html: string, storeId: string): Promise
         rating: true,
         body: true,
         locale: true,
-        theme: { select: { slug: true, name: true } },
-        extension: { select: { slug: true, name: true } },
+        product: { select: { slug: true, name: true, type: { select: { name: true } } } },
       },
     });
     reviews = recent.filter((review) => review.body.trim().length >= QUOTE_MIN_LENGTH).slice(0, limit);

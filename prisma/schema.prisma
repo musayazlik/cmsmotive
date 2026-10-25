@@ -23,8 +23,14 @@ model Store {
   isDefault     Boolean                @default(false)
   domains       StoreDomain[]
   settings      StoreSetting[]
-  themes        Theme[]
-  extensions    Extension[]
+  products      Product[]
+  listings      ProductStore[]
+  prices        Price[]
+  customers     Customer[]
+  orders        Order[]
+  subscriptions Subscription[]
+  entitlements  Entitlement[]
+  transactions  Transaction[]
   posts         Post[]
   categories    Category[]
   tags          Tag[]
@@ -32,8 +38,6 @@ model Store {
   reviews       ProductReview[]
   media         MediaAsset[]
   subscribers   NewsletterSubscriber[]
-  billingPlans  BillingPlan[]
-  releases      ProductRelease[]
   pageViews     PageViewDaily[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
@@ -71,6 +75,7 @@ model User {
   accounts        Account[]
   uploads         MediaAsset[]
   posts           Post[]
+  customers       Customer[]
 
   @@map("user")
 }
@@ -146,14 +151,11 @@ model ContactInquiry {
 /// review starts "pending" and only "approved" rows are shown publicly or
 /// counted in the star rating; moderation happens in /panel/reviews.
 model ProductReview {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   storeId     String
-  store       Store      @relation(fields: [storeId], references: [id])
-  /// The reviewed product: exactly one of themeId / extensionId is set.
-  themeId     String?
-  theme       Theme?     @relation(fields: [themeId], references: [id], onDelete: Cascade)
-  extensionId String?
-  extension   Extension? @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  store       Store     @relation(fields: [storeId], references: [id])
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   /// The product's slug when the review was written, kept for reference.
   productSlug String
   authorName  String
@@ -162,172 +164,61 @@ model ProductReview {
   rating      Int
   body        String
   /// pending | approved | rejected
-  status      String     @default("pending")
+  status      String    @default("pending")
   /// Site locale the review was written on (de | en | tr).
-  locale      String     @default("de")
+  locale      String    @default("de")
   /// Client-generated UUID so a double submit cannot create two rows.
-  requestKey  String     @unique
+  requestKey  String    @unique
   moderatedAt DateTime?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime  @default(now())
 
-  @@index([themeId, status, createdAt])
-  @@index([extensionId, status, createdAt])
+  @@index([productId, status, createdAt])
   @@index([storeId, status, createdAt])
   @@index([authorEmail, createdAt])
 }
 
 /// Uploads handled by UploadThing; the row is written by onUploadComplete.
 model MediaAsset {
-  id               String             @id @default(cuid())
-  storeId          String
-  store            Store              @relation(fields: [storeId], references: [id])
-  key              String
-  url              String
-  fileName         String
-  fileSize         Int
-  mimeType         String
-  alt              String?
-  width            Int?
-  height           Int?
-  uploadedById     String?
-  uploadedBy       User?              @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
-  themeCovers      Theme[]            @relation("ThemeCover")
-  extensionCovers  Extension[]        @relation("ExtensionCover")
-  postCovers       Post[]             @relation("PostCover")
-  themeGallery     ThemeGallery[]
-  extensionGallery ExtensionGallery[]
-  createdAt        DateTime           @default(now())
+  id             String           @id @default(cuid())
+  storeId        String
+  store          Store            @relation(fields: [storeId], references: [id])
+  key            String
+  url            String
+  fileName       String
+  fileSize       Int
+  mimeType       String
+  alt            String?
+  width          Int?
+  height         Int?
+  uploadedById   String?
+  uploadedBy     User?            @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  productCovers  Product[]        @relation("ProductCover")
+  postCovers     Post[]           @relation("PostCover")
+  productGallery ProductGallery[]
+  createdAt      DateTime         @default(now())
 
   @@unique([storeId, key])
   @@index([storeId, createdAt])
   @@map("MediaAsset")
 }
 
-model Theme {
-  id            String           @id @default(cuid())
-  storeId       String
-  store         Store            @relation(fields: [storeId], references: [id])
-  slug          String
-  name          String
-  summary       String
-  compliance    Json             @default("{}")
-  /// Tiptap HTML output.
-  description   String
-  status        String           @default("concept")
-  industry      String
-  versionTarget String
-  /// Indicative price in whole euros shown on the catalogue card: 0 = free, null = not set yet.
-  price         Int?
-  /// Order on the public catalogue (home page and /themes), ascending.
-  position      Int              @default(0)
-  /// Detail page (/theme/<slug>) hero kicker, e.g. "The featured concept". Empty = industry.
-  tagline       String?
-  /// Detail page hero paragraph. Empty = summary.
-  intro         String?
-  /// Short lines listed under the buy panel buttons.
-  highlights    String[]         @default([])
-  /// Compatibility tab rows: [{ area, target, status }].
-  compatibility Json             @default("[]")
-  /// Licence options for the buy panel: [{ name, price }] in whole euros. Empty = `price` only.
-  licences      Json             @default("[]")
-  /// Primary buy panel button. Empty = "Ask about <name>" linking to /contact.
-  ctaLabel      String?
-  ctaUrl        String?
-  /// Optional "View visual demo" button.
-  demoUrl       String?
-  coverId       String?
-  cover         MediaAsset?      @relation("ThemeCover", fields: [coverId], references: [id], onDelete: SetNull)
-  gallery       ThemeGallery[]
-  changelog     ChangelogEntry[]
-  reviews       ProductReview[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-
-  @@unique([storeId, slug])
-  @@index([storeId, status])
-  @@map("Theme")
-}
-
-model ThemeGallery {
-  id       String     @id @default(cuid())
-  themeId  String
-  theme    Theme      @relation(fields: [themeId], references: [id], onDelete: Cascade)
-  assetId  String
-  asset    MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  position Int        @default(0)
-
-  @@unique([themeId, assetId])
-  @@index([themeId, position])
-  @@map("ThemeGallery")
-}
-
-model Extension {
-  id            String             @id @default(cuid())
-  storeId       String
-  store         Store              @relation(fields: [storeId], references: [id])
-  slug          String
-  name          String
-  summary       String
-  compliance    Json               @default("{}")
-  /// Tiptap HTML output.
-  description   String
-  status        String             @default("concept")
-  /// Order on the public catalogue (home page and /extensions), ascending.
-  position      Int                @default(0)
-  /// Detail page (/extension/<slug>) fields; see Theme for their meaning.
-  tagline       String?
-  intro         String?
-  highlights    String[]           @default([])
-  compatibility Json               @default("[]")
-  ctaLabel      String?
-  ctaUrl        String?
-  demoUrl       String?
-  coverId       String?
-  cover         MediaAsset?        @relation("ExtensionCover", fields: [coverId], references: [id], onDelete: SetNull)
-  gallery       ExtensionGallery[]
-  changelog     ChangelogEntry[]
-  reviews       ProductReview[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-
-  @@unique([storeId, slug])
-  @@index([storeId, status])
-  @@map("Extension")
-}
-
-/// A release note for exactly one theme or one extension, written under /panel/changelog.
+/// A release note for one product, written under /panel/changelog.
 model ChangelogEntry {
-  id          String     @id @default(cuid())
-  themeId     String?
-  theme       Theme?     @relation(fields: [themeId], references: [id], onDelete: Cascade)
-  extensionId String?
-  extension   Extension? @relation(fields: [extensionId], references: [id], onDelete: Cascade)
-  version     String
-  title       String
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  version    String
+  title      String
   /// Release date; the detail page shows month and year.
-  releasedAt  DateTime
+  releasedAt DateTime
   /// [{ kind: "new" | "improved" | "fixed", text }]
-  changes     Json       @default("[]")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  changes    Json     @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@index([themeId, releasedAt])
-  @@index([extensionId, releasedAt])
+  @@index([productId, releasedAt])
   @@index([createdAt])
   @@map("ChangelogEntry")
-}
-
-model ExtensionGallery {
-  id          String     @id @default(cuid())
-  extensionId String
-  extension   Extension  @relation(fields: [extensionId], references: [id], onDelete: Cascade)
-  assetId     String
-  asset       MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  position    Int        @default(0)
-
-  @@unique([extensionId, assetId])
-  @@index([extensionId, position])
-  @@map("ExtensionGallery")
 }
 
 /// Blog post written in the panel. `excerpt` doubles as the SEO meta
@@ -480,30 +371,187 @@ model NewsletterSubscriber {
   @@unique([storeId, email, source])
 }
 
-/// Kept outside content backups: billing identity and access must never roll back with page content.
-model BillingPlan {
-  id                 String   @id @default(cuid())
-  storeId            String
-  store              Store    @relation(fields: [storeId], references: [id])
-  kind               String
-  productSlug        String
-  name               String
-  priceCents         Int
-  currency           String   @default("EUR")
-  installations      Int      @default(1)
-  creemTestProductId String?  @unique
-  creemLiveProductId String?  @unique
-  enabled            Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@index([storeId, kind, productSlug])
+/// A kind of product (theme, extension, CMS, starter kit …). Managed in the
+/// panel and shared by every store; code never names one.
+model ProductType {
+  id          String    @id @default(cuid())
+  /// Stable handle used in URLs filters and catalogue markers (`type=<key>`).
+  key         String    @unique
+  name        String
+  pluralName  String
+  description String?
+  /// Public listing page for this type, e.g. "/themes"; empty = /products?type=<key>.
+  listPath    String?
+  position    Int       @default(0)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
+/// Anything the catalogue shows and sells. Owned by one store (its panel and
+/// media library) and listed in any number of stores (ProductStore).
+model Product {
+  id            String           @id @default(cuid())
+  storeId       String
+  store         Store            @relation(fields: [storeId], references: [id])
+  typeId        String
+  type          ProductType      @relation(fields: [typeId], references: [id])
+  /// Public URL /products/<slug>; unique across stores because a product can be listed in several.
+  slug          String           @unique
+  name          String
+  summary       String
+  /// Tiptap HTML output.
+  description   String
+  /// concept | planning | in-development | published
+  status        String           @default("concept")
+  /// Card kicker such as an industry; empty = the type name.
+  category      String?
+  /// Stacks and versions it targets, e.g. ["TYPO3 13", "TYPO3 14"] or ["Next.js", "PostgreSQL"].
+  technologies  String[]         @default([])
+  /// Indicative whole-unit price shown before real prices exist: 0 = free, null = not set.
+  listPrice     Int?
+  compliance    Json             @default("{}")
+  /// Detail page hero kicker; empty = category.
+  tagline       String?
+  /// Detail page hero paragraph; empty = summary.
+  intro         String?
+  /// Short lines listed under the buy panel.
+  highlights    String[]         @default([])
+  /// Compatibility tab rows: [{ area, target, status }].
+  compatibility Json             @default("[]")
+  /// Primary buy panel button when nothing can be bought yet; empty = "Ask about <name>".
+  ctaLabel      String?
+  ctaUrl        String?
+  demoUrl       String?
+  coverId       String?
+  cover         MediaAsset?      @relation("ProductCover", fields: [coverId], references: [id], onDelete: SetNull)
+  gallery       ProductGallery[]
+  listings      ProductStore[]
+  prices        Price[]
+  releases      ProductRelease[]
+  changelog     ChangelogEntry[]
+  reviews       ProductReview[]
+  orders        Order[]
+  subscriptions Subscription[]
+  entitlements  Entitlement[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([storeId, status])
+  @@index([typeId])
+}
+
+/// A store a product is listed in, with its order on that store's catalogue.
+model ProductStore {
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@id([productId, storeId])
+  @@index([storeId, position])
+}
+
+model ProductGallery {
+  id        String     @id @default(cuid())
+  productId String
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  position  Int        @default(0)
+
+  @@unique([productId, assetId])
+  @@index([productId, position])
+}
+
+/// A private ZIP package of one product version (UploadThing private ACL).
+model ProductRelease {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  version     String
+  fileKey     String   @unique
+  fileName    String
+  codeLicense String
+  createdAt   DateTime @default(now())
+
+  @@unique([productId, version])
+}
+
+/// One way to buy a product in one store. Maps 1:1 to a Creem product, which
+/// carries exactly one price, currency and billing period.
+model Price {
+  id                 String            @id @default(cuid())
+  productId          String
+  product            Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId            String
+  store              Store             @relation(fields: [storeId], references: [id])
+  /// Buy panel label, e.g. "Single site", "Agency".
+  name               String
+  /// onetime | recurring (Creem billing_type)
+  billingType        String
+  /// month | quarter | half-year | year; recurring only (Creem billing_period every-…)
+  interval           String?
+  amountCents        Int
+  currency           String            @default("EUR")
+  /// inclusive | exclusive (Creem tax_mode)
+  taxMode            String            @default("inclusive")
+  /// One-time purchases: months of new releases included; null = lifetime. Ignored for subscriptions.
+  updatesMonths      Int?
+  /// Installations (or seats) covered by support and licence keys.
+  seats              Int               @default(1)
+  /// Bullet lines shown with the price.
+  features           String[]          @default([])
+  creemTestProductId String?           @unique
+  creemLiveProductId String?           @unique
+  /// Disabled prices are shown as indicative concept prices and cannot be bought.
+  enabled            Boolean           @default(false)
+  position           Int               @default(0)
+  checkouts          CheckoutAttempt[]
+  orders             Order[]
+  subscriptions      Subscription[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([productId, storeId, position])
+  @@index([storeId])
+}
+
+/// A buyer as Creem knows them, per store and payment mode. Survives the
+/// deletion of the user account, so financial history stays intact.
+model Customer {
+  id              String         @id @default(cuid())
+  storeId         String
+  store           Store          @relation(fields: [storeId], references: [id])
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// test | prod
+  mode            String
+  creemCustomerId String
+  email           String
+  name            String?
+  country         String?
+  orders          Order[]
+  subscriptions   Subscription[]
+  entitlements    Entitlement[]
+  transactions    Transaction[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([storeId, creemCustomerId])
+  @@index([storeId, userId, mode])
+  @@index([storeId, email])
+}
+
+/// The consent and intent recorded before redirecting to Creem; the webhook matches it back.
 model CheckoutAttempt {
   id             String   @id @default(cuid())
   userId         String
-  planId         String
+  storeId        String
+  priceId        String
+  price          Price    @relation(fields: [priceId], references: [id], onDelete: Cascade)
   creemProductId String
   mode           String
   termsVersion   String
@@ -514,36 +562,152 @@ model CheckoutAttempt {
   @@index([userId, createdAt])
 }
 
-model ProductSubscription {
-  id                  String   @id @default(cuid())
-  userId              String
-  planId              String
-  creemSubscriptionId String   @unique
-  creemCustomerId     String
+/// A completed Creem checkout: a one-time purchase or the first payment of a subscription.
+model Order {
+  id                String        @id @default(cuid())
+  storeId           String
+  store             Store         @relation(fields: [storeId], references: [id])
+  customerId        String
+  customer          Customer      @relation(fields: [customerId], references: [id])
+  productId         String
+  product           Product       @relation(fields: [productId], references: [id])
+  priceId           String
+  price             Price         @relation(fields: [priceId], references: [id])
+  checkoutAttemptId String?       @unique
+  creemOrderId      String        @unique
+  creemCheckoutId   String?
+  mode              String
+  /// onetime | recurring
+  type              String
+  /// paid | refunded | partially_refunded | disputed
+  status            String
+  amountCents       Int
+  currency          String
+  subscriptionId    String?
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  entitlement       Entitlement?
+  transactions      Transaction[]
+  /// When Creem created the order.
+  placedAt          DateTime
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([storeId, placedAt])
+  @@index([customerId])
+}
+
+/// A Creem subscription, reconciled from its API on every webhook.
+model Subscription {
+  id                  String        @id @default(cuid())
+  storeId             String
+  store               Store         @relation(fields: [storeId], references: [id])
+  customerId          String
+  customer            Customer      @relation(fields: [customerId], references: [id])
+  productId           String
+  product             Product       @relation(fields: [productId], references: [id])
+  priceId             String
+  price               Price         @relation(fields: [priceId], references: [id])
+  creemSubscriptionId String        @unique
   mode                String
+  /// Creem status (active, scheduled_cancel, canceled, expired, past_due, unpaid, paused, trialing)
+  /// or the local refunded / disputed.
   status              String
   currentPeriodStart  DateTime
   currentPeriodEnd    DateTime
+  canceledAt          DateTime?
   providerUpdatedAt   DateTime
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  orders              Order[]
+  entitlement         Entitlement?
+  transactions        Transaction[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
-  @@index([userId, mode])
+  @@index([storeId, status])
+  @@index([customerId])
 }
 
-model ProductRelease {
-  id          String   @id @default(cuid())
-  storeId     String
-  store       Store    @relation(fields: [storeId], references: [id])
-  kind        String
-  productSlug String
-  version     String
-  fileKey     String   @unique
-  fileName    String
-  codeLicense String
-  createdAt   DateTime @default(now())
+/// What a customer may download: granted by an order or a subscription. The
+/// single rule for downloads: not revoked, and the release came out on or
+/// before updatesUntil (null = lifetime).
+model Entitlement {
+  id             String        @id @default(cuid())
+  storeId        String
+  store          Store         @relation(fields: [storeId], references: [id])
+  customerId     String
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  productId      String
+  product        Product       @relation(fields: [productId], references: [id])
+  orderId        String?       @unique
+  order          Order?        @relation(fields: [orderId], references: [id])
+  subscriptionId String?       @unique
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  updatesUntil   DateTime?
+  seats          Int           @default(1)
+  revokedAt      DateTime?
+  /// refund | dispute | admin
+  revokeReason   String?
+  licenseKeys    LicenseKey[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  @@unique([storeId, kind, productSlug, version])
+  @@index([storeId, createdAt])
+  @@index([customerId])
+  @@index([productId])
+}
+
+/// A licence key Creem issued with an order (products with the licence key feature).
+model LicenseKey {
+  id              String      @id @default(cuid())
+  entitlementId   String
+  entitlement     Entitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  creemLicenseId  String      @unique
+  key             String
+  /// inactive | active | expired | disabled
+  status          String
+  activations     Int         @default(0)
+  activationLimit Int?
+  expiresAt       DateTime?
+  mode            String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([entitlementId])
+}
+
+/// A money movement Creem recorded (payment, renewal, refund); the panel's Invoices.
+/// Creem is the merchant of record and issues the invoice documents.
+model Transaction {
+  id                 String        @id @default(cuid())
+  storeId            String
+  store              Store         @relation(fields: [storeId], references: [id])
+  customerId         String
+  customer           Customer      @relation(fields: [customerId], references: [id])
+  orderId            String?
+  order              Order?        @relation(fields: [orderId], references: [id])
+  subscriptionId     String?
+  subscription       Subscription? @relation(fields: [subscriptionId], references: [id])
+  creemTransactionId String        @unique
+  mode               String
+  /// Creem transaction type, e.g. payment
+  type               String
+  status             String
+  amountCents        Int
+  amountPaidCents    Int?
+  taxCents           Int?
+  discountCents      Int?
+  refundedCents      Int?
+  currency           String
+  taxCountry         String?
+  description        String?
+  periodStart        DateTime?
+  periodEnd          DateTime?
+  /// When Creem created the transaction.
+  occurredAt         DateTime
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([storeId, occurredAt])
+  @@index([customerId])
 }
 
 model PaymentEvent {

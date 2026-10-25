@@ -5,7 +5,7 @@ import { useUploadThing } from "@/lib/uploadthing";
 import { optimizeAllForUpload } from "@/lib/webp";
 import { useUploadSettings } from "./upload-settings";
 
-export type MediaEndpoint = "themeMedia" | "extensionMedia" | "catalogContent" | "blogMedia";
+export type MediaEndpoint = "productMedia" | "catalogContent" | "blogMedia";
 export type MediaKind = "image" | "video";
 
 /** A file as it lands in the media library (MediaAsset). */

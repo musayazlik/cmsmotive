@@ -212,9 +212,9 @@ export function SiteFooter({ locale, t }: Omit<ChromeProps, "path">) {
           </div>
           {column("Products", [
             ["/themes", "Themes"],
-            ["/theme/nordform", "Nordform"],
-            ["/theme/foundation", "Foundation"],
-            ["/theme/campus", "Campus"],
+            ["/products/nordform", "Nordform"],
+            ["/products/foundation", "Foundation"],
+            ["/products/campus", "Campus"],
             ["/extensions", "Extensions"],
             ["/headless", "Headless"],
             ["/pricing", "Licensing"],

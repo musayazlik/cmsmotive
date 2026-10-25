@@ -355,7 +355,8 @@ const licenceSelect = document.querySelector('#licence-select');
 const licencePrice = document.querySelector('#licence-price');
 if (licenceSelect && licencePrice) {
   licenceSelect.addEventListener('change', () => {
-    licencePrice.textContent = `€${licenceSelect.value}`;
+    // Product pages format the amount in the store's currency (data-display); static pages use euros.
+    licencePrice.textContent = licenceSelect.selectedOptions[0]?.dataset.display ?? `€${licenceSelect.value}`;
   });
 }
 

@@ -36,14 +36,14 @@ const TOPICS: Topic[] = [
   },
   {
     keys: {
-      en: ["theme", "template", "design", "layout"],
-      de: ["theme", "vorlage", "design", "layout"],
-      tr: ["tema", "şablon", "tasarım", "düzen"],
+      en: ["product", "theme", "template", "catalogue", "catalog"],
+      de: ["produkt", "theme", "vorlage", "katalog"],
+      tr: ["ürün", "tema", "şablon", "katalog"],
     },
     reply: {
-      en: "Themes manages everything: install a new theme, browse its detail page and switch the active one. Customization happens on the theme page itself — no code needed.",
-      de: "Unter Themes verwaltest du alles: ein neues Theme anlegen, seine Detailseite ansehen und das aktive wechseln. Angepasst wird direkt auf der Theme-Seite — ganz ohne Code.",
-      tr: "Her şey Themes bölümünde: yeni bir tema ekle, detay sayfasına göz at ve etkin olanı değiştir. Özelleştirme tema sayfasının kendisinde yapılır — kod gerekmez.",
+      en: "Everything you sell lives under Products: the Catalogue lists every product with its content and media, Types defines the kinds (theme, extension, …), and each product's edit page has Pricing and Releases tabs.",
+      de: "Alles, was du verkaufst, findest du unter Products: Der Katalog listet jedes Produkt mit Inhalt und Medien, Types legt die Arten fest (Theme, Extension, …), und die Bearbeitungsseite jedes Produkts hat die Reiter Pricing und Releases.",
+      tr: "Sattığın her şey Products altında: Catalogue tüm ürünleri içeriği ve medyasıyla listeler, Types türleri tanımlar (tema, eklenti, …); her ürünün düzenleme sayfasında Pricing ve Releases sekmeleri vardır.",
     },
   },
   {
@@ -97,9 +97,9 @@ const TOPICS: Topic[] = [
 ];
 
 const FALLBACK: Record<Locale, string> = {
-  en: "I can help with posts, themes, media, users, reviews and the AI features. Which one would you like to explore? Anything beyond that, I'll point you to the contact form.",
-  de: "Ich helfe dir bei Beiträgen, Themes, Medien, Benutzern, Bewertungen und den KI-Funktionen. Womit möchtest du anfangen? Für alles Weitere verweise ich dich auf das Kontaktformular.",
-  tr: "Yazılar, temalar, medya, kullanıcılar, yorumlar ve yapay zekâ özellikleri konusunda yardımcı olabilirim. Hangisine bakmak istersin? Bunların dışındaki konular için seni iletişim formuna yönlendiririm.",
+  en: "I can help with products, posts, media, users, reviews and the AI features. Which one would you like to explore? Anything beyond that, I'll point you to the contact form.",
+  de: "Ich helfe dir bei Produkten, Beiträgen, Medien, Benutzern, Bewertungen und den KI-Funktionen. Womit möchtest du anfangen? Für alles Weitere verweise ich dich auf das Kontaktformular.",
+  tr: "Ürünler, yazılar, medya, kullanıcılar, yorumlar ve yapay zekâ özellikleri konusunda yardımcı olabilirim. Hangisine bakmak istersin? Bunların dışındaki konular için seni iletişim formuna yönlendiririm.",
 };
 
 /**
@@ -152,8 +152,8 @@ export type ChatCopy = {
 export const CHAT_COPY: Record<Locale, ChatCopy> = {
   en: {
     greeting: (firstName) =>
-      `Hi ${firstName}! 👋 I'm the CMSMotive assistant. Ask me about posts, themes, media, the AI tools — or anything else around the panel.`,
-    quickPrompts: ["Publishing a post", "What can the AI do?", "Switching themes"],
+      `Hi ${firstName}! 👋 I'm the CMSMotive assistant. Ask me about products, posts, media, the AI tools — or anything else around the panel.`,
+    quickPrompts: ["Publishing a post", "What can the AI do?", "Managing products"],
     cloudTitle: "Need a hand?",
     cloudText: "I can show you around the panel.",
     openChat: "Open the support chat",
@@ -173,8 +173,8 @@ export const CHAT_COPY: Record<Locale, ChatCopy> = {
   },
   de: {
     greeting: (firstName) =>
-      `Hallo ${firstName}! 👋 Ich bin der CMSMotive-Assistent. Frag mich zu Beiträgen, Themes, Medien, den KI-Werkzeugen — oder zu allem anderen rund ums Panel.`,
-    quickPrompts: ["Einen Beitrag veröffentlichen", "Was kann die KI?", "Themes wechseln"],
+      `Hallo ${firstName}! 👋 Ich bin der CMSMotive-Assistent. Frag mich zu Produkten, Beiträgen, Medien, den KI-Werkzeugen — oder zu allem anderen rund ums Panel.`,
+    quickPrompts: ["Einen Beitrag veröffentlichen", "Was kann die KI?", "Produkte verwalten"],
     cloudTitle: "Brauchst du Hilfe?",
     cloudText: "Ich zeige dir das Panel.",
     openChat: "Support-Chat öffnen",
@@ -194,8 +194,8 @@ export const CHAT_COPY: Record<Locale, ChatCopy> = {
   },
   tr: {
     greeting: (firstName) =>
-      `Merhaba ${firstName}! 👋 Ben CMSMotive asistanıyım. Bana yazılar, temalar, medya, yapay zekâ araçları — ya da panelle ilgili başka herhangi bir şey hakkında soru sorabilirsin.`,
-    quickPrompts: ["Yazı yayınlama", "Yapay zekâ neler yapabilir?", "Tema değiştirme"],
+      `Merhaba ${firstName}! 👋 Ben CMSMotive asistanıyım. Bana ürünler, yazılar, medya, yapay zekâ araçları — ya da panelle ilgili başka herhangi bir şey hakkında soru sorabilirsin.`,
+    quickPrompts: ["Yazı yayınlama", "Yapay zekâ neler yapabilir?", "Ürün yönetimi"],
     cloudTitle: "Yardım ister misin?",
     cloudText: "Sana paneli gezdirebilirim.",
     openChat: "Destek sohbetini aç",

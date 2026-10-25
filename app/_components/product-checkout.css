@@ -68,6 +68,19 @@
 .product-checkout .purchase-secure-note {
   color: var(--ink-muted, #5e666d);
 }
+.product-checkout .purchase-features {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+}
+.product-checkout .purchase-features li::before {
+  content: "✓";
+  margin-right: 8px;
+  color: var(--green, #1d7a4f);
+}
 .product-checkout .purchase-error {
   padding: 12px;
   border: 1px solid #e1a3a3;

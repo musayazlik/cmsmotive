@@ -26,11 +26,9 @@ const mediaSelect = {
   uploadedBy: { select: { id: true, name: true, email: true } },
   _count: {
     select: {
-      themeCovers: true,
-      extensionCovers: true,
+      productCovers: true,
       postCovers: true,
-      themeGallery: true,
-      extensionGallery: true,
+      productGallery: true,
     },
   },
 } as const;
@@ -44,11 +42,10 @@ function mapMedia(
     ...row,
     createdAt: iso(asset.createdAt),
     usage: {
-      themes: _count.themeCovers,
-      extensions: _count.extensionCovers,
-      posts: _count.postCovers,
-      gallery: _count.themeGallery + _count.extensionGallery,
-      // Placed inside post bodies / theme and extension descriptions.
+      productCovers: _count.productCovers,
+      postCovers: _count.postCovers,
+      gallery: _count.productGallery,
+      // Placed inside post bodies / product descriptions.
       embedded: embedded.get(asset.key) ?? NO_EMBEDS,
     },
   };

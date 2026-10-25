@@ -10,15 +10,16 @@ import { currentStoreId } from "@/lib/current-store";
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string }>;
+  searchParams: Promise<{ price?: string }>;
 }) {
   const [query, locale] = await Promise.all([searchParams, getRequestLocale()]);
-  const plan = await prisma.billingPlan.findFirst({
-    where: { id: query.plan ?? "", storeId: await currentStoreId(), enabled: true },
+  const price = await prisma.price.findFirst({
+    where: { id: query.price ?? "", storeId: await currentStoreId(), enabled: true },
+    select: { id: true, storeId: true, product: { select: { slug: true } } },
   });
-  if (!plan || (plan.kind !== "theme" && plan.kind !== "extension")) notFound();
-  const product = await loadProductPage(plan.storeId, plan.kind, plan.productSlug);
-  if (!product || !product.plans.some((p) => p.id === plan.id)) notFound();
+  if (!price) notFound();
+  const product = await loadProductPage(price.storeId, price.product.slug);
+  if (!product || !product.prices.some((p) => p.id === price.id)) notFound();
   return (
     <section className="wtable-card wsettings-section">
       <h1>{product.name}</h1>
@@ -31,13 +32,13 @@ export default async function CheckoutPage({
         )}
       </p>
       <ProductCheckoutForm
-        plans={product.plans}
+        prices={product.prices}
         locale={locale}
         termsVersion={product.checkout.termsVersion}
         ready={product.checkout.ready}
         testMode={product.checkout.mode === "test"}
-        returnPath={localizePath(`/${plan.kind}/${plan.productSlug}`, locale)}
-        initialPlanId={plan.id}
+        returnPath={localizePath(`/products/${product.slug}`, locale)}
+        initialPriceId={price.id}
       />
     </section>
   );

@@ -1,18 +1,12 @@
 /**
- * Every theme and extension accepts reviews on its detail page
- * (/theme/<slug>, /extension/<slug>). product.js sends the product type and
- * slug; the API resolves them to ProductReview.themeId / extensionId.
+ * Every product accepts reviews on its detail page (/products/<slug>).
+ * product.js sends the product slug; the API resolves it to the product
+ * listed in the request's store.
  */
-export const REVIEW_PRODUCT_TYPES = ["theme", "extension"] as const;
-export type ReviewProductType = (typeof REVIEW_PRODUCT_TYPES)[number];
-
-export function isReviewProductType(value: unknown): value is ReviewProductType {
-  return typeof value === "string" && (REVIEW_PRODUCT_TYPES as readonly string[]).includes(value);
-}
 
 /** Public detail page of a reviewed product. */
-export function productPath(type: ReviewProductType, slug: string) {
-  return `/${type}/${slug}`;
+export function productPath(slug: string) {
+  return `/products/${slug}`;
 }
 
 export const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;

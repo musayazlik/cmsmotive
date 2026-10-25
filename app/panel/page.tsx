@@ -180,11 +180,11 @@ export default async function PanelOverviewPage() {
         <section className="workspace-feature" aria-labelledby="feature-title">
           <div className="workspace-feature-copy">
             <span className="workspace-tag">
-              FEATURED THEME <i> / </i> IN DEVELOPMENT
+              FEATURED PRODUCT <i> / </i> IN DEVELOPMENT
             </span>
             <h2 id="feature-title">Nordform</h2>
             <p>Considered design foundations for ambitious TYPO3 projects.</p>
-            <Link href="/theme/nordform">
+            <Link href="/products/nordform">
               Explore the theme <span aria-hidden="true">↗</span>
             </Link>
           </div>
@@ -197,7 +197,7 @@ export default async function PanelOverviewPage() {
           </div>
           <div className="workspace-account-icon">✓</div>
           <h2 id="account-title">All set to build.</h2>
-          <p>Your account is active and you can manage users, themes and extensions from the workspace.</p>
+          <p>Your account is active and you can manage users, products and sales from the workspace.</p>
           <div className="workspace-account-email">
             <span>EMAIL ADDRESS</span>
             <strong>{session.email}</strong>
@@ -219,9 +219,9 @@ export default async function PanelOverviewPage() {
             <strong>Users</strong>
             <i aria-hidden="true">↗</i>
           </Link>
-          <Link href="/panel/themes">
+          <Link href="/panel/products">
             <span>02 / EDIT</span>
-            <strong>Themes</strong>
+            <strong>Products</strong>
             <i aria-hidden="true">↗</i>
           </Link>
           <Link href="/contact">

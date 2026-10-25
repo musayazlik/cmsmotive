@@ -17,19 +17,14 @@ const reviewSelect = {
   locale: true,
   moderatedAt: true,
   createdAt: true,
-  theme: { select: { id: true, name: true, slug: true } },
-  extension: { select: { id: true, name: true, slug: true } },
+  product: { select: { id: true, name: true, slug: true } },
 } as const;
 
 function mapReview(review: Prisma.ProductReviewGetPayload<{ select: typeof reviewSelect }>) {
-  const { theme, extension, ...row } = review;
+  const { product, ...row } = review;
   return {
     ...row,
-    product: theme
-      ? { type: "theme", ...theme }
-      : extension
-        ? { type: "extension", ...extension }
-        : null,
+    product,
     moderatedAt: iso(review.moderatedAt),
     createdAt: iso(review.createdAt),
   };
@@ -44,11 +39,8 @@ export function registerReviewTools(server: McpServer) {
         "List guest product reviews with status and product filters. Reviews are always created as pending by the public site; this tool moderates them.",
       inputSchema: {
         status: z.enum(REVIEW_STATUSES).optional(),
-        productType: z.enum(["theme", "extension"]).optional(),
-        productId: z
-          .string()
-          .optional()
-          .describe("Theme or extension id; omit with productType to filter by type only."),
+        productId: z.string().optional(),
+        typeKey: z.string().optional().describe("Filter by product type key, e.g. theme."),
         q: z.string().optional().describe("Search author, e-mail, product slug and body."),
         page: z.number().int().min(1).default(1),
         pageSize: z.union([z.literal(20), z.literal(50), z.literal(100)]).default(20),
@@ -57,20 +49,10 @@ export function registerReviewTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const productWhere: Prisma.ProductReviewWhereInput =
-          args.productType === "theme"
-            ? args.productId
-              ? { themeId: args.productId }
-              : { themeId: { not: null } }
-            : args.productType === "extension"
-              ? args.productId
-                ? { extensionId: args.productId }
-                : { extensionId: { not: null } }
-              : {};
-
         const where: Prisma.ProductReviewWhereInput = {
           storeId: mcpStoreId(),
-          ...productWhere,
+          ...(args.productId ? { productId: args.productId } : {}),
+          ...(args.typeKey ? { product: { type: { key: args.typeKey } } } : {}),
           ...(args.status ? { status: args.status } : {}),
           ...(args.q
             ? {

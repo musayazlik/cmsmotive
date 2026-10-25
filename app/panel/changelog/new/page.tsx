@@ -20,7 +20,7 @@ export default async function NewChangelogEntryPage({ searchParams }: { searchPa
           <h1>
             Add a <em>release note.</em>
           </h1>
-          <p>Choose the theme or extension first, then describe what changed. Each line gets a New, Improved or Fixed tag.</p>
+          <p>Choose the product first, then describe what changed. Each line gets a New, Improved or Fixed tag.</p>
         </div>
         <span className="workspace-index">CHANGELOG</span>
       </div>

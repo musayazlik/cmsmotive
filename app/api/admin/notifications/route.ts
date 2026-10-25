@@ -21,20 +21,19 @@ type Notification = {
  * Notifications are derived from live records rather than stored, so they
  * never go stale and no writer has to be wired up. Every item links to a
  * panel page that can act on it. Handled work (read/archived messages,
- * verified accounts, published themes) drops out of the counts on its own.
+ * verified accounts, published products) drops out of the counts on its own.
  */
 export async function GET() {
   const { failure } = await requireAdmin();
   if (failure) return failure;
   const storeId = (await panelStore()).id;
 
-  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions, pendingComments] = await Promise.all([
+  const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, roadmapProducts, pendingComments] = await Promise.all([
     getAdminAccessSettings(),
     prisma.user.count({ where: { emailVerified: false } }),
     prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null } }),
     prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null, emailSent: false } }),
-    prisma.theme.count({ where: { storeId, status: { in: ["concept", "in-development"] } } }),
-    prisma.extension.count({ where: { storeId, status: { in: ["concept", "planning", "in-development"] } } }),
+    prisma.product.count({ where: { storeId, status: { in: ["concept", "planning", "in-development"] } } }),
     prisma.postComment.count({ where: { post: { storeId }, status: "pending" } }),
   ]);
 
@@ -72,26 +71,14 @@ export async function GET() {
     });
   }
 
-  if (draftThemes > 0) {
+  if (roadmapProducts > 0) {
     items.push({
-      id: "themes-draft",
+      id: "products-roadmap",
       tone: "info",
-      title: `${draftThemes} theme${draftThemes === 1 ? "" : "s"} not published`,
-      detail: "Themes still in concept or development are hidden from the catalogue.",
-      href: "/panel/themes",
-      count: draftThemes,
-      actionable: false,
-    });
-  }
-
-  if (draftExtensions > 0) {
-    items.push({
-      id: "extensions-draft",
-      tone: "info",
-      title: `${draftExtensions} extension${draftExtensions === 1 ? "" : "s"} on the roadmap`,
-      detail: "Extensions in planning are shown as concept cards only.",
-      href: "/panel/extensions",
-      count: draftExtensions,
+      title: `${roadmapProducts} product${roadmapProducts === 1 ? "" : "s"} not published yet`,
+      detail: "Concepts and work in progress are shown as roadmap cards only.",
+      href: "/panel/products",
+      count: roadmapProducts,
       actionable: false,
     });
   }

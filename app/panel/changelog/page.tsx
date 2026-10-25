@@ -5,7 +5,7 @@ import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
-/** `?product=theme:<id>` (linked from a theme's edit page) opens the list filtered to that product. */
+/** `?product=<id>` (linked from a product's edit page) opens the list filtered to that product. */
 export default async function ChangelogPage({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
   await requirePanelUser();
   const storeId = (await panelStore()).id;
@@ -22,7 +22,7 @@ export default async function ChangelogPage({ searchParams }: { searchParams: Pr
             Every release, <em>on record.</em>
           </h1>
           <p>
-            Release notes for themes and extensions, the most recently added first. Each entry belongs to one
+            Release notes for the catalogue&apos;s products, the most recently added first. Each entry belongs to one
             product and shows up in the Changelog tab of its detail page, newest release on top.
           </p>
         </div>

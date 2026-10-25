@@ -55,7 +55,7 @@ async function MediaLibrary({ storeId }: { storeId: string }) {
         mimeType: true,
         createdAt: true,
         uploadedBy: { select: { name: true } },
-        _count: { select: { themeCovers: true, extensionCovers: true, postCovers: true, themeGallery: true, extensionGallery: true } },
+        _count: { select: { productCovers: true, postCovers: true, productGallery: true } },
       },
     }),
     // Images placed inside post bodies and descriptions have no relation; they are found by key.
@@ -66,7 +66,7 @@ async function MediaLibrary({ storeId }: { storeId: string }) {
     // One UploadThing bucket serves every store: files another store owns stay out of this library.
     Promise.all([
       prisma.mediaAsset.findMany({ where: { storeId: { not: storeId } }, select: { key: true } }),
-      prisma.productRelease.findMany({ where: { storeId: { not: storeId } }, select: { fileKey: true } }),
+      prisma.productRelease.findMany({ where: { product: { storeId: { not: storeId } } }, select: { fileKey: true } }),
     ]).then(([media, releases]) => new Set([...media.map((row) => row.key), ...releases.map((row) => row.fileKey)])),
   ]);
 
@@ -112,10 +112,9 @@ async function MediaLibrary({ storeId }: { storeId: string }) {
         status: file.status,
         source: asset ? "tracked" : "untracked",
         usage: {
-          themes: asset?._count.themeCovers ?? 0,
-          extensions: asset?._count.extensionCovers ?? 0,
+          products: asset?._count.productCovers ?? 0,
           posts: asset?._count.postCovers ?? 0,
-          gallery: (asset?._count.themeGallery ?? 0) + (asset?._count.extensionGallery ?? 0),
+          gallery: asset?._count.productGallery ?? 0,
           embedded: embedded.get(file.key) ?? NO_EMBEDS,
         },
         uploader: asset?.uploadedBy?.name ?? null,
@@ -136,10 +135,9 @@ async function MediaLibrary({ storeId }: { storeId: string }) {
       status: "Missing",
       source: "missing",
       usage: {
-        themes: asset._count.themeCovers,
-        extensions: asset._count.extensionCovers,
+        products: asset._count.productCovers,
         posts: asset._count.postCovers,
-        gallery: asset._count.themeGallery + asset._count.extensionGallery,
+        gallery: asset._count.productGallery,
         embedded: embedded.get(asset.key) ?? NO_EMBEDS,
       },
       uploader: asset.uploadedBy?.name ?? null,

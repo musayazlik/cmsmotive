@@ -378,7 +378,7 @@ export function registerAiTools(server: McpServer) {
     {
       title: "Generate or edit an image with AI",
       description:
-        "Create an image from a prompt, or edit an existing one (pass sourceMediaId or sourceImageUrl plus an instruction such as \"make the background dark\"). The result is stored in the media library; use the returned id as a post's coverId (blog_posts_update) or a theme/extension coverId. purpose \"cover\" and \"inline\" add the site's illustration style. Takes up to a minute.",
+        "Create an image from a prompt, or edit an existing one (pass sourceMediaId or sourceImageUrl plus an instruction such as \"make the background dark\"). The result is stored in the media library; use the returned id as a post's coverId (blog_posts_update) or a product coverId (products_update). purpose \"cover\" and \"inline\" add the site's illustration style. Takes up to a minute.",
       inputSchema: {
         prompt: z.string().min(3).max(2000).describe("What to draw, or for edits what to change."),
         purpose: z.enum(["cover", "inline", "free"]).default("cover"),

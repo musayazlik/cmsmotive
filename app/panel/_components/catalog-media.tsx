@@ -4,9 +4,14 @@ import { useState, type DragEvent } from "react";
 import { MAX_GALLERY } from "@/lib/catalog-guard";
 import MediaPicker from "./media-picker";
 import { useOptimizedUpload, type UploadedMedia } from "./use-optimized-upload";
-import type { UploadedImage } from "./catalog-record";
+/** An uploaded MediaAsset as the product form handles it. */
+export type UploadedImage = {
+  assetId: string;
+  url: string;
+  name: string;
+};
 
-type Endpoint = "themeMedia" | "extensionMedia";
+type Endpoint = "productMedia";
 
 const toImage = (item: UploadedMedia): UploadedImage => ({ assetId: item.assetId, url: item.url, name: item.name });
 

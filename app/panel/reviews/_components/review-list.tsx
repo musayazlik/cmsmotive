@@ -161,26 +161,21 @@ function ReviewDialog({
 }
 
 /**
- * Product filter options: one product type, every theme and extension, and
- * reviews whose product has since been deleted.
+ * Product filter options: every product of the store, plus reviews whose
+ * product has since been deleted.
  */
 function productOptions(rows: ReviewRow[], products: SelectOption[]): SelectOption[] {
   const removed = new Map<string, SelectOption>();
   for (const row of rows) {
-    if (row.productType === null) removed.set(row.productKey, { value: row.productKey, label: `Removed · ${row.productName}` });
+    if (row.productKey.startsWith("slug:")) removed.set(row.productKey, { value: row.productKey, label: `Removed · ${row.productName}` });
   }
-  return [
-    { value: "type:theme", label: "All themes" },
-    { value: "type:extension", label: "All extensions" },
-    ...products,
-    ...removed.values(),
-  ];
+  return [...products, ...removed.values()];
 }
 
 type Props = {
   rows: ReviewRow[];
   limit: number;
-  /** Every theme and extension, so the filter also offers products without reviews yet. */
+  /** Every product of the store, so the filter also offers products without reviews yet. */
   products: SelectOption[];
   initialProduct?: string;
 };
@@ -204,9 +199,7 @@ export default function ReviewList({ rows, limit, products, initialProduct = "" 
   const confirming = items.find((row) => row.id === confirmId) ?? null;
 
   const queryLower = query.trim().toLowerCase();
-  const matchesProduct = (row: ReviewRow) =>
-    !product ||
-    (product === "type:theme" ? row.productType === "theme" : product === "type:extension" ? row.productType === "extension" : row.productKey === product);
+  const matchesProduct = (row: ReviewRow) => !product || row.productKey === product;
   const visible = items.filter((row) => {
     if (row.status !== tab || !matchesProduct(row)) return false;
     if (!queryLower) return true;
@@ -340,7 +333,6 @@ export default function ReviewList({ rows, limit, products, initialProduct = "" 
                     </td>
                     <td>
                       <strong>{row.productName}</strong>
-                      <small className="wreview-type">{row.productType === "extension" ? "Extension" : row.productType === "theme" ? "Theme" : "Removed product"}</small>
                       <small className="winbox-project">
                         <Stars rating={row.rating} />
                       </small>

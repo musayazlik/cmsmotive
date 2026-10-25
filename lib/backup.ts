@@ -11,6 +11,9 @@ export async function readBackup(tx: Prisma.TransactionClient) {
     createdAt: new Date().toISOString(),
     users: await tx.user.findMany({ select: { id: true, email: true } }),
     data: {
+      stores: await tx.store.findMany(),
+      storeDomains: await tx.storeDomain.findMany(),
+      storeSettings: await tx.storeSetting.findMany(),
       themes: await tx.theme.findMany(),
       extensions: await tx.extension.findMany(),
       themeGallery: await tx.themeGallery.findMany(),
@@ -26,7 +29,7 @@ export async function readBackup(tx: Prisma.TransactionClient) {
       inquiries: await tx.contactInquiry.findMany(),
       subscribers: await tx.newsletterSubscriber.findMany(),
       pageViews: await tx.pageViewDaily.findMany(),
-      settings: await tx.setting.findMany(),
+      settings: await tx.setting.findMany({ where: { key: { startsWith: "security." } } }),
     },
   };
 }
@@ -56,7 +59,16 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
     const user = mapped.get(source);
     return user && (user.role === "admin" || user.role === "superadmin") ? user.id : null;
   };
-  const settings = d.settings.filter((row) => row.key !== "telegram.pairing").map((row) => {
+  // Stores are matched by key, so a backup restores onto another installation's stores too.
+  const storeIds = new Map<string, string>();
+  for (const { id, createdAt: _createdAt, updatedAt: _updatedAt, ...store } of d.stores) {
+    const row = await tx.store.upsert({ where: { key: store.key }, create: store, update: store, select: { id: true } });
+    storeIds.set(id, row.id);
+  }
+  const storeId = (source: string) => storeIds.get(source)!;
+  const owned = <T extends { storeId: string }>(rows: T[]) => rows.map((row) => ({ ...row, storeId: storeId(row.storeId) }));
+
+  const storeSettings = owned(d.storeSettings).filter((row) => row.key !== "telegram.pairing").map((row) => {
     if (row.key === "mcp.actor.userId") {
       const actor = adminId(row.value);
       // An unmapped explicit actor must not silently fall back to another administrator.
@@ -74,9 +86,9 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
     }
     return row;
   });
-  const sourceActor = d.settings.find((row) => row.key === "mcp.actor.userId")?.value;
-  if (sourceActor && !adminId(sourceActor)) {
-    const enabled = settings.find((row) => row.key === "mcp.http.enabled");
+  for (const source of d.storeSettings.filter((row) => row.key === "mcp.actor.userId")) {
+    if (!source.value || adminId(source.value)) continue;
+    const enabled = storeSettings.find((row) => row.storeId === storeId(source.storeId) && row.key === "mcp.http.enabled");
     if (enabled) enabled.value = "false";
   }
 
@@ -96,17 +108,21 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   await tx.contactInquiry.deleteMany();
   // Consent and withdrawals are not replaceable content. Never delete them during a restore.
   await tx.pageViewDaily.deleteMany();
-  await tx.setting.deleteMany();
+  await tx.setting.deleteMany({ where: { key: { startsWith: "security." } } });
+  await tx.storeSetting.deleteMany({ where: { storeId: { in: [...storeIds.values()] } } });
+  // Domains are replaced only for the stores the backup carries; other stores keep theirs.
+  await tx.storeDomain.deleteMany({ where: { storeId: { in: [...storeIds.values()] } } });
 
-  await insert(d.media.map((row) => ({ ...row, uploadedById: userId(row.uploadedById) })), (data) => tx.mediaAsset.createMany({ data }));
-  await insert(d.categories, (data) => tx.category.createMany({ data }));
-  await insert(d.tags, (data) => tx.tag.createMany({ data }));
-  await insert(d.themes.map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility), licences: json(row.licences) })), (data) => tx.theme.createMany({ data }));
-  await insert(d.extensions.map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility) })), (data) => tx.extension.createMany({ data }));
+  await insert(d.storeDomains.map((row) => ({ ...row, storeId: storeId(row.storeId) })), (data) => tx.storeDomain.createMany({ data }));
+  await insert(owned(d.media).map((row) => ({ ...row, uploadedById: userId(row.uploadedById) })), (data) => tx.mediaAsset.createMany({ data }));
+  await insert(owned(d.categories), (data) => tx.category.createMany({ data }));
+  await insert(owned(d.tags), (data) => tx.tag.createMany({ data }));
+  await insert(owned(d.themes).map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility), licences: json(row.licences) })), (data) => tx.theme.createMany({ data }));
+  await insert(owned(d.extensions).map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility) })), (data) => tx.extension.createMany({ data }));
   await insert(d.themeGallery, (data) => tx.themeGallery.createMany({ data }));
   await insert(d.extensionGallery, (data) => tx.extensionGallery.createMany({ data }));
   await insert(d.changelog.map((row) => ({ ...row, changes: json(row.changes) })), (data) => tx.changelogEntry.createMany({ data }));
-  await insert(d.posts.map((row) => ({ ...row, authorId: userId(row.authorId) })), (data) => tx.post.createMany({ data }));
+  await insert(owned(d.posts).map((row) => ({ ...row, authorId: userId(row.authorId) })), (data) => tx.post.createMany({ data }));
   await insert(d.postTags, (data) => tx.postTag.createMany({ data }));
   // Insert replies without parents first; a second pass reconnects them in any source order.
   await insert(d.comments.map((row) => ({
@@ -116,17 +132,18 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   for (const row of d.comments) {
     if (row.parentId) await tx.postComment.update({ where: { id: row.id }, data: { parentId: row.parentId } });
   }
-  await insert(d.reviews, (data) => tx.productReview.createMany({ data }));
-  await insert(d.inquiries, (data) => tx.contactInquiry.createMany({ data }));
-  for (const row of d.subscribers) {
+  await insert(owned(d.reviews), (data) => tx.productReview.createMany({ data }));
+  await insert(owned(d.inquiries), (data) => tx.contactInquiry.createMany({ data }));
+  for (const row of owned(d.subscribers)) {
     await tx.newsletterSubscriber.upsert({
-      where: { email_source: { email: row.email.toLowerCase(), source: row.source } },
+      where: { storeId_email_source: { storeId: row.storeId, email: row.email.toLowerCase(), source: row.source } },
       update: {},
       create: { ...row, email: row.email.toLowerCase(), confirmedAt: null, confirmationTokenHash: null, confirmationExpiresAt: null, unsubscribeTokenHash: null },
     });
   }
-  await insert(d.pageViews, (data) => tx.pageViewDaily.createMany({ data }));
-  await insert(settings, (data) => tx.setting.createMany({ data }));
+  await insert(owned(d.pageViews), (data) => tx.pageViewDaily.createMany({ data }));
+  await insert(d.settings, (data) => tx.setting.createMany({ data }));
+  await insert(storeSettings, (data) => tx.storeSetting.createMany({ data }));
 }
 
 export async function importBackup(backup: Backup) {

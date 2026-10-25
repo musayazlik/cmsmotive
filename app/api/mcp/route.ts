@@ -1,6 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { getMcpServerName, verifyMcpToken } from "@/lib/mcp-settings";
-import { resolveMcpActor } from "@/mcp/context";
+import { resolveMcpActor, runInStore } from "@/mcp/context";
 import { createCmsMcpServer } from "@/mcp/create-server";
 
 export const runtime = "nodejs";
@@ -40,16 +40,17 @@ export async function POST(request: Request): Promise<Response> {
   const provided = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
 
   const check = await verifyMcpToken(provided);
-  if (check === "disabled") {
+  if (check.result === "disabled") {
     return errorResponse("The MCP HTTP endpoint is disabled. Turn it on under Settings → MCP.", 503);
   }
-  if (check === "no-token") {
+  if (check.result === "no-token") {
     return errorResponse("No MCP access token has been issued. Create one under Settings → MCP.", 503);
   }
-  if (check === "invalid") return errorResponse("Unauthorized.", 401);
+  if (check.result !== "ok") return errorResponse("Unauthorized.", 401);
+  const { storeId } = check;
 
   try {
-    await resolveMcpActor();
+    await runInStore(storeId, resolveMcpActor);
   } catch (error) {
     return errorResponse(
       error instanceof Error ? error.message : "The MCP user could not be resolved.",
@@ -57,14 +58,15 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const server = createCmsMcpServer(await getMcpServerName());
+  // Every tool of this request works on the token's store.
+  const server = createCmsMcpServer(await getMcpServerName(storeId));
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
   await server.connect(transport);
 
-  const response = await transport.handleRequest(request);
+  const response = await runInStore(storeId, () => transport.handleRequest(request));
   return withCors(response);
 }
 

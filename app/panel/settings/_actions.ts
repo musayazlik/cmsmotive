@@ -24,7 +24,6 @@ import {
   saveSiteSettings,
   saveUploadSettings,
 } from "@/lib/settings";
-import { siteOrigin } from "@/lib/seo";
 import { validateSeoSettings } from "@/lib/seo-settings-shared";
 import { validateSiteSettings } from "@/lib/site-settings-shared";
 import {
@@ -41,6 +40,7 @@ import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared
 import type { ActionResult } from "@/app/panel/media/_lib";
 import { saveLegalSettings } from "@/lib/legal";
 import { validateLegalSettings } from "@/lib/legal-settings-shared";
+import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
 
 const FORBIDDEN = "You are not allowed to perform this action.";
 
@@ -69,12 +69,12 @@ export async function saveAdminAccessSettingsAction(input: Record<string, unknow
   }
 }
 
-/** Shared body of the JSON-group save actions: admin check, validation, write. */
+/** Shared body of the JSON-group save actions: admin check, validation, write to the panel's store. */
 async function saveGroup<T>(
   name: string,
   input: Record<string, unknown>,
   validate: (input: Record<string, unknown>) => { error: string } | { data: T },
-  save: (data: T) => Promise<void>,
+  save: (storeId: string, data: T) => Promise<void>,
 ): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: FORBIDDEN };
@@ -83,7 +83,7 @@ async function saveGroup<T>(
   if ("error" in parsed) return { ok: false, error: parsed.error };
 
   try {
-    await save(parsed.data);
+    await save((await panelStore()).id, parsed.data);
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {
@@ -129,7 +129,7 @@ export async function sendTestEmailAction(): Promise<{ ok: true; to: string } | 
   if (!isPlunkConfigured()) return { ok: false, error: "Set PLUNK_SECRET_KEY and PLUNK_FROM_EMAIL first." };
 
   try {
-    return { ok: true, to: await sendTestEmail() };
+    return { ok: true, to: await sendTestEmail((await panelStore()).id) };
   } catch (error) {
     console.error("sendTestEmailAction failed", error);
     return { ok: false, error: error instanceof Error ? error.message : "The test e-mail could not be sent." };
@@ -153,7 +153,7 @@ export async function saveUploadSettingsAction(
   }
 
   try {
-    await saveUploadSettings({ convertWebp, webpQuality });
+    await saveUploadSettings((await panelStore()).id, { convertWebp, webpQuality });
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {
@@ -181,7 +181,7 @@ export async function saveMcpAccessAction(
   }
 
   try {
-    await saveMcpAccess({ name: serverName, httpEnabled, actorUserId });
+    await saveMcpAccess((await panelStore()).id, { name: serverName, httpEnabled, actorUserId });
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {
@@ -196,7 +196,7 @@ export async function issueMcpTokenAction(): Promise<{ ok: true; token: string }
   if (failure) return { ok: false, error: FORBIDDEN };
 
   try {
-    const token = await issueMcpToken();
+    const token = await issueMcpToken((await panelStore()).id);
     revalidatePath("/panel/settings");
     return { ok: true, token };
   } catch (error) {
@@ -210,7 +210,7 @@ export async function revokeMcpTokenAction(): Promise<ActionResult> {
   if (failure) return { ok: false, error: FORBIDDEN };
 
   try {
-    await revokeMcpToken();
+    await revokeMcpToken((await panelStore()).id);
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {
@@ -237,8 +237,9 @@ export async function connectTelegramBotAction(
 
   try {
     const bot = await getMe(trimmed);
-    const origin = await siteOrigin();
-    const secret = await saveTelegramBot({ token: trimmed, username: bot.username ?? String(bot.id), origin });
+    // The bot belongs to the store being edited; its webhook and reply links use that store's domain.
+    const origin = await panelStoreOrigin();
+    const secret = await saveTelegramBot((await panelStore()).id, { token: trimmed, username: bot.username ?? String(bot.id), origin });
     const webhook = origin.startsWith("https://");
     if (webhook) {
       await telegram(trimmed, "setWebhook", {
@@ -262,9 +263,10 @@ export async function disconnectTelegramBotAction(): Promise<ActionResult> {
   if (failure) return { ok: false, error: FORBIDDEN };
 
   try {
-    const { token } = await getTelegramConfig();
+    const storeId = (await panelStore()).id;
+    const { token } = await getTelegramConfig(storeId);
     if (token) await telegram(token, "deleteWebhook").catch(() => undefined);
-    await clearTelegramBot();
+    await clearTelegramBot(storeId);
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {
@@ -284,7 +286,7 @@ export async function saveTelegramOptionsAction(input: Record<string, unknown>):
     return { ok: false, error: "Invalid Telegram settings." };
   }
   try {
-    await saveTelegramOptions({ enabled: input.enabled, model, contentModel, imageModel });
+    await saveTelegramOptions((await panelStore()).id, { enabled: input.enabled, model, contentModel, imageModel });
     revalidatePath("/panel/settings");
     return { ok: true };
   } catch (error) {
@@ -298,9 +300,10 @@ export async function createTelegramPairingAction(): Promise<{ ok: true; url: st
   const { session, failure } = await requireAdmin();
   if (failure) return { ok: false, error: FORBIDDEN };
 
-  const { username } = await getTelegramConfig();
+  const storeId = (await panelStore()).id;
+  const { username } = await getTelegramConfig(storeId);
   if (!username) return { ok: false, error: "Connect a bot first." };
-  const code = await createPairingCode(session.user.id);
+  const code = await createPairingCode(storeId, session.user.id);
   return { ok: true, code, url: `https://t.me/${username}?start=${code}` };
 }
 
@@ -309,7 +312,7 @@ export async function removeTelegramLinkAction(telegramUserId: number): Promise<
   if (failure) return { ok: false, error: FORBIDDEN };
   if (!Number.isSafeInteger(telegramUserId)) return { ok: false, error: "Invalid account." };
 
-  await removeTelegramLink(telegramUserId);
+  await removeTelegramLink((await panelStore()).id, telegramUserId);
   revalidatePath("/panel/settings");
   return { ok: true };
 }

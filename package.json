@@ -13,7 +13,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",
-    "db:seed:catalog": "tsx prisma/seed-catalog.ts",
+    "db:seed:stores": "tsx prisma/seeds/index.ts",
     "mcp": "tsx mcp/stdio.ts",
     "telegram:poll": "tsx telegram/poll.ts",
     "typecheck": "tsc --noEmit",

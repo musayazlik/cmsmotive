@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendContactAckEmail, sendContactEmail } from "@/lib/plunk";
-import { getEmailSettings } from "@/lib/settings";
+import { getEmailSettings, getSiteSettings } from "@/lib/settings";
+import { currentStoreId } from "@/lib/current-store";
 
 export const runtime = "nodejs";
 
@@ -24,23 +25,25 @@ export async function POST(request: Request) {
     return Response.json({ error: "Please check the form fields." }, { status: 400 });
   }
 
-  const inquiry = await prisma.contactInquiry.create({ data });
+  const storeId = await currentStoreId();
+  const inquiry = await prisma.contactInquiry.create({ data: { ...data, storeId } });
   // The auto-reply is a courtesy (switched in Settings → Email): if it fails,
   // the submission still proceeds normally and only the log records it.
-  if ((await getEmailSettings()).contactAutoReply) {
+  if ((await getEmailSettings(storeId)).contactAutoReply) {
     try {
-      await sendContactAckEmail({ to: data.email, name: data.name, agency: data.agency, message: data.message });
+      await sendContactAckEmail(storeId, { to: data.email, name: data.name, agency: data.agency, message: data.message });
     } catch (error) {
       console.error("contact: acknowledgement email failed", error);
     }
   }
   try {
-    await sendContactEmail(data);
+    await sendContactEmail(storeId, data);
     await prisma.contactInquiry.update({ where: { id: inquiry.id }, data: { emailSent: true } });
     return Response.json({ ok: true });
   } catch (error) {
     // The row is already saved; the inbox shows it with a failed-mail badge.
     console.error("contact: notification email failed", error);
-    return Response.json({ error: "Your message was saved, but email delivery failed. Please email info@cmsmotive.de directly." }, { status: 502 });
+    const { contactEmail } = await getSiteSettings(storeId);
+    return Response.json({ error: `Your message was saved, but email delivery failed.${contactEmail ? ` Please email ${contactEmail} directly.` : ""}` }, { status: 502 });
   }
 }

@@ -12,6 +12,7 @@ import {
   type AiGenerateRequest,
   type AiGenerateResult,
 } from "@/app/panel/blog/_ai";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -60,7 +61,7 @@ function parseRequest(body: Record<string, unknown>): AiGenerateRequest | string
 }
 
 /** Turns a generated data URL into a tracked MediaAsset. */
-async function storeAiImage(userId: string, dataUrl: string, baseName: string): Promise<{ assetId: string; url: string; name: string }> {
+async function storeAiImage(storeId: string, userId: string, dataUrl: string, baseName: string): Promise<{ assetId: string; url: string; name: string }> {
   const mime = dataUrl.match(/^data:([^;]+);/)?.[1] ?? "image/png";
   const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
   const buffer = Buffer.from(base64, "base64");
@@ -71,6 +72,7 @@ async function storeAiImage(userId: string, dataUrl: string, baseName: string): 
 
   const asset = await prisma.mediaAsset.create({
     data: {
+      storeId,
       key: upload.data.key,
       url: upload.data.ufsUrl,
       fileName: upload.data.name,
@@ -87,6 +89,7 @@ async function storeAiImage(userId: string, dataUrl: string, baseName: string): 
 export async function POST(request: Request) {
   const { session, failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   if (!isOpenRouterConfigured()) {
     return Response.json(
@@ -111,7 +114,7 @@ export async function POST(request: Request) {
   let imagePromptCandidates: string[] = [];
 
   try {
-    const { researchModel, inlineCitations } = await getAiSettings();
+    const { researchModel, inlineCitations } = await getAiSettings(storeId);
     const written = await writePost({ ...request_, researchModel, inlineCitations }, request.signal);
     request.signal.throwIfAborted();
     imagePromptCandidates = written.imagePrompts;
@@ -150,7 +153,7 @@ export async function POST(request: Request) {
           signal: request.signal,
         });
         request.signal.throwIfAborted();
-        const stored = await storeAiImage(session.user.id, dataUrl, `${base}-inline-${index + 1}`);
+        const stored = await storeAiImage(storeId, session.user.id, dataUrl, `${base}-inline-${index + 1}`);
         images.push({ url: stored.url, alt: description });
       }
       result.content = insertInlineImages(result.content, images);
@@ -178,7 +181,7 @@ export async function POST(request: Request) {
         signal: request.signal,
       });
       request.signal.throwIfAborted();
-      const stored = await storeAiImage(session.user.id, dataUrl, `${slugify(result.title ?? request_.topic).slice(0, 40) || "ai-cover"}`);
+      const stored = await storeAiImage(storeId, session.user.id, dataUrl, `${slugify(result.title ?? request_.topic).slice(0, 40) || "ai-cover"}`);
       result.cover = stored;
     } catch (error) {
       if (request.signal.aborted) return new Response(null, { status: 499 });

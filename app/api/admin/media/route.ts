@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ const PAGE_SIZE = 36;
 export async function GET(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   const params = new URL(request.url).searchParams;
   const kind = params.get("kind") === "video" ? "video" : "image";
@@ -19,6 +21,7 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(params.get("page")) || 1);
 
   const where = {
+    storeId,
     mimeType: { startsWith: `${kind}/` },
     ...(q
       ? {

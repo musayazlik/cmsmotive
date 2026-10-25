@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { isReviewStatus, productPath } from "@/lib/reviews";
 import ReviewList from "./_components/review-list";
 import type { ReviewRow } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +15,17 @@ const productSelect = { select: { id: true, name: true, slug: true } } as const;
 /** `?product=theme:<id>` (linked from a theme's edit page) opens the list filtered to that product. */
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ product?: string }> }) {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const { product } = await searchParams;
   const [reviews, themes, extensions] = await Promise.all([
     prisma.productReview.findMany({
+      where: { storeId },
       orderBy: { createdAt: "desc" },
       take: REVIEW_LIMIT,
       include: { theme: productSelect, extension: productSelect },
     }),
-    prisma.theme.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    prisma.extension.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.theme.findMany({ where: { storeId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.extension.findMany({ where: { storeId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const products = [
     ...themes.map((theme) => ({ value: `theme:${theme.id}`, label: `Theme · ${theme.name}` })),

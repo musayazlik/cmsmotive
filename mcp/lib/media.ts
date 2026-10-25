@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { utapi } from "@/lib/utapi";
 import { ToolError } from "./result";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * Media library operations. The panel uploads through UploadThing from the
@@ -76,6 +77,7 @@ export async function uploadMediaRecord(
 
   const asset = await prisma.mediaAsset.create({
     data: {
+      storeId: mcpStoreId(),
       key: upload.data.key,
       url: upload.data.ufsUrl,
       fileName: upload.data.name,
@@ -104,7 +106,7 @@ export async function updateMediaRecord(
   id: string,
   input: { alt?: string | null },
 ) {
-  const existing = await prisma.mediaAsset.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.mediaAsset.findFirst({ where: { id, storeId: mcpStoreId() }, select: { id: true } });
   if (!existing) throw new ToolError("Media asset not found.");
 
   const data: { alt?: string | null } = {};
@@ -139,9 +141,10 @@ export async function deleteMediaRecord(input: { id?: string; key?: string }) {
   let key = input.key?.trim() || undefined;
   let assetId: string | null = null;
 
+  const storeId = mcpStoreId();
   if (input.id) {
-    const asset = await prisma.mediaAsset.findUnique({
-      where: { id: input.id },
+    const asset = await prisma.mediaAsset.findFirst({
+      where: { id: input.id, storeId },
       select: { id: true, key: true },
     });
     if (!asset) throw new ToolError("Media asset not found.");
@@ -150,6 +153,10 @@ export async function deleteMediaRecord(input: { id?: string; key?: string }) {
   }
 
   if (!key) throw new ToolError("Provide either id or key.");
+  // One storage bucket serves every store: never delete a file another store owns.
+  if (await prisma.mediaAsset.findFirst({ where: { key, storeId: { not: storeId } }, select: { id: true } })) {
+    throw new ToolError("This file belongs to another store.");
+  }
 
   // The panel removes the storage object first so a failed database delete
   // leaves a stale row (which is easier to clean up) instead of a dangling file.
@@ -163,7 +170,7 @@ export async function deleteMediaRecord(input: { id?: string; key?: string }) {
   if (assetId) {
     await prisma.mediaAsset.delete({ where: { id: assetId } });
   } else {
-    await prisma.mediaAsset.deleteMany({ where: { key } });
+    await prisma.mediaAsset.deleteMany({ where: { key, storeId } });
   }
 
   return { id: assetId, key, deleted: true };

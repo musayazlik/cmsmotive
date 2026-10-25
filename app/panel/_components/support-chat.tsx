@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Locale } from "@/lib/i18n/config";
+import { assistantReply, CHAT_COPY } from "./support-chat-copy";
 
 /**
  * Floating support chat for the panel.
@@ -10,7 +12,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * with a soft chime (once per browser session). Clicking either the launcher
  * or the cloud opens an animated chat sheet with a small local assistant.
  *
- * The assistant answers from a canned keyword map below; wiring a real model
+ * The assistant answers from a canned keyword map (support-chat-copy.ts) in
+ * the system language chosen under Settings → General; wiring a real model
  * later only means calling an endpoint inside `assistantReply` and pushing its
  * text instead.
  */
@@ -23,59 +26,6 @@ const SESSION_SEEN_KEY = "cm-support-cloud-seen";
 
 const TYPING_MIN_MS = 900;
 const TYPING_EXTRA_MS = 500;
-
-const QUICK_PROMPTS = ["Publishing a post", "What can the AI do?", "Switching themes"] as const;
-
-/** Keyword-matched canned answers; the first match wins. */
-const CANNED_REPLIES: { keys: string[]; reply: string }[] = [
-  {
-    keys: ["post", "blog", "publish", "write", "article"],
-    reply:
-      "Posts live under Blog → Posts. Start a new post and the editor autosaves as a draft — you can also open Generate with AI to have the title, body, tags and cover image drafted for you before publishing.",
-  },
-  {
-    keys: ["ai", "assistant", "model", "generate"],
-    reply:
-      "The AI tools are under Blog → Generate with AI and Settings → AI. Pick your text and image models there, then drafts, covers, tags and even web research are one click away. Generated content is always saved as a draft first.",
-  },
-  {
-    keys: ["theme", "template", "design", "layout"],
-    reply:
-      "Themes manages everything: install a new theme, browse its detail page and switch the active one. Customization happens on the theme page itself — no code needed.",
-  },
-  {
-    keys: ["media", "image", "upload", "file", "photo"],
-    reply:
-      "The Media library keeps every upload in one place. Drag files straight onto the page or add them from any editor — surfaces are optimized automatically and reusable across posts and products.",
-  },
-  {
-    keys: ["review", "rating", "approve"],
-    reply:
-      "Customer reviews land in the Reviews screen. Approve or reject them one by one; the sidebar badge counts the ones still waiting for you.",
-  },
-  {
-    keys: ["user", "account", "password", "profile", "role"],
-    reply:
-      "Workspace members are managed under Users. Your own profile, email and password live under My account at the bottom of the sidebar.",
-  },
-  {
-    keys: ["inbox", "message", "contact", "telegram"],
-    reply:
-      "Contact messages arrive in the Inbox — unread ones are badges in the sidebar. Telegram is linked from Settings if you also want notifications and chats forwarded to the bot.",
-  },
-];
-
-const FALLBACK_REPLY =
-  "I can help with posts, themes, media, users, reviews and the AI features. Which one would you like to explore? Anything beyond that, I'll point you to the contact form.";
-
-/** Small keyword-based reply; replace the body with an API call to go live. */
-function assistantReply(text: string) {
-  const lower = text.toLowerCase();
-  for (const entry of CANNED_REPLIES) {
-    if (entry.keys.some((key) => lower.includes(key))) return entry.reply;
-  }
-  return FALLBACK_REPLY;
-}
 
 /**
  * WebAudio needs a user gesture before it may play. A first pointer/keydown
@@ -132,7 +82,8 @@ function useChimeOnce() {
   }, []);
 }
 
-export default function SupportChat({ firstName }: { firstName: string }) {
+export default function SupportChat({ firstName, language }: { firstName: string; language: Locale }) {
+  const copy = CHAT_COPY[language];
   const chime = useChimeOnce();
   const [cloud, setCloud] = useState<"waiting" | "shown" | "leaving" | "done">("waiting");
   const [sheet, setSheet] = useState<"closed" | "open" | "closing">("closed");
@@ -211,12 +162,12 @@ export default function SupportChat({ firstName }: { firstName: string }) {
         {
           id: nextId.current,
           from: "assistant",
-          text: `Hi ${firstName}! 👋 I'm the CMSMotive assistant. Ask me about posts, themes, media, the AI tools — or anything else around the panel.`,
+          text: copy.greeting(firstName),
         },
       ];
     });
     setSheet("open");
-  }, [clearAllTimers, cloud, firstName, markSeen]);
+  }, [clearAllTimers, cloud, copy, firstName, markSeen]);
 
   const closeSheet = useCallback(() => {
     setSheet((current) => (current === "open" ? "closing" : current));
@@ -264,10 +215,10 @@ export default function SupportChat({ firstName }: { firstName: string }) {
       // can never collide.
       nextId.current += 1;
       setPendingReplies((count) => count - 1);
-      setMessages((current) => [...current, { id: nextId.current, from: "assistant", text: assistantReply(trimmed) }]);
+      setMessages((current) => [...current, { id: nextId.current, from: "assistant", text: assistantReply(trimmed, language) }]);
     }, delay);
     timersRef.current.push(timer);
-  }, []);
+  }, [language]);
 
   return (
     <div className="wchat-dock">
@@ -279,7 +230,7 @@ export default function SupportChat({ firstName }: { firstName: string }) {
               className="wchat-cloud"
               role="button"
               tabIndex={0}
-              aria-label="Open the support chat"
+              aria-label={copy.openChat}
               onClick={openSheet}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -294,7 +245,7 @@ export default function SupportChat({ firstName }: { firstName: string }) {
               <button
                 type="button"
                 className="wchat-cloud-close"
-                aria-label="Dismiss the help bubble"
+                aria-label={copy.dismissCloud}
                 onClick={(event) => {
                   event.stopPropagation();
                   setCloud("leaving");
@@ -302,8 +253,8 @@ export default function SupportChat({ firstName }: { firstName: string }) {
               >
                 ×
               </button>
-              <strong>Need a hand?</strong>
-              <small>I can show you around the panel.</small>
+              <strong>{copy.cloudTitle}</strong>
+              <small>{copy.cloudText}</small>
               <span className="wchat-cloud-tail" aria-hidden="true" />
             </div>
           </div>
@@ -313,15 +264,15 @@ export default function SupportChat({ firstName }: { firstName: string }) {
       <section
         className={`wchat-sheet${sheet === "closing" ? " is-closing" : ""}`}
         role="dialog"
-        aria-label="Support chat"
+        aria-label={copy.dialog}
         style={sheet === "closed" ? { display: "none" } : undefined}
       >
         <header className="wchat-head">
           <div className="wchat-head-top">
             <span className="wchat-head-eyebrow" aria-hidden="true">
-              SUPPORT / ASSISTANT
+              {copy.eyebrow}
             </span>
-            <button type="button" className="wchat-close" aria-label="Close the chat" onClick={closeSheet}>
+            <button type="button" className="wchat-close" aria-label={copy.closeChat} onClick={closeSheet}>
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
@@ -332,9 +283,9 @@ export default function SupportChat({ firstName }: { firstName: string }) {
               ✦
             </span>
             <div>
-              <strong>CMSMotive Assistant</strong>
+              <strong>{copy.name}</strong>
               <span className="wchat-status">
-                <i className="wchat-status-dot" aria-hidden="true" /> Online — replies instantly
+                <i className="wchat-status-dot" aria-hidden="true" /> {copy.status}
               </span>
             </div>
           </div>
@@ -347,7 +298,7 @@ export default function SupportChat({ firstName }: { firstName: string }) {
             </div>
           ))}
           {pendingReplies > 0 ? (
-            <div className="wchat-msg wchat-msg-assistant" aria-label="The assistant is typing">
+            <div className="wchat-msg wchat-msg-assistant" aria-label={copy.typing}>
               <p className="wchat-typing">
                 <i />
                 <i />
@@ -359,8 +310,8 @@ export default function SupportChat({ firstName }: { firstName: string }) {
 
         <div className="wchat-foot">
           {messages.every((message) => message.from === "assistant") && messages.length < 3 ? (
-            <div className="wchat-chips" aria-label="Suggested questions">
-              {QUICK_PROMPTS.map((prompt) => (
+            <div className="wchat-chips" aria-label={copy.suggestions}>
+              {copy.quickPrompts.map((prompt) => (
                 <button key={prompt} type="button" onClick={() => send(prompt)}>
                   {prompt}
                 </button>
@@ -378,14 +329,14 @@ export default function SupportChat({ firstName }: { firstName: string }) {
               ref={inputRef}
               value={draft}
               maxLength={500}
-              placeholder="Type a message…"
-              aria-label="Message for the assistant"
+              placeholder={copy.placeholder}
+              aria-label={copy.messageLabel}
               onChange={(event) => setDraft(event.target.value)}
             />
             <button
               type="submit"
               className="wchat-send"
-              aria-label="Send the message"
+              aria-label={copy.send}
               disabled={draft.trim().length === 0 || pendingReplies > 3}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -400,7 +351,7 @@ export default function SupportChat({ firstName }: { firstName: string }) {
       <button
         type="button"
         className={`wchat-launch${sheet === "open" || sheet === "closing" ? " is-open" : ""}`}
-        aria-label={sheet === "open" ? "Close the support chat" : "Open the support chat"}
+        aria-label={sheet === "open" ? copy.launchClose : copy.launchOpen}
         aria-expanded={sheet === "open"}
         onClick={() => (sheet === "open" || sheet === "closing" ? closeSheet() : openSheet())}
       >

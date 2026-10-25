@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
 import { creemMode, creemRequest } from "@/lib/creem";
+import { panelStore } from "@/lib/panel-store";
 const schema = z.object({
   id: z.string().optional(),
   kind: z.enum(["theme", "extension"]),
@@ -22,6 +23,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return Response.json(
@@ -31,9 +33,9 @@ export async function POST(request: Request) {
   const { id, ...data } = parsed.data;
   const product =
     data.kind === "theme"
-      ? await prisma.theme.findUnique({ where: { slug: data.productSlug } })
+      ? await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug: data.productSlug } } })
       : await prisma.extension.findUnique({
-          where: { slug: data.productSlug },
+          where: { storeId_slug: { storeId, slug: data.productSlug } },
         });
   if (!product)
     return Response.json({ error: "Product not found." }, { status: 404 });
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
   }
   try {
     if (id) {
-      const current = await prisma.billingPlan.findUnique({ where: { id } });
+      const current = await prisma.billingPlan.findFirst({ where: { id, storeId } });
       if (!current)
         return Response.json({ error: "Plan not found." }, { status: 404 });
       if (
@@ -88,8 +90,8 @@ export async function POST(request: Request) {
           { error: "A plan cannot be moved to another product." },
           { status: 400 },
         );
-      await prisma.billingPlan.update({ where: { id }, data });
-    } else await prisma.billingPlan.create({ data });
+      await prisma.billingPlan.update({ where: { id, storeId }, data });
+    } else await prisma.billingPlan.create({ data: { ...data, storeId } });
     return Response.json({ ok: true });
   } catch {
     return Response.json(

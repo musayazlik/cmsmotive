@@ -28,10 +28,10 @@ export function readUnsubscribeToken(token: string): string | null {
     return null;
   }
 }
-/** Legacy, unconfirmed and withdrawn addresses must never be sent campaigns. */
-export function confirmedSubscribers(source: "footer" | "maintenance") {
+/** A store's confirmed list. Legacy, unconfirmed and withdrawn addresses must never be sent campaigns. */
+export function confirmedSubscribers(storeId: string, source: "footer" | "maintenance") {
   return prisma.newsletterSubscriber.findMany({
-    where: { source, confirmedAt: { not: null }, unsubscribedAt: null },
+    where: { storeId, source, confirmedAt: { not: null }, unsubscribedAt: null },
     select: {
       id: true,
       email: true,

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { panelHref } from "@/lib/admin-access-shared";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * Derived panel notifications, mirrored from GET /api/admin/notifications.
@@ -22,13 +23,13 @@ export async function listNotifications() {
     await Promise.all([
       getAdminAccessSettings(),
       prisma.user.count({ where: { emailVerified: false } }),
-      prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
+      prisma.contactInquiry.count({ where: { storeId: mcpStoreId(), readAt: null, archivedAt: null } }),
       prisma.contactInquiry.count({
-        where: { readAt: null, archivedAt: null, emailSent: false },
+        where: { storeId: mcpStoreId(), readAt: null, archivedAt: null, emailSent: false },
       }),
-      prisma.theme.count({ where: { status: { in: ["concept", "in-development"] } } }),
+      prisma.theme.count({ where: { storeId: mcpStoreId(), status: { in: ["concept", "in-development"] } } }),
       prisma.extension.count({
-        where: { status: { in: ["concept", "planning", "in-development"] } },
+        where: { storeId: mcpStoreId(), status: { in: ["concept", "planning", "in-development"] } },
       }),
     ]);
 

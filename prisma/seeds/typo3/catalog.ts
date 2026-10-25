@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { statSync } from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
@@ -273,11 +272,12 @@ const seedExtensions: (SeedDetails & {
 ];
 
 /** The MediaAsset row for a bundled image, created on first use and keyed `static:<file>`. */
-async function staticAsset({ file, alt }: SeedImage) {
+async function staticAsset(storeId: string, { file, alt }: SeedImage) {
   const [width, height] = IMAGE_SIZES[file];
   const asset = await prisma.mediaAsset.upsert({
-    where: { key: `static:${file}` },
+    where: { storeId_key: { storeId, key: `static:${file}` } },
     create: {
+      storeId,
       key: `static:${file}`,
       url: `/assets/images/${file}`,
       fileName: file,
@@ -294,9 +294,9 @@ async function staticAsset({ file, alt }: SeedImage) {
 }
 
 /** Sequential, so an image used as both cover and gallery is upserted once. */
-async function staticAssets(images: SeedImage[]) {
+async function staticAssets(storeId: string, images: SeedImage[]) {
   const ids: string[] = [];
-  for (const image of images) ids.push(await staticAsset(image));
+  for (const image of images) ids.push(await staticAsset(storeId, image));
   return ids;
 }
 
@@ -354,17 +354,17 @@ const detailSelect = {
  * Everything changed in the panel is left alone, so re-running the seed
  * never undoes it.
  */
-export async function seedCatalog() {
+export async function seedCatalog(storeId: string) {
   for (const { cover, gallery, changelog, licences, legacyDescription, ...seed } of seedThemes) {
-    const coverId = await staticAsset(cover);
-    const galleryIds = await staticAssets(gallery);
-    const existing = await prisma.theme.findUnique({ where: { slug: seed.slug }, select: { ...detailSelect, licences: true } });
+    const coverId = await staticAsset(storeId, cover);
+    const galleryIds = await staticAssets(storeId, gallery);
+    const existing = await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug: seed.slug } }, select: { ...detailSelect, licences: true } });
     const { slug, name, summary, description, industry, versionTarget, status, price, position } = seed;
 
     if (!existing) {
       await prisma.theme.create({
         data: {
-          slug, name, summary, description, industry, versionTarget, status, price, position,
+          storeId, slug, name, summary, description, industry, versionTarget, status, price, position,
           ...detailData(seed),
           licences: licences ?? [],
           coverId,
@@ -395,14 +395,14 @@ export async function seedCatalog() {
   }
 
   for (const { gallery, changelog, legacyDescription, ...seed } of seedExtensions) {
-    const galleryIds = await staticAssets(gallery);
-    const existing = await prisma.extension.findUnique({ where: { slug: seed.slug }, select: detailSelect });
+    const galleryIds = await staticAssets(storeId, gallery);
+    const existing = await prisma.extension.findUnique({ where: { storeId_slug: { storeId, slug: seed.slug } }, select: detailSelect });
     const { slug, name, summary, description, status, position } = seed;
 
     if (!existing) {
       await prisma.extension.create({
         data: {
-          slug, name, summary, description, status, position,
+          storeId, slug, name, summary, description, status, position,
           ...detailData(seed),
           gallery: { create: galleryRows(galleryIds) },
           changelog: { create: changelogRows(changelog) },
@@ -428,15 +428,4 @@ export async function seedCatalog() {
     }
     console.log(`  extension  ${slug}  (exists, ${filled.length ? `filled: ${filled.join(", ")}` : "left as is"})`);
   }
-}
-
-/** `pnpm db:seed:catalog` adds only the catalogue, without touching accounts. */
-if (process.argv[1] && path.basename(process.argv[1]).startsWith("seed-catalog")) {
-  seedCatalog()
-    .then(() => prisma.$disconnect())
-    .catch(async (error) => {
-      console.error("Catalogue seed failed:", error instanceof Error ? error.message : error);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
 }

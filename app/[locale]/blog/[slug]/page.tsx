@@ -10,6 +10,7 @@ import { getSiteSettings } from "@/lib/settings";
 import { SiteFrame } from "../../_components/site-chrome";
 import { JsonLd } from "../../_components/json-ld";
 import CommentsSection from "../_components/comments-section";
+import { currentStoreId } from "@/lib/current-store";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,8 @@ type Props = {
  * link (lib/post-preview.ts) — then `preview` is true.
  */
 async function loadPost(slug: string, search: { preview?: string; exp?: string }) {
-  const post = await prisma.post.findFirst({
-    where: { slug },
+  const post = await prisma.post.findUnique({
+    where: { storeId_slug: { storeId: await currentStoreId(), slug } },
     include: {
       cover: { select: { url: true, fileName: true, width: true, height: true } },
       category: { select: { name: true } },
@@ -64,12 +65,13 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
   const href = (path: string) => localizePath(path, locale);
   const post = await loadPost(slug, await searchParams);
   if (!post) notFound();
-  if (!post.preview) trackPageView(slug);
+  const storeId = post.storeId;
+  if (!post.preview) trackPageView(storeId, slug);
 
   const [candidates, recent, categories, viewRows] = await Promise.all([
     // Ranking pool for "Popular content": the journal's own order (featured first, then newest).
     prisma.post.findMany({
-      where: { status: "published", slug: { not: slug } },
+      where: { storeId, status: "published", slug: { not: slug } },
       orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
       take: 12,
       select: {
@@ -81,18 +83,18 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
       },
     }),
     prisma.post.findMany({
-      where: { status: "published", slug: { not: slug } },
+      where: { storeId, status: "published", slug: { not: slug } },
       orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
       take: 4,
       select: { slug: true, title: true, publishedAt: true, createdAt: true, category: { select: { name: true } } },
     }),
     prisma.category.findMany({
-      where: { posts: { some: { status: "published" } } },
+      where: { storeId, posts: { some: { status: "published" } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true, _count: { select: { posts: { where: { status: "published" } } } } },
     }),
     // Per-slug view totals rank the popular list; static-site slugs fall away with the post match.
-    prisma.pageViewDaily.groupBy({ by: ["slug"], _sum: { views: true } }),
+    prisma.pageViewDaily.groupBy({ by: ["slug"], where: { storeId }, _sum: { views: true } }),
   ]);
 
   const views = new Map(viewRows.map((row) => [row.slug, row._sum.views ?? 0]));
@@ -102,7 +104,7 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
     value.toLocaleDateString(LOCALE_TAGS[locale], { day: "numeric", month: "short", year: "numeric" });
 
   const category = post.category?.name ?? t("Journal");
-  const [origin, site] = await Promise.all([siteOrigin(), getSiteSettings()]);
+  const [origin, site] = await Promise.all([siteOrigin(), getSiteSettings(storeId)]);
   const url = absoluteUrl(origin, href(`/blog/${post.slug}`));
   const jsonLd = [
     {

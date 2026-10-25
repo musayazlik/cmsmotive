@@ -95,14 +95,15 @@ function common(row: {
   };
 }
 
-export async function loadProductPage(kind: ProductKind, slug: string): Promise<ProductPageData | null> {
-  const legal = await getLegalSettings();
+/** The product page of `slug` in a store's catalogue, with the store's checkout readiness and plans. */
+export async function loadProductPage(storeId: string, kind: ProductKind, slug: string): Promise<ProductPageData | null> {
+  const legal = await getLegalSettings(storeId);
   const mode = creemMode();
   const checkout: ProductPageData["checkout"] = { mode, ready: creemConfigured() && (mode === "test" || (!legalReadiness(legal).length && legal.salesTermsReviewed)), termsVersion: legal.termsVersion };
-  const plans = await prisma.billingPlan.findMany({where:{kind,productSlug:slug,enabled:true,...(creemMode()==="prod"?{creemLiveProductId:{not:null}}:{creemTestProductId:{not:null}})},select:{id:true,name:true,priceCents:true,installations:true},orderBy:{priceCents:"asc"}});
+  const plans = await prisma.billingPlan.findMany({where:{storeId,kind,productSlug:slug,enabled:true,...(creemMode()==="prod"?{creemLiveProductId:{not:null}}:{creemTestProductId:{not:null}})},select:{id:true,name:true,priceCents:true,installations:true},orderBy:{priceCents:"asc"}});
   if (kind === "theme") {
     const theme = await prisma.theme.findUnique({
-      where: { slug },
+      where: { storeId_slug: { storeId, slug } },
       include: {
         cover: assetSelect,
         gallery: { orderBy: { position: "asc" }, select: { asset: assetSelect } },
@@ -122,7 +123,7 @@ export async function loadProductPage(kind: ProductKind, slug: string): Promise<
     };
   }
   const extension = await prisma.extension.findUnique({
-    where: { slug },
+    where: { storeId_slug: { storeId, slug } },
     include: {
       cover: assetSelect,
       gallery: { orderBy: { position: "asc" }, select: { asset: assetSelect } },

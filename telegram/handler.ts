@@ -7,7 +7,7 @@ import {
   type TelegramConfig,
 } from "@/lib/telegram-settings";
 import type { TelegramLink } from "@/lib/telegram-settings-shared";
-import { runAsActor } from "@/mcp/context";
+import { mcpStoreId, runAsActor, runInStore } from "@/mcp/context";
 import { uploadMediaRecord } from "@/mcp/lib/media";
 import {
   appendHistory,
@@ -47,22 +47,24 @@ const HELP = [
   ...Object.entries(TOOL_MODES).map(([name, info]) => `/${name} — ${info.summary}`),
 ].join("\n");
 
-// One run per chat at a time; a second message waits for the first to finish.
-const chatLocks = new Map<number, Promise<unknown>>();
+// One run per chat and store at a time; a second message waits for the first to finish.
+const chatLocks = new Map<string, Promise<unknown>>();
 function withChatLock(chatId: number, task: () => Promise<void>): Promise<void> {
-  const previous = chatLocks.get(chatId) ?? Promise.resolve();
+  const key = `${mcpStoreId()}:${chatId}`;
+  const previous = chatLocks.get(key) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(task);
-  chatLocks.set(chatId, next);
+  chatLocks.set(key, next);
   return next.finally(() => {
-    if (chatLocks.get(chatId) === next) chatLocks.delete(chatId);
+    if (chatLocks.get(key) === next) chatLocks.delete(key);
   });
 }
 
-// Telegram redelivers an update when the webhook answer is slow; seen ids are skipped.
-const seenUpdates = new Set<number>();
-function firstDelivery(updateId: number): boolean {
-  if (seenUpdates.has(updateId)) return false;
-  seenUpdates.add(updateId);
+// Telegram redelivers an update when the webhook answer is slow; seen ids are skipped (per bot).
+const seenUpdates = new Set<string>();
+function firstDelivery(storeId: string, updateId: number): boolean {
+  const key = `${storeId}:${updateId}`;
+  if (seenUpdates.has(key)) return false;
+  seenUpdates.add(key);
   if (seenUpdates.size > 500) seenUpdates.delete(seenUpdates.values().next().value!);
   return true;
 }
@@ -84,19 +86,22 @@ async function reportError(token: string, chatId: number, error: unknown) {
   await sendText(token, chatId, `Something went wrong: ${message.slice(0, 400)}`).catch(() => undefined);
 }
 
-export async function handleUpdate(update: TgUpdate): Promise<void> {
-  if (!firstDelivery(update.update_id)) return;
-  const config = await getTelegramConfig();
-  if (!config.enabled || !config.token) return;
+/** Handles one update for the store whose bot received it; every tool and conversation stays in that store. */
+export async function handleUpdate(update: TgUpdate, storeId: string): Promise<void> {
+  if (!firstDelivery(storeId, update.update_id)) return;
+  return runInStore(storeId, async () => {
+    const config = await getTelegramConfig(storeId);
+    if (!config.enabled || !config.token) return;
 
-  if (update.callback_query) return handleCallback(config, update.callback_query);
-  if (update.message) return handleMessage(config, update.message);
+    if (update.callback_query) return handleCallback(config, update.callback_query);
+    if (update.message) return handleMessage(config, update.message);
+  });
 }
 
 async function linkAccount(config: TelegramConfig, message: TgMessage, code: string) {
   const token = config.token!;
   const from = message.from!;
-  const userId = await consumePairingCode(code);
+  const userId = await consumePairingCode(config.storeId, code);
   if (!userId) {
     await sendText(token, message.chat.id, "This link code is invalid or has expired. Create a new one under Settings → Telegram.");
     return;
@@ -114,7 +119,7 @@ async function linkAccount(config: TelegramConfig, message: TgMessage, code: str
     userId,
     linkedAt: new Date().toISOString(),
   };
-  await saveTelegramLink(link);
+  await saveTelegramLink(config.storeId, link);
   await sendText(token, message.chat.id, `Linked to the panel account **${user.email}**.\n\n${HELP}`);
 }
 

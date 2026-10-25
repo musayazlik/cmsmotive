@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { iso, runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const inquirySelect = {
   id: true,
@@ -37,6 +38,7 @@ export function registerInboxTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         const where: Prisma.ContactInquiryWhereInput = {
+          storeId: mcpStoreId(),
           archivedAt: args.archived ? { not: null } : null,
           ...(args.read === true ? { readAt: { not: null } } : {}),
           ...(args.read === false ? { readAt: null } : {}),
@@ -91,8 +93,8 @@ export function registerInboxTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const existing = await prisma.contactInquiry.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.contactInquiry.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { id: true },
         });
         if (!existing) throw new ToolError("This message no longer exists.");
@@ -118,8 +120,8 @@ export function registerInboxTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const current = await prisma.contactInquiry.findUnique({
-          where: { id: args.id },
+        const current = await prisma.contactInquiry.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { readAt: true },
         });
         if (!current) throw new ToolError("This message no longer exists.");

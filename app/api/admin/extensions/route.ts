@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { SLUG_PATTERN, isExtensionStatus, EXTENSION_STATUSES, validateDetail, validatePosition, type ExtensionStatus } from "@/lib/catalog-guard";
 import { prismaErrors } from "@/lib/prisma-errors";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   const params = new URL(request.url).searchParams;
   const q = (params.get("q") ?? "").trim();
@@ -23,6 +25,7 @@ export async function GET(request: Request) {
     .filter((value): value is ExtensionStatus => isExtensionStatus(value));
 
   const where = {
+    storeId,
     ...(q
       ? {
           OR: [
@@ -77,6 +80,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   let body: Record<string, unknown>;
   try {
@@ -115,20 +119,20 @@ export async function POST(request: Request) {
 
   const compliance = validateCompliance(body.compliance);
   if ("error" in compliance) return Response.json({ error: compliance.error }, { status: 400 });
-  const releaseError = await publicationError(body.status, String(body.name ?? ""), compliance.data);
+  const releaseError = await publicationError(storeId, body.status, String(body.name ?? ""), compliance.data);
   if (releaseError) return Response.json({ error: releaseError }, { status: 400 });
   const detail = validateDetail(body);
   if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
 
   if (coverId) {
-    const cover = await prisma.mediaAsset.findUnique({ where: { id: coverId }, select: { id: true } });
+    const cover = await prisma.mediaAsset.findFirst({ where: { id: coverId, storeId }, select: { id: true } });
     if (!cover) return Response.json({ error: "Cover image not found." }, { status: 400 });
   }
   if (galleryIds.length > 12) {
     return Response.json({ error: "A gallery can hold at most 12 images." }, { status: 400 });
   }
   if (galleryIds.length > 0) {
-    const found = await prisma.mediaAsset.count({ where: { id: { in: galleryIds } } });
+    const found = await prisma.mediaAsset.count({ where: { id: { in: galleryIds }, storeId } });
     if (found !== galleryIds.length) {
       return Response.json({ error: "One or more gallery images could not be found." }, { status: 400 });
     }
@@ -137,7 +141,7 @@ export async function POST(request: Request) {
   try {
     const extension = await prisma.extension.create({
       data: {
-        name, slug, summary, description, status, position,
+        storeId, name, slug, summary, description, status, position,
         ...detail.data,
           compliance: compliance.data,
         coverId: coverId ?? undefined,

@@ -13,6 +13,7 @@ import {
 } from "@/lib/catalog-guard";
 import { createTheme, deleteThemeRecord, updateTheme } from "../lib/catalog";
 import { iso, runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const compatibilitySchema = z.object({
   area: z.string(),
@@ -114,6 +115,7 @@ export function registerThemeTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         const where: Prisma.ThemeWhereInput = {
+          storeId: mcpStoreId(),
           ...(args.q
             ? {
                 OR: [
@@ -169,14 +171,14 @@ export function registerThemeTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         if (!args.id && !args.slug) throw new ToolError("Provide either id or slug.");
-        const theme = await prisma.theme.findUnique({
-          where: args.id ? { id: args.id } : { slug: args.slug },
+        const theme = await prisma.theme.findFirst({
+          where: { storeId: mcpStoreId(), ...(args.id ? { id: args.id } : { slug: args.slug }) },
           select: themeDetailSelect,
         });
         if (!theme) throw new ToolError("Theme not found.");
 
         const pendingReviews = await prisma.productReview.count({
-          where: { themeId: theme.id, status: "pending" },
+          where: { storeId: mcpStoreId(), themeId: theme.id, status: "pending" },
         });
 
         return {

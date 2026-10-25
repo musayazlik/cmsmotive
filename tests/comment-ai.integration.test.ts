@@ -8,7 +8,8 @@ import { getPublicComments } from "../lib/blog-comments";
 import type { CommentAiResult } from "../lib/comment-ai-result";
 
 test("AI review preserves administrator control, handles failures and serializes retries", async () => {
-  const post = await prisma.post.create({ data: { title: "AI moderation verification", slug: `comment-ai-check-${randomUUID()}`, status: "draft" } });
+  const store = await prisma.store.findFirstOrThrow({ orderBy: { isDefault: "desc" } });
+  const post = await prisma.post.create({ data: { storeId: store.id, title: "AI moderation verification", slug: `comment-ai-check-${randomUUID()}`, status: "draft" } });
   try {
     const comment = await prisma.postComment.create({ data: { postId: post.id, authorName: "Test reader", authorEmail: "ai-verification@example.test", body: "A useful article, thanks.", requestKey: randomUUID() } });
     const row = () => prisma.postComment.findUniqueOrThrow({ where: { id: comment.id } });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { panelHref } from "@/lib/admin-access-shared";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -25,15 +26,16 @@ type Notification = {
 export async function GET() {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   const [{ panelPath }, unverifiedUsers, unreadInquiries, failedInquiries, draftThemes, draftExtensions, pendingComments] = await Promise.all([
     getAdminAccessSettings(),
     prisma.user.count({ where: { emailVerified: false } }),
-    prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
-    prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null, emailSent: false } }),
-    prisma.theme.count({ where: { status: { in: ["concept", "in-development"] } } }),
-    prisma.extension.count({ where: { status: { in: ["concept", "planning", "in-development"] } } }),
-    prisma.postComment.count({ where: { status: "pending" } }),
+    prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null } }),
+    prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null, emailSent: false } }),
+    prisma.theme.count({ where: { storeId, status: { in: ["concept", "in-development"] } } }),
+    prisma.extension.count({ where: { storeId, status: { in: ["concept", "planning", "in-development"] } } }),
+    prisma.postComment.count({ where: { post: { storeId }, status: "pending" } }),
   ]);
 
   const items: Notification[] = [];

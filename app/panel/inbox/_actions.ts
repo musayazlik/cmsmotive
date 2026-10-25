@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import type { ActionResult } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 /**
  * Inbox mutations for contact form messages. Every action re-checks the admin
@@ -22,7 +23,7 @@ export async function setInquiryRead(id: string, read: boolean): Promise<ActionR
 
   try {
     await prisma.contactInquiry.update({
-      where: { id },
+      where: { id, storeId: (await panelStore()).id },
       data: { readAt: read ? new Date() : null },
     });
     refreshInbox();
@@ -40,14 +41,14 @@ export async function setInquiryArchived(id: string, archived: boolean): Promise
   try {
     // Archiving a message also settles it: an archived message no longer
     // counts as unread even if it was never opened.
-    const current = await prisma.contactInquiry.findUnique({
-      where: { id },
+    const current = await prisma.contactInquiry.findFirst({
+      where: { id, storeId: (await panelStore()).id },
       select: { readAt: true },
     });
     if (!current) return { ok: false, error: "This message no longer exists." };
 
     await prisma.contactInquiry.update({
-      where: { id },
+      where: { id, storeId: (await panelStore()).id },
       data: archived
         ? { archivedAt: new Date(), readAt: current.readAt ?? new Date() }
         : { archivedAt: null },

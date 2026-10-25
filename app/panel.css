@@ -92,6 +92,8 @@
 .workspace-topbar-tools{display:flex;flex:none;align-items:center;gap:8px}
 .workspace-backlink{display:inline-flex;align-items:center;gap:7px;min-height:44px;margin-right:8px;padding:0 8px;border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .16s,color .16s}
 .workspace-backlink:hover{background:#eef0ed;color:var(--indigo)}
+.workspace-store-switcher{width:230px;margin-right:4px}
+.workspace-store-switcher[aria-busy="true"]{opacity:.6}
 
 .wmenu-anchor{position:relative}
 .wtopbar-icon{position:relative;display:grid;place-items:center;width:44px;height:44px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted);transition:border-color .16s,color .16s,background .16s}
@@ -145,7 +147,7 @@
 .wmenu-item-danger{color:#a3372a}
 .wmenu-item-danger:hover{background:#fdf1ef;color:#8f2e22}
 
-@media(max-width:820px){.workspace-backlink,.waccount-copy,.waccount-chevron{display:none}.waccount{justify-content:center;width:44px;padding:5px}.wmenu-account{min-width:0}.wmenu-wide{right:-52px;width:min(340px,calc(100vw - 36px));min-width:0}}
+@media(max-width:820px){.workspace-store-switcher{width:150px}.workspace-backlink,.waccount-copy,.waccount-chevron{display:none}.waccount{justify-content:center;width:44px;padding:5px}.wmenu-account{min-width:0}.wmenu-wide{right:-52px;width:min(340px,calc(100vw - 36px));min-width:0}}
 @media(max-width:700px){.workspace-topbar{--workspace-header-height:56px;gap:12px;padding-inline:18px}.workspace-topbar-crumb{gap:7px;font-size:12px}}
 @media(max-width:380px){.workspace-topbar-home{display:none}.workspace-topbar-crumb>svg{display:none}}
 @media(prefers-reduced-motion:reduce){.wmenu{animation:none}.waccount,.waccount-chevron,.wtopbar-icon,.wmenu-item,.workspace-backlink{transition:none}}

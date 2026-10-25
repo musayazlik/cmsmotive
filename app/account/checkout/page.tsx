@@ -5,6 +5,7 @@ import { copy } from "@/lib/legal-copy";
 import { getRequestLocale } from "@/lib/i18n/request";
 import { localizePath } from "@/lib/i18n/config";
 import ProductCheckoutForm from "@/app/_components/product-checkout-form";
+import { currentStoreId } from "@/lib/current-store";
 
 export default async function CheckoutPage({
   searchParams,
@@ -13,10 +14,10 @@ export default async function CheckoutPage({
 }) {
   const [query, locale] = await Promise.all([searchParams, getRequestLocale()]);
   const plan = await prisma.billingPlan.findFirst({
-    where: { id: query.plan ?? "", enabled: true },
+    where: { id: query.plan ?? "", storeId: await currentStoreId(), enabled: true },
   });
   if (!plan || (plan.kind !== "theme" && plan.kind !== "extension")) notFound();
-  const product = await loadProductPage(plan.kind, plan.productSlug);
+  const product = await loadProductPage(plan.storeId, plan.kind, plan.productSlug);
   if (!product || !product.plans.some((p) => p.id === plan.id)) notFound();
   return (
     <section className="wtable-card wsettings-section">

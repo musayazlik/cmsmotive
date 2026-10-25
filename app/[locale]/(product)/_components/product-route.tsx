@@ -11,6 +11,7 @@ import ProductDetail from "./product-detail";
 import { getLegalSettings } from "@/lib/legal";
 import { legalReadiness } from "@/lib/legal-settings-shared";
 import { creemConfigured } from "@/lib/creem";
+import { currentStoreId } from "@/lib/current-store";
 
 type Props = { params: Promise<{ locale: string; slug: string }>; searchParams: Promise<{plan?:string}> };
 
@@ -21,19 +22,19 @@ const KIND_LABEL: Record<ProductKind, string> = { theme: "TYPO3 theme", extensio
  * product is published (concepts cannot be bought yet); the rating comes
  * from approved reviews.
  */
-async function productJsonLd(product: ProductPageData, locale: Locale) {
+async function productJsonLd(storeId: string, product: ProductPageData, locale: Locale) {
   const t = getTranslator(locale, { quiet: true });
   const origin = await siteOrigin();
   const url = absoluteUrl(origin, localizePath(`/${product.kind}/${product.slug}`, locale));
   const images = [product.cover, ...product.gallery].flatMap((image) => (image ? [absoluteUrl(origin, image.url)] : []));
 
   const rating = await prisma.productReview.aggregate({
-    where: { status: "approved", ...(product.kind === "theme" ? { theme: { slug: product.slug } } : { extension: { slug: product.slug } }) },
+    where: { storeId, status: "approved", ...(product.kind === "theme" ? { theme: { storeId, slug: product.slug } } : { extension: { storeId, slug: product.slug } }) },
     _avg: { rating: true },
     _count: { _all: true },
   });
 
-  const legal = await getLegalSettings();
+  const legal = await getLegalSettings(storeId);
   const prices = product.plans.map(plan => plan.priceCents / 100);
   const offerBase = { priceCurrency: "EUR", availability: "https://schema.org/InStock", url };
   const offers =
@@ -79,7 +80,7 @@ export function productRoute(kind: ProductKind) {
   async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { locale, slug } = await params;
     const t = getTranslator(locale as Locale, { quiet: true });
-    const product = await loadProductPage(kind, slug);
+    const product = await loadProductPage(await currentStoreId(), kind, slug);
     if (!product) return { title: `${t("Page not found")} — CMSMotive` };
     return pageMetadata({
       locale: locale as Locale,
@@ -92,13 +93,14 @@ export function productRoute(kind: ProductKind) {
 
   async function Page({ params, searchParams }: Props) {
     const { locale, slug } = await params;
-    const product = await loadProductPage(kind, slug);
+    const storeId = await currentStoreId();
+    const product = await loadProductPage(storeId, kind, slug);
     if (!product) notFound();
     // Same analytics keys as the static theme-<slug> pages these replace.
-    trackPageView(`${kind}-${product.slug}`);
+    trackPageView(storeId, `${kind}-${product.slug}`);
     return (
       <>
-        <JsonLd data={await productJsonLd(product, locale as Locale)} />
+        <JsonLd data={await productJsonLd(storeId, product, locale as Locale)} />
         <ProductDetail product={product} locale={locale as Locale} initialPlanId={(await searchParams).plan} />
       </>
     );

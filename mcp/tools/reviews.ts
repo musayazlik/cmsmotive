@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isReviewStatus, REVIEW_STATUSES } from "@/lib/reviews";
 import { iso, runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const reviewSelect = {
   id: true,
@@ -68,6 +69,7 @@ export function registerReviewTools(server: McpServer) {
               : {};
 
         const where: Prisma.ProductReviewWhereInput = {
+          storeId: mcpStoreId(),
           ...productWhere,
           ...(args.status ? { status: args.status } : {}),
           ...(args.q
@@ -118,8 +120,8 @@ export function registerReviewTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         if (!isReviewStatus(args.status)) throw new ToolError("Unknown review status.");
-        const existing = await prisma.productReview.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.productReview.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { id: true },
         });
         if (!existing) throw new ToolError("Review not found.");
@@ -145,8 +147,8 @@ export function registerReviewTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const existing = await prisma.productReview.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.productReview.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { id: true },
         });
         if (!existing) throw new ToolError("Review not found.");

@@ -17,12 +17,12 @@ function keysIn(html: string): Set<string> {
   return new Set(Array.from(html.matchAll(FILE_KEY), (match) => match[1]));
 }
 
-/** File key → number of posts, themes and extensions whose text embeds it. */
-export async function getEmbeddedUsage(): Promise<Map<string, EmbeddedUsage>> {
+/** File key → number of the store's posts, themes and extensions whose text embeds it. */
+export async function getEmbeddedUsage(storeId: string): Promise<Map<string, EmbeddedUsage>> {
   const [posts, themes, extensions] = await Promise.all([
-    prisma.post.findMany({ select: { content: true } }),
-    prisma.theme.findMany({ select: { description: true } }),
-    prisma.extension.findMany({ select: { description: true } }),
+    prisma.post.findMany({ where: { storeId }, select: { content: true } }),
+    prisma.theme.findMany({ where: { storeId }, select: { description: true } }),
+    prisma.extension.findMany({ where: { storeId }, select: { description: true } }),
   ]);
 
   const usage = new Map<string, EmbeddedUsage>();

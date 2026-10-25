@@ -1,12 +1,15 @@
 import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import CategoryManager from "../_components/category-manager";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function BlogCategoriesPage() {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const categories = await prisma.category.findMany({
+    where: { storeId },
     orderBy: { name: "asc" },
     include: { _count: { select: { posts: true } } },
   });

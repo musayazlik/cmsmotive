@@ -5,12 +5,13 @@ import {
   type ProductCompliance,
 } from "./product-compliance";
 export async function publicationError(
+  storeId: string,
   status: unknown,
   name: string,
   data: ProductCompliance,
 ) {
   if (status !== "published") return null;
-  const legal = await getLegalSettings();
+  const legal = await getLegalSettings(storeId);
   const missing = [...legalReadiness(legal), ...publicationMissing(data)];
   if (!legal.salesTermsReviewed) missing.push("Sales terms review");
   if (/\bTYPO3\b/i.test(name))

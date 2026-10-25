@@ -4,6 +4,7 @@ import { isLocale } from "@/lib/i18n/config";
 import { sendNotificationEmail } from "@/lib/plunk";
 import { REVIEW_CAPTCHA_ACTION, REVIEW_LIMITS, isReviewProductType, publicAuthorName } from "@/lib/reviews";
 import { getEmailSettings, getReviewSettings } from "@/lib/settings";
+import { currentStoreId } from "@/lib/current-store";
 
 export const runtime = "nodejs";
 
@@ -25,25 +26,26 @@ function fail(code: string, error: string, status: number) {
  * The reviewed theme or extension as a ProductReview filter. `type` is
  * optional for older pages, which only reviewed themes.
  */
-async function findProduct(type: unknown, slug: unknown) {
+async function findProduct(storeId: string, type: unknown, slug: unknown) {
   if (typeof slug !== "string" || !slug) return null;
   const kind = type === undefined || type === null || type === "" ? "theme" : type;
   if (!isReviewProductType(kind)) return null;
   if (kind === "theme") {
-    const theme = await prisma.theme.findUnique({ where: { slug }, select: { id: true } });
+    const theme = await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug } }, select: { id: true } });
     return theme ? { themeId: theme.id } : null;
   }
-  const extension = await prisma.extension.findUnique({ where: { slug }, select: { id: true } });
+  const extension = await prisma.extension.findUnique({ where: { storeId_slug: { storeId, slug } }, select: { id: true } });
   return extension ? { extensionId: extension.id } : null;
 }
 
 /** Approved reviews and the star summary for one product page. */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
-  const product = await findProduct(params.get("type"), params.get("product"));
+  const storeId = await currentStoreId();
+  const product = await findProduct(storeId, params.get("type"), params.get("product"));
   if (!product) return fail("unknown-product", "Unknown product.", 404);
 
-  const where = { ...product, status: "approved" };
+  const where = { ...product, storeId, status: "approved" };
   const [reviews, groups] = await Promise.all([
     prisma.productReview.findMany({
       where,
@@ -98,7 +100,8 @@ export async function POST(request: Request) {
   const requestKey = text("requestKey");
   const locale = isLocale(text("locale")) ? text("locale") : "de";
 
-  const target = await findProduct(input.type, product);
+  const storeId = await currentStoreId();
+  const target = await findProduct(storeId, input.type, product);
   if (!target) return fail("unknown-product", "Unknown product.", 404);
   // Honeypot: real visitors never see or fill the "website" field.
   if (text("website")) return fail("invalid", "Please check the form fields.", 400);
@@ -118,7 +121,7 @@ export async function POST(request: Request) {
     return fail("invalid-body", "Your review must be between 10 and 2,000 characters.", 400);
   }
 
-  const settings = await getReviewSettings();
+  const settings = await getReviewSettings(storeId);
   const remoteIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const captcha = await verifyRecaptcha(text("captchaToken"), REVIEW_CAPTCHA_ACTION, {
     remoteIp,
@@ -144,6 +147,7 @@ export async function POST(request: Request) {
       await tx.productReview.create({
         data: {
           ...target,
+          storeId,
           productSlug: product,
           authorName: name,
           authorEmail: email,
@@ -165,9 +169,9 @@ export async function POST(request: Request) {
     return fail("server", "Your review could not be saved. Please try again.", 500);
   }
 
-  if (created && (await getEmailSettings()).notifyReviews) {
+  if (created && (await getEmailSettings(storeId)).notifyReviews) {
     // A courtesy for the moderators: a failed mail never fails the submission.
-    await sendNotificationEmail({
+    await sendNotificationEmail(storeId, {
       subject: `New ${rating}★ review for ${product}${status === "pending" ? " — awaiting moderation" : ""}`,
       heading: "New product review",
       rows: [

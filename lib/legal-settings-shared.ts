@@ -1,19 +1,19 @@
 export const LEGAL_VERSION = "2026-10-24";
+/** Each store's own values come from its seed (prisma/seeds/<store>) and the panel. */
 export const DEFAULT_LEGAL_SETTINGS = {
-  legalName: "Musa Yazlık",
-  address: "Esentepe Mah. Ecza Sk. Pol Center C Blok No: 4/6, Şişli / İstanbul",
-  country: "Türkiye",
+  legalName: "",
+  address: "",
+  country: "",
   representative: "",
   registerDetails: "",
   vatId: "",
-  contactEmail: "info@cmsmotive.de",
-  privacyEmail: "info@cmsmotive.de",
+  contactEmail: "",
+  privacyEmail: "",
   audience: "both",
   hostDetails: "",
   retentionDetails: "",
   transferDetails: "",
-  supervisoryAuthority:
-    "Kişisel Verileri Koruma Kurumu — https://www.kvkk.gov.tr",
+  supervisoryAuthority: "",
   membershipDetails: "",
   termsVersion: LEGAL_VERSION,
   privacyVersion: LEGAL_VERSION,

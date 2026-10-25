@@ -2,7 +2,7 @@ import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/prisma";
-import { seedCatalog } from "./seed-catalog";
+import { seedStores } from "./seeds";
 
 /** better-auth stores e-mail/password logins in Account with this provider id. */
 const CREDENTIAL_PROVIDER = "credential";
@@ -97,8 +97,8 @@ async function upsertCredentialUser({ name, email, role, password }: SeedUser & 
 }
 
 async function main() {
-  console.log("Seeding CMSMotive catalogue...");
-  await seedCatalog();
+  console.log("Seeding CMSMotive stores, settings and catalogue...");
+  await seedStores();
 
   console.log("Seeding CMSMotive accounts...");
 

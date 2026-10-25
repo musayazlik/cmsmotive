@@ -18,9 +18,28 @@ import {
 import { getSiteSettings } from "@/lib/settings";
 import { safePurchaseReturn } from "@/lib/purchase-flow";
 import { isLocale } from "@/lib/i18n/config";
+import { allStoreOrigins, resolveRequestStore } from "@/lib/stores";
+import { currentStoreId } from "@/lib/current-store";
+
+/** Store an auth request belongs to: its settings decide sign-up, consent versions and emails. */
+async function authStoreId(source?: Request | Headers | null): Promise<string> {
+  return source ? (await resolveRequestStore(source)).store.id : currentStoreId();
+}
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  // One auth server for every store: links, cookies and the Google callback
+  // follow the request's host. Stores live in the database, so any host is
+  // let through here and app/api/auth rejects hosts that are no store domain
+  // (lib/stores.ts isAccountHost) before Better Auth sees the request.
+  baseURL: { allowedHosts: ["*"], protocol: "auto" },
+  // The reverse proxy's x-forwarded-host/-proto name the public store domain,
+  // the same headers the host check reads.
+  advanced: { trustedProxyHeaders: true },
+  trustedOrigins: async (request) => {
+    const origins = await allStoreOrigins();
+    return request ? [...origins, (await resolveRequestStore(request)).origin] : origins;
+  },
   socialProviders: googleAuthConfigured()
     ? {
         google: {
@@ -47,7 +66,8 @@ export const auth = betterAuth({
         before: async (user, ctx) => {
           const social = ctx?.path === "/callback/:id";
           if (ctx?.path !== "/sign-up/email" && !social) return { data: user };
-          const legal = await getLegalSettings();
+          const storeId = await authStoreId(ctx?.headers ?? ctx?.request);
+          const legal = await getLegalSettings(storeId);
           const state = social
             ? (await getOAuthState())?.serverContext?.registrationConsent
             : undefined;
@@ -61,7 +81,7 @@ export const auth = betterAuth({
             : ctx?.body?.termsAccepted === true &&
               ctx.body?.acceptedTermsVersion === legal.termsVersion;
           if (
-            !(await getSiteSettings()).allowSignup ||
+            !(await getSiteSettings(storeId)).allowSignup ||
             !accountRegistrationReady(legal) ||
             !accepted ||
             (social && !user.emailVerified)
@@ -114,7 +134,8 @@ export const auth = betterAuth({
           throw new APIError("BAD_REQUEST", {
             message: "Google sign-in is currently unavailable.",
           });
-        const legal = await getLegalSettings();
+        const storeId = await authStoreId(ctx.headers ?? ctx.request);
+        const legal = await getLegalSettings(storeId);
         const data = ctx.body.additionalData;
         if (
           data?.termsAccepted !== true ||
@@ -124,7 +145,7 @@ export const auth = betterAuth({
             message: "Please accept the current account terms.",
           });
         const locale = isLocale(data?.locale) ? data.locale : "en";
-        const settings = await getSiteSettings();
+        const settings = await getSiteSettings(storeId);
         ctx.body.requestSignUp =
           settings.allowSignup && accountRegistrationReady(legal);
         ctx.body.callbackURL =
@@ -163,8 +184,8 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     revokeSessionsOnPasswordReset: true,
-    sendResetPassword: async ({ user, url }) => {
-      await sendAccountEmail({
+    sendResetPassword: async ({ user, url }, request) => {
+      await sendAccountEmail(await authStoreId(request), {
         to: user.email,
         subject: "Reset your CMSMotive password",
         actionUrl: url,
@@ -176,8 +197,8 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendAccountEmail({
+    sendVerificationEmail: async ({ user, url }, request) => {
+      await sendAccountEmail(await authStoreId(request), {
         to: user.email,
         subject: "Confirm your CMSMotive email",
         actionUrl: url,

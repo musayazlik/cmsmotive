@@ -7,7 +7,7 @@ import {
   creemRequest,
 } from "@/lib/creem";
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== billingOrigin())
+  if (request.headers.get("origin") !== (await billingOrigin(request)))
     return new Response("Forbidden", { status: 403 });
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return new Response("Unauthorized", { status: 401 });

@@ -13,6 +13,7 @@ import {
   updateExtension,
 } from "../lib/catalog";
 import { iso, runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const compatibilitySchema = z.object({
   area: z.string(),
@@ -109,6 +110,7 @@ export function registerExtensionTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         const where: Prisma.ExtensionWhereInput = {
+          storeId: mcpStoreId(),
           ...(args.q
             ? {
                 OR: [
@@ -162,14 +164,14 @@ export function registerExtensionTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         if (!args.id && !args.slug) throw new ToolError("Provide either id or slug.");
-        const extension = await prisma.extension.findUnique({
-          where: args.id ? { id: args.id } : { slug: args.slug },
+        const extension = await prisma.extension.findFirst({
+          where: { storeId: mcpStoreId(), ...(args.id ? { id: args.id } : { slug: args.slug }) },
           select: extensionDetailSelect,
         });
         if (!extension) throw new ToolError("Extension not found.");
 
         const pendingReviews = await prisma.productReview.count({
-          where: { extensionId: extension.id, status: "pending" },
+          where: { storeId: mcpStoreId(), extensionId: extension.id, status: "pending" },
         });
 
         return {

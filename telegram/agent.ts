@@ -12,7 +12,8 @@ import {
 } from "@/lib/openrouter";
 import { prisma } from "@/lib/prisma";
 import { getAiSettings } from "@/lib/settings";
-import { resolveMcpActor, runWithModelOverrides } from "@/mcp/context";
+import { mcpStoreId, resolveMcpActor, runWithModelOverrides } from "@/mcp/context";
+import { readStoreValues, upsertStoreValue } from "@/lib/settings-store";
 import { createCmsMcpServer } from "@/mcp/create-server";
 import type { AiLanguage } from "@/app/panel/blog/_ai";
 import { editText, sendPhoto, sendText, sendTyping } from "./api";
@@ -73,28 +74,30 @@ const modeKey = (chatId: number) => `telegram.mode.${chatId}`;
 
 /* ------------------------------------------------------------- persistence */
 
+// Conversations are kept per store: a Telegram user has the same chat id with
+// every bot, and each store runs its own bot (telegram/handler.ts runInStore).
+
 async function loadJson<T>(key: string, fallback: T): Promise<T> {
-  const row = await prisma.setting.findUnique({ where: { key } });
-  if (!row) return fallback;
+  const raw = (await readStoreValues(mcpStoreId(), [key])).get(key);
+  if (raw === undefined) return fallback;
   try {
-    return JSON.parse(row.value) as T;
+    return JSON.parse(raw) as T;
   } catch {
     return fallback;
   }
 }
 
 async function saveJson(key: string, value: unknown) {
-  const encoded = JSON.stringify(value);
-  await prisma.setting.upsert({ where: { key }, update: { value: encoded }, create: { key, value: encoded } });
+  await upsertStoreValue(mcpStoreId(), key, JSON.stringify(value));
 }
 
 export async function clearConversation(chatId: number) {
-  await prisma.setting.deleteMany({ where: { key: { in: [historyKey(chatId), pendingKey(chatId)] } } });
+  await prisma.storeSetting.deleteMany({ where: { storeId: mcpStoreId(), key: { in: [historyKey(chatId), pendingKey(chatId)] } } });
 }
 
 /** Drops a waiting confirmation; returns whether there was one. */
 export async function dropPending(chatId: number): Promise<boolean> {
-  const { count } = await prisma.setting.deleteMany({ where: { key: pendingKey(chatId) } });
+  const { count } = await prisma.storeSetting.deleteMany({ where: { storeId: mcpStoreId(), key: pendingKey(chatId) } });
   return count > 0;
 }
 
@@ -238,7 +241,7 @@ async function executeCall(ctx: AgentContext, tools: Tools, call: ToolCall, stat
 
 /** The three models of a run: chat (tool calling), content (post texts) and image. */
 async function resolveModels(ctx: AgentContext) {
-  const [{ text, image }, ai] = await Promise.all([listTextAndImageModels(), getAiSettings()]);
+  const [{ text, image }, ai] = await Promise.all([listTextAndImageModels(), getAiSettings(mcpStoreId())]);
   const prefer = (choice: string, fallbacks: string[]) => (choice ? [choice, ...fallbacks] : fallbacks);
   const chat = pickModel(
     text.filter((model) => model.tools),

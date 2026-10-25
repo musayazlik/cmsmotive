@@ -10,6 +10,7 @@ import {
   uploadMediaRecord,
 } from "../lib/media";
 import { iso, runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const mediaSelect = {
   id: true,
@@ -71,6 +72,7 @@ export function registerMediaTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         const where: Prisma.MediaAssetWhereInput = {
+          storeId: mcpStoreId(),
           ...(args.q
             ? {
                 OR: [
@@ -100,7 +102,7 @@ export function registerMediaTools(server: McpServer) {
             take: args.pageSize,
             select: mediaSelect,
           }),
-          getEmbeddedUsage(),
+          getEmbeddedUsage(mcpStoreId()),
         ]);
 
         return {
@@ -123,12 +125,12 @@ export function registerMediaTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const asset = await prisma.mediaAsset.findUnique({
-          where: { id: args.id },
+        const asset = await prisma.mediaAsset.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: mediaSelect,
         });
         if (!asset) throw new ToolError("Media asset not found.");
-        return mapMedia(asset, await getEmbeddedUsage());
+        return mapMedia(asset, await getEmbeddedUsage(mcpStoreId()));
       }),
   );
 

@@ -6,6 +6,8 @@ import { usePathname } from "@/app/panel/_components/panel-navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import SignOutButton from "../sign-out-button";
 import PanelHeader from "./panel-header";
+import type { PanelStoreOption } from "./store-switcher";
+import type { Locale } from "@/lib/i18n/config";
 import SupportChat from "./support-chat";
 import PanelNavGroup from "./panel-nav-group";
 
@@ -61,12 +63,22 @@ function sectionFor(pathname: string) {
 
 export default function PanelShell({
   user,
+  stores,
+  storeId,
+  siteOrigin,
+  systemLanguage,
   unreadInquiries,
   pendingReviews,
   pendingComments,
   children,
 }: {
   user: { name: string; email: string; role: string };
+  stores: PanelStoreOption[];
+  storeId: string;
+  /** Public site of the store being edited. */
+  siteOrigin: string;
+  /** Settings → General → System language: the assistant chat's language. */
+  systemLanguage: Locale;
   unreadInquiries: number;
   pendingReviews: number;
   pendingComments: number;
@@ -142,11 +154,11 @@ export default function PanelShell({
       </aside>
 
       <main className="workspace-main">
-        <PanelHeader crumb={crumb} user={user} />
+        <PanelHeader crumb={crumb} user={user} stores={stores} storeId={storeId} siteOrigin={siteOrigin} />
         <div className="workspace-content">{children}</div>
       </main>
 
-      <SupportChat firstName={firstName} />
+      <SupportChat firstName={firstName} language={systemLanguage} />
     </div>
   );
 }

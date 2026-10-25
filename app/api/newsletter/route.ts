@@ -6,9 +6,10 @@ import { billingOrigin } from "@/lib/creem";
 import { newNewsletterToken,tokenHash } from "@/lib/newsletter";
 import { isLocale } from "@/lib/i18n/config";
 import { copy } from "@/lib/legal-copy";
+import { currentStoreId } from "@/lib/current-store";
 export const runtime="nodejs";
 export async function POST(request:Request) {
-  if(request.headers.get("origin")!==billingOrigin())return Response.json({error:"Invalid request origin."},{status:403});
+  if(request.headers.get("origin")!==(await billingOrigin(request)))return Response.json({error:"Invalid request origin."},{status:403});
   const input=await request.json().catch(()=>null);
   if(!input||typeof input!=="object"||Array.isArray(input))return Response.json({error:"Invalid request."},{status:400});
   const text=(key:string)=>typeof input[key]==="string"?input[key].trim():"";
@@ -16,21 +17,22 @@ export async function POST(request:Request) {
   const source=input.source==="maintenance"?"maintenance":"footer";
   const locale=isLocale(input.locale)?input.locale:"en";
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||firstName.length>60||lastName.length>60||(source==="footer"&&(!firstName||!lastName)))return Response.json({error:"Please provide your first name, last name and a valid email address."},{status:400});
-  const legal=await getLegalSettings();
+  const storeId=await currentStoreId();
+  const legal=await getLegalSettings(storeId);
   if(input.consent!==true||input.consentVersion!==legal.privacyVersion)return Response.json({error:"Please accept the current subscription notice."},{status:400});
   if(legalReadiness(legal).length||!isPlunkConfigured())return Response.json({error:"Subscriptions are temporarily unavailable."},{status:503});
   try {
     const token=newNewsletterToken();
     const subscriber=await prisma.$transaction(async tx=>{
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`newsletter:${email}`}))`;
-      const existing=await tx.newsletterSubscriber.findUnique({where:{email_source:{email,source}}});
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`newsletter:${storeId}:${email}`}))`;
+      const existing=await tx.newsletterSubscriber.findUnique({where:{storeId_email_source:{storeId,email,source}}});
       if(existing&&((existing.confirmedAt&&!existing.unsubscribedAt)||(existing.confirmationSentAt&&existing.confirmationSentAt.getTime()>Date.now()-600000)))return null;
       const proof={firstName,lastName,locale,consentVersion:legal.privacyVersion,confirmationTokenHash:tokenHash(token),confirmationExpiresAt:new Date(Date.now()+86400000),confirmationSentAt:new Date()};
-      return tx.newsletterSubscriber.upsert({where:{email_source:{email,source}},create:{email,source,...proof},update:proof});
+      return tx.newsletterSubscriber.upsert({where:{storeId_email_source:{storeId,email,source}},create:{storeId,email,source,...proof},update:proof});
     });
     if(subscriber) {
       try {
-        await sendAccountEmail({to:email,subject:copy(locale,source==="footer"?"Confirm your CMSMotive newsletter subscription":"Confirm your CMSMotive reopening notification",source==="footer"?"CMSMotive-Newsletter bestätigen":"CMSMotive-Startbenachrichtigung bestätigen",source==="footer"?"CMSMotive bülten aboneliğinizi doğrulayın":"CMSMotive açılış bildiriminizi doğrulayın"),actionUrl:`${billingOrigin()}/newsletter/confirm?token=${token}&lang=${locale}`,actionText:copy(locale,"Confirm subscription","Anmeldung bestätigen","Aboneliği doğrula")});
+        await sendAccountEmail(storeId,{to:email,subject:copy(locale,source==="footer"?"Confirm your CMSMotive newsletter subscription":"Confirm your CMSMotive reopening notification",source==="footer"?"CMSMotive-Newsletter bestätigen":"CMSMotive-Startbenachrichtigung bestätigen",source==="footer"?"CMSMotive bülten aboneliğinizi doğrulayın":"CMSMotive açılış bildiriminizi doğrulayın"),actionUrl:`${await billingOrigin(request)}/newsletter/confirm?token=${token}&lang=${locale}`,actionText:copy(locale,"Confirm subscription","Anmeldung bestätigen","Aboneliği doğrula")});
       }catch{
         await prisma.newsletterSubscriber.updateMany({where:{id:subscriber.id,confirmationTokenHash:tokenHash(token)},data:{confirmationSentAt:null}});
         return Response.json({error:"The confirmation email could not be sent. Please try again later."},{status:502});

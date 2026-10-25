@@ -2,13 +2,15 @@ import { requirePanelUser } from "@/lib/panel-auth";
 import { notFound } from "next/navigation";
 import CatalogForm from "../../_components/catalog-form";
 import { loadExtension } from "../../_components/catalog-record";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditExtensionPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const { id } = await params;
-  const extension = await loadExtension(id);
+  const extension = await loadExtension(storeId, id);
   if (!extension) notFound();
 
   return (

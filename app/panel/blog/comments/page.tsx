@@ -3,29 +3,32 @@ import { prisma } from "@/lib/prisma";
 import { requirePanelUser } from "@/lib/panel-auth";
 import { isCommentStatus } from "@/lib/blog-comments-shared";
 import CommentList from "./comment-list";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 25;
 
 export default async function CommentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const params = await searchParams;
   const first = (key: string) => typeof params[key] === "string" ? params[key] as string : "";
   const status = first("status") === "all" ? "all" : isCommentStatus(first("status")) ? first("status") : "pending";
   const query = first("q").trim().slice(0, 200);
   const postId = first("post").slice(0, 64);
   const base: Prisma.PostCommentWhereInput = {
+    post: { storeId },
     ...(postId ? { postId } : {}),
     ...(query ? { OR: [
       { authorName: { contains: query, mode: "insensitive" } },
       { authorEmail: { contains: query, mode: "insensitive" } },
       { body: { contains: query, mode: "insensitive" } },
-      { post: { title: { contains: query, mode: "insensitive" } } },
+      { post: { storeId, title: { contains: query, mode: "insensitive" } } },
     ] } : {}),
   };
   const [groups, posts] = await Promise.all([
     prisma.postComment.groupBy({ by: ["status"], where: base, _count: { _all: true } }),
-    prisma.post.findMany({ where: { comments: { some: {} } }, select: { id: true, title: true }, orderBy: { title: "asc" } }),
+    prisma.post.findMany({ where: { storeId, comments: { some: {} } }, select: { id: true, title: true }, orderBy: { title: "asc" } }),
   ]);
   const counts = { all: 0, pending: 0, approved: 0, rejected: 0 };
   for (const group of groups) {

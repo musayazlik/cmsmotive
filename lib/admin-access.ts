@@ -1,6 +1,5 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { writeSettingsGroup } from "@/lib/settings-store";
 import { DEFAULT_ADMIN_ACCESS_SETTINGS, validateAdminAccessSettings, type AdminAccessSettings } from "@/lib/admin-access-shared";
 
 /** Security configuration fails closed on database errors instead of silently reopening the old address. */
@@ -12,4 +11,8 @@ export const getAdminAccessSettings = cache(async (): Promise<AdminAccessSetting
   return parsed.data;
 });
 
-export const saveAdminAccessSettings = (settings: AdminAccessSettings) => writeSettingsGroup("security", settings);
+/** Install-wide: one panel serves every store, so its entry lives in the shared Setting table. */
+export async function saveAdminAccessSettings(settings: AdminAccessSettings) {
+  const value = JSON.stringify(settings.panelPath);
+  await prisma.setting.upsert({ where: { key: "security.panelPath" }, update: { value }, create: { key: "security.panelPath", value } });
+}

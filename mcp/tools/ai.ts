@@ -12,6 +12,7 @@ import { updateMediaRecord, uploadMediaRecord } from "../lib/media";
 import { isPostStatus } from "@/app/panel/blog/_lib";
 import { savePostRecord } from "../lib/posts";
 import { runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 /** Same house style as the panel's AI cover and inline images (app/api/admin/ai/generate). */
 const STYLE_GUIDE: Record<"cover" | "inline" | "free", string> = {
@@ -49,7 +50,7 @@ async function resolveImageModel(requested: string | undefined): Promise<string>
     if (!image.some((model) => model.id === requested)) throw new ToolError(`"${requested}" is not an available image model.`);
     return requested;
   }
-  const imageModel = getModelOverrides().image || (await getAiSettings()).imageModel;
+  const imageModel = getModelOverrides().image || (await getAiSettings(mcpStoreId())).imageModel;
   const model = pickModel(image, imageModel ? [imageModel, ...DEFAULT_IMAGE_MODELS] : DEFAULT_IMAGE_MODELS);
   if (!model) throw new ToolError("OpenRouter offers no image models right now.");
   return model;
@@ -126,11 +127,12 @@ async function writingRequest(
   current?: WriteRequest["current"],
 ): Promise<WriteRequest> {
   if (!isOpenRouterConfigured()) throw new ToolError("OPENROUTER_API_KEY is not configured.");
-  const settings = await getAiSettings();
+  const storeId = mcpStoreId();
+  const settings = await getAiSettings(storeId);
   const [model, categories, tags] = await Promise.all([
     resolveTextModel(settings),
-    prisma.category.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
-    prisma.tag.findMany({ select: { name: true }, orderBy: { name: "asc" }, take: 60 }),
+    prisma.category.findMany({ where: { storeId }, select: { name: true }, orderBy: { name: "asc" } }),
+    prisma.tag.findMany({ where: { storeId }, select: { name: true }, orderBy: { name: "asc" }, take: 60 }),
   ]);
   return {
     topic,
@@ -154,13 +156,13 @@ async function matchTaxonomy(category: string | null | undefined, tags: string[]
   const [matchedCategory, matchedTags] = await Promise.all([
     category
       ? prisma.category.findFirst({
-          where: { name: { equals: category, mode: "insensitive" } },
+          where: { storeId: mcpStoreId(), name: { equals: category, mode: "insensitive" } },
           select: { id: true, name: true },
         })
       : null,
     tags.length
       ? prisma.tag.findMany({
-          where: { OR: tags.map((name) => ({ name: { equals: name, mode: "insensitive" as const } })) },
+          where: { storeId: mcpStoreId(), OR: tags.map((name) => ({ name: { equals: name, mode: "insensitive" as const } })) },
           select: { id: true, name: true },
         })
       : [],
@@ -302,8 +304,8 @@ export function registerAiTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         const actor = await resolveMcpActor();
-        const post = await prisma.post.findUnique({
-          where: { id: args.postId },
+        const post = await prisma.post.findFirst({
+          where: { id: args.postId, storeId: mcpStoreId() },
           select: {
             id: true,
             title: true,
@@ -398,8 +400,8 @@ export function registerAiTools(server: McpServer) {
 
         let sourceUrl = args.sourceImageUrl;
         if (args.sourceMediaId) {
-          const media = await prisma.mediaAsset.findUnique({
-            where: { id: args.sourceMediaId },
+          const media = await prisma.mediaAsset.findFirst({
+            where: { id: args.sourceMediaId, storeId: mcpStoreId() },
             select: { url: true, mimeType: true },
           });
           if (!media) throw new ToolError("The source media asset could not be found.");

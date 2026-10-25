@@ -1,12 +1,15 @@
 import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import TagManager from "../_components/tag-manager";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function BlogTagsPage() {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const tags = await prisma.tag.findMany({
+    where: { storeId },
     orderBy: { name: "asc" },
     include: { _count: { select: { posts: true } } },
   });

@@ -2,6 +2,7 @@ import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import InboxList from "./_components/inbox-list";
 import type { InquiryRow } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,9 @@ const INBOX_LIMIT = 500;
 
 export default async function InboxPage() {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const inquiries = await prisma.contactInquiry.findMany({
+    where: { storeId },
     orderBy: { createdAt: "desc" },
     take: INBOX_LIMIT,
   });

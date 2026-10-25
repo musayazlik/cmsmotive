@@ -4,6 +4,7 @@ import Link from "@/app/panel/_components/panel-navigation";
 import { usePathname } from "@/app/panel/_components/panel-navigation";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useSignOut } from "@/app/_components/use-sign-out";
+import StoreSwitcher, { type PanelStoreOption } from "./store-switcher";
 
 type Notification = {
   id: string;
@@ -46,9 +47,15 @@ function useDismiss(onDismiss: () => void) {
 export default function PanelHeader({
   crumb,
   user,
+  stores,
+  storeId,
+  siteOrigin,
 }: {
   crumb: string;
   user: { name: string; email: string; role: string };
+  stores: PanelStoreOption[];
+  storeId: string;
+  siteOrigin: string;
 }) {
   const [open, setOpen] = useState<OpenMenu>(null);
   const [items, setItems] = useState<Notification[] | null>(null);
@@ -134,9 +141,10 @@ export default function PanelHeader({
       </nav>
 
       <div className="workspace-topbar-tools">
-        <Link className="workspace-backlink" href="/">
+        <StoreSwitcher stores={stores} current={storeId} />
+        <a className="workspace-backlink" href={siteOrigin}>
           Back to site <span aria-hidden="true">↗</span>
-        </Link>
+        </a>
 
         <div
           className="wmenu-anchor"
@@ -253,13 +261,13 @@ export default function PanelHeader({
                   </svg>
                   My account
                 </Link>
-                <Link className="wmenu-item" href="/" onClick={close}>
+                <a className="wmenu-item" href={siteOrigin} onClick={close}>
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M14 3h7v7m0-7L10 14" />
                     <path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
                   </svg>
                   View site
-                </Link>
+                </a>
               </nav>
               <div className="wmenu-divider" />
               <button className="wmenu-item wmenu-item-danger" type="button" onClick={signOut} disabled={signingOut} aria-busy={signingOut}>

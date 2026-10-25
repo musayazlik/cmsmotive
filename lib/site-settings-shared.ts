@@ -1,3 +1,5 @@
+import { isLocale, type Locale } from "./i18n/config";
+
 /**
  * Client-safe contract for the site identity used in search results and link
  * previews: Open Graph, X cards and the Organization JSON-LD. Page copy and
@@ -18,19 +20,18 @@ export type SiteSettings = {
    * the auth API rejects sign-ups. Existing accounts keep working.
    */
   allowSignup: boolean;
+  /** Language the panel assistant (bottom-right chat) writes and answers in. */
+  systemLanguage: Locale;
 };
 
+/** Each store's own values come from its seed (prisma/seeds/<store>) and the panel. */
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteName: "CMSMotive",
-  twitterHandle: "@cmsmotive",
-  contactEmail: "info@cmsmotive.de",
-  socialProfiles: [
-    "https://www.linkedin.com/company/cmsmotive",
-    "https://github.com/cmsmotive",
-    "https://x.com/cmsmotive",
-    "https://www.youtube.com/@cmsmotive",
-  ],
+  twitterHandle: "",
+  contactEmail: "",
+  socialProfiles: [],
   allowSignup: false,
+  systemLanguage: "en",
 };
 
 export const SITE_LIMITS = { siteName: 60, profiles: 8, profileUrl: 300 } as const;
@@ -81,6 +82,7 @@ export function validateSiteSettings(input: Record<string, unknown>): { error: s
       contactEmail,
       socialProfiles,
       allowSignup: input.allowSignup === true,
+      systemLanguage: isLocale(text("systemLanguage")) ? (text("systemLanguage") as Locale) : DEFAULT_SITE_SETTINGS.systemLanguage,
     },
   };
 }

@@ -5,7 +5,7 @@ import { isLocale } from "@/lib/i18n/config";
 import { sendAccountEmail } from "@/lib/plunk";
 import { copy } from "@/lib/legal-copy";
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== billingOrigin())
+  if (request.headers.get("origin") !== (await billingOrigin(request)))
     return new Response("Forbidden", { status: 403 });
   const form = await request.formData();
   const raw = String(form.get("token") ?? "");
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     : "en";
   if (!/^[a-f0-9]{64}$/.test(raw))
     return Response.redirect(
-      `${billingOrigin()}/newsletter/confirm?done=invalid&lang=${l}`,
+      `${await billingOrigin(request)}/newsletter/confirm?done=invalid&lang=${l}`,
       303,
     );
   const subscriber = await prisma.newsletterSubscriber.findUnique({
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     subscriber.confirmationExpiresAt < new Date()
   )
     return Response.redirect(
-      `${billingOrigin()}/newsletter/confirm?done=invalid&lang=${l}`,
+      `${await billingOrigin(request)}/newsletter/confirm?done=invalid&lang=${l}`,
       303,
     );
   const updated = await prisma.newsletterSubscriber.updateMany({
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     },
   });
   if (updated.count)
-    await sendAccountEmail({
+    await sendAccountEmail(subscriber.storeId, {
       to: subscriber.email,
       subject: copy(
         l,
@@ -52,11 +52,11 @@ export async function POST(request: Request) {
         "Ihre CMSMotive-Anmeldung ist bestätigt",
         "CMSMotive aboneliğiniz doğrulandı",
       ),
-      actionUrl: `${billingOrigin()}/newsletter/unsubscribe?token=${unsubscribeToken(subscriber.id)}&lang=${l}`,
+      actionUrl: `${await billingOrigin(request)}/newsletter/unsubscribe?token=${unsubscribeToken(subscriber.id)}&lang=${l}`,
       actionText: copy(l, "Unsubscribe", "Abmelden", "Abonelikten ayrıl"),
     }).catch(() => undefined);
   return Response.redirect(
-    `${billingOrigin()}/newsletter/confirm?done=${updated.count ? "ok" : "invalid"}&lang=${l}`,
+    `${await billingOrigin(request)}/newsletter/confirm?done=${updated.count ? "ok" : "invalid"}&lang=${l}`,
     303,
   );
 }

@@ -2,6 +2,8 @@
 
 import TextField from "@/app/panel/_components/ui/text-field";
 import Switch from "@/app/panel/_components/ui/switch";
+import Select from "@/app/panel/_components/ui/select";
+import { LOCALES, LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
 import { SITE_LIMITS, type SiteSettings } from "@/lib/site-settings-shared";
 import { saveSiteSettingsAction } from "../_actions";
 import { SettingsFoot, useSettingsForm } from "./settings-kit";
@@ -39,6 +41,17 @@ export default function GeneralSettingsForm({ settings }: { settings: SiteSettin
           value={values.contactEmail}
           onChange={(value) => set("contactEmail", value)}
           note="Listed on the Organization in structured data. Contact form mail goes to the inbox under Email."
+        />
+      </div>
+
+      <div className="wsettings-section">
+        <p className="wsection-label">System</p>
+        <Select
+          label="System language"
+          value={values.systemLanguage}
+          onChange={(value) => set("systemLanguage", value as Locale)}
+          options={LOCALES.map((code) => ({ value: code, label: LOCALE_LABELS[code] }))}
+          note="The panel assistant (the chat in the bottom-right corner) greets you, suggests questions and answers in this language."
         />
       </div>
 

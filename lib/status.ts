@@ -91,15 +91,16 @@ async function plunkContactsTotal(key: string): Promise<number | null> {
   }
 }
 
-export async function getMailStatus(): Promise<MailStatus> {
+/** Mail service status with the store's own inquiry and subscriber counts. */
+export async function getMailStatus(storeId: string): Promise<MailStatus> {
   const key = process.env.PLUNK_SECRET_KEY;
   const plunkConfigured = Boolean(key && process.env.PLUNK_FROM_EMAIL);
   const [plunkContacts, inquiriesTotal, inquiriesUnread, emailsSent, subscribers] = await Promise.all([
     plunkConfigured && key ? plunkContactsTotal(key) : Promise.resolve(null),
-    prisma.contactInquiry.count(),
-    prisma.contactInquiry.count({ where: { readAt: null } }),
-    prisma.contactInquiry.count({ where: { emailSent: true } }),
-    prisma.newsletterSubscriber.count(),
+    prisma.contactInquiry.count({ where: { storeId } }),
+    prisma.contactInquiry.count({ where: { storeId, readAt: null } }),
+    prisma.contactInquiry.count({ where: { storeId, emailSent: true } }),
+    prisma.newsletterSubscriber.count({ where: { storeId } }),
   ]);
   return {
     plunkConfigured,
@@ -122,17 +123,18 @@ export async function getStorageStatus(): Promise<StorageStatus | null> {
   }
 }
 
-export async function getDailyReads(days = 14): Promise<DailyReads> {
+/** The store's page views per day. */
+export async function getDailyReads(storeId: string, days = 14): Promise<DailyReads> {
   const today = dayBucket();
   const first = new Date(today);
   first.setUTCDate(first.getUTCDate() - (days - 1));
 
   const [rows, allTime] = await Promise.all([
     prisma.pageViewDaily.findMany({
-      where: { date: { gte: first } },
+      where: { storeId, date: { gte: first } },
       orderBy: [{ date: "desc" }, { views: "desc" }],
     }),
-    prisma.pageViewDaily.aggregate({ _sum: { views: true } }),
+    prisma.pageViewDaily.aggregate({ where: { storeId }, _sum: { views: true } }),
   ]);
 
   // Bucket by day keeps the top slug per day; the loop below walks from

@@ -25,6 +25,7 @@ import {
   WEBP_QUALITY_MIN,
 } from "@/lib/upload-settings-shared";
 import { runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * Registers `settings_update_<group>` for a JSON settings group: omitted
@@ -38,9 +39,9 @@ function registerGroupUpdate<T extends Record<string, unknown>>(
   title: string,
   description: string,
   inputSchema: z.ZodRawShape,
-  get: () => Promise<T>,
+  get: (storeId: string) => Promise<T>,
   validate: (input: Record<string, unknown>) => { error: string } | { data: T },
-  save: (data: T) => Promise<void>,
+  save: (storeId: string, data: T) => Promise<void>,
 ) {
   server.registerTool(
     `settings_update_${group}`,
@@ -49,9 +50,9 @@ function registerGroupUpdate<T extends Record<string, unknown>>(
       runTool(async () => {
         const changes = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
         if (Object.keys(changes).length === 0) throw new ToolError("Nothing to update. Provide at least one field.");
-        const parsed = validate({ ...(await get()), ...changes });
+        const parsed = validate({ ...(await get(mcpStoreId())), ...changes });
         if ("error" in parsed) throw new ToolError(parsed.error);
-        await save(parsed.data);
+        await save(mcpStoreId(), parsed.data);
         return { [group]: parsed.data };
       }),
   );
@@ -63,19 +64,20 @@ export function registerSettingsTools(server: McpServer) {
     {
       title: "Get site settings",
       description:
-        "Return the panel settings: upload optimizer, site identity, SEO (indexing, title suffix, share image, verification), review moderation, e-mail and AI assistant defaults.",
+        "Return this store's panel settings: upload optimizer, site identity, SEO (indexing, title suffix, share image, verification), review moderation, e-mail and AI assistant defaults.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
     async () =>
       runTool(async () => {
+        const storeId = mcpStoreId();
         const [upload, site, seo, reviews, email, ai] = await Promise.all([
-          getUploadSettings(),
-          getSiteSettings(),
-          getSeoSettings(),
-          getReviewSettings(),
-          getEmailSettings(),
-          getAiSettings(),
+          getUploadSettings(storeId),
+          getSiteSettings(storeId),
+          getSeoSettings(storeId),
+          getReviewSettings(storeId),
+          getEmailSettings(storeId),
+          getAiSettings(storeId),
         ]);
         return { upload, site, seo, reviews, email, ai };
       }),
@@ -98,7 +100,7 @@ export function registerSettingsTools(server: McpServer) {
         if (args.convertWebp === undefined && args.webpQuality === undefined) {
           throw new ToolError("Nothing to update. Provide convertWebp or webpQuality.");
         }
-        const current = await getUploadSettings();
+        const current = await getUploadSettings(mcpStoreId());
         const next = {
           convertWebp: args.convertWebp ?? current.convertWebp,
           webpQuality: args.webpQuality ?? current.webpQuality,
@@ -112,7 +114,7 @@ export function registerSettingsTools(server: McpServer) {
             `Quality must be between ${WEBP_QUALITY_MIN} and ${WEBP_QUALITY_MAX}.`,
           );
         }
-        await saveUploadSettings(next);
+        await saveUploadSettings(mcpStoreId(), next);
         return { upload: next };
       }),
   );
@@ -121,12 +123,13 @@ export function registerSettingsTools(server: McpServer) {
     server,
     "site",
     "Update site identity",
-    "Site name, X handle, public contact e-mail and social profile URLs used in Open Graph, X cards and JSON-LD. socialProfiles replaces the whole list (https URLs, at most 8).",
+    "Site name, X handle, public contact e-mail and social profile URLs used in Open Graph, X cards and JSON-LD. socialProfiles replaces the whole list (https URLs, at most 8). systemLanguage sets the panel assistant language.",
     {
       siteName: z.string().optional(),
       twitterHandle: z.string().optional().describe('X handle such as "@cmsmotive"; "" removes it.'),
       contactEmail: z.string().optional().describe('"" removes it.'),
       socialProfiles: z.array(z.string()).optional(),
+      systemLanguage: z.enum(["en", "de", "tr"]).optional().describe("Language of the panel assistant chat."),
     },
     getSiteSettings,
     validateSiteSettings,

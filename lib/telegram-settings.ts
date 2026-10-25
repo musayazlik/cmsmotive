@@ -1,11 +1,15 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { readStoreValues, upsertStoreValue } from "@/lib/settings-store";
+import { listStores } from "@/lib/stores";
 import { PAIRING_TTL_MS, type TelegramLink, type TelegramSettings } from "@/lib/telegram-settings-shared";
 
 /**
- * Server-side Telegram bot configuration in the Setting table. Unlike the MCP
- * token, the bot token has to be kept readable (every API call needs it); it
- * is only ever shown masked. Never import this module from a client component.
+ * Server-side Telegram bot configuration, kept per store in StoreSetting:
+ * every store can connect its own bot, which then works on that store only.
+ * Unlike the MCP token, the bot token has to be kept readable (every API call
+ * needs it); it is only ever shown masked. Never import this module from a
+ * client component.
  */
 
 const KEY = {
@@ -21,15 +25,6 @@ const KEY = {
   pairing: "telegram.pairing",
 } as const;
 
-async function read(): Promise<Map<string, string>> {
-  const rows = await prisma.setting.findMany({ where: { key: { in: Object.values(KEY) } } });
-  return new Map(rows.map((row) => [row.key, row.value]));
-}
-
-function upsert(key: string, value: string) {
-  return prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
-}
-
 function parseLinks(raw: string | undefined): TelegramLink[] {
   try {
     const value: unknown = JSON.parse(raw ?? "[]");
@@ -41,6 +36,7 @@ function parseLinks(raw: string | undefined): TelegramLink[] {
 
 /** Everything the bot runtime needs, including the token. Server only. */
 export type TelegramConfig = {
+  storeId: string;
   enabled: boolean;
   token: string | null;
   username: string | null;
@@ -55,9 +51,10 @@ export type TelegramConfig = {
   links: TelegramLink[];
 };
 
-export async function getTelegramConfig(): Promise<TelegramConfig> {
-  const values = await read();
+export async function getTelegramConfig(storeId: string): Promise<TelegramConfig> {
+  const values = await readStoreValues(storeId, Object.values(KEY));
   return {
+    storeId,
     enabled: values.get(KEY.enabled) === "true",
     token: values.get(KEY.token) || null,
     username: values.get(KEY.username) || null,
@@ -70,8 +67,23 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
   };
 }
 
-export async function getTelegramSettings(): Promise<TelegramSettings> {
-  const config = await getTelegramConfig();
+/** Every store with a connected, switched-on bot (the long-polling runner serves them all). */
+export async function listTelegramBots(): Promise<TelegramConfig[]> {
+  const configs = await Promise.all((await listStores()).map((store) => getTelegramConfig(store.id)));
+  return configs.filter((config) => config.enabled && config.token);
+}
+
+/** The store whose webhook secret Telegram presented, or null. */
+export async function findTelegramConfigBySecret(provided: string | null): Promise<TelegramConfig | null> {
+  for (const store of await listStores()) {
+    const config = await getTelegramConfig(store.id);
+    if (isValidWebhookSecret(config, provided)) return config;
+  }
+  return null;
+}
+
+export async function getTelegramSettings(storeId: string): Promise<TelegramSettings> {
+  const config = await getTelegramConfig(storeId);
   const users = await prisma.user.findMany({
     where: { id: { in: config.links.map((link) => link.userId) } },
     select: { id: true, email: true },
@@ -87,37 +99,40 @@ export async function getTelegramSettings(): Promise<TelegramSettings> {
   };
 }
 
-/** Stores a verified bot; a fresh webhook secret is issued with it. Returns the secret. */
-export async function saveTelegramBot(bot: { token: string; username: string; origin: string }): Promise<string> {
+/** Stores a verified bot for a store; a fresh webhook secret is issued with it. Returns the secret. */
+export async function saveTelegramBot(storeId: string, bot: { token: string; username: string; origin: string }): Promise<string> {
   const secret = randomBytes(32).toString("hex");
   await prisma.$transaction([
-    upsert(KEY.token, bot.token),
-    upsert(KEY.username, bot.username),
-    upsert(KEY.secret, secret),
-    upsert(KEY.origin, bot.origin),
-    upsert(KEY.enabled, "true"),
+    upsertStoreValue(storeId, KEY.token, bot.token),
+    upsertStoreValue(storeId, KEY.username, bot.username),
+    upsertStoreValue(storeId, KEY.secret, secret),
+    upsertStoreValue(storeId, KEY.origin, bot.origin),
+    upsertStoreValue(storeId, KEY.enabled, "true"),
   ]);
   return secret;
 }
 
-export async function clearTelegramBot(): Promise<void> {
-  await prisma.setting.deleteMany({
-    where: { key: { in: [KEY.token, KEY.username, KEY.secret, KEY.origin, KEY.pairing] } },
+export async function clearTelegramBot(storeId: string): Promise<void> {
+  await prisma.storeSetting.deleteMany({
+    where: { storeId, key: { in: [KEY.token, KEY.username, KEY.secret, KEY.origin, KEY.pairing] } },
   });
-  await upsert(KEY.enabled, "false");
+  await upsertStoreValue(storeId, KEY.enabled, "false");
 }
 
-export async function saveTelegramOptions(options: {
-  enabled: boolean;
-  model: string;
-  contentModel: string;
-  imageModel: string;
-}): Promise<void> {
+export async function saveTelegramOptions(
+  storeId: string,
+  options: {
+    enabled: boolean;
+    model: string;
+    contentModel: string;
+    imageModel: string;
+  },
+): Promise<void> {
   await prisma.$transaction([
-    upsert(KEY.enabled, String(options.enabled)),
-    upsert(KEY.model, options.model),
-    upsert(KEY.contentModel, options.contentModel),
-    upsert(KEY.imageModel, options.imageModel),
+    upsertStoreValue(storeId, KEY.enabled, String(options.enabled)),
+    upsertStoreValue(storeId, KEY.model, options.model),
+    upsertStoreValue(storeId, KEY.contentModel, options.contentModel),
+    upsertStoreValue(storeId, KEY.imageModel, options.imageModel),
   ]);
 }
 
@@ -130,20 +145,20 @@ export function isValidWebhookSecret(config: TelegramConfig, provided: string | 
 
 /* ------------------------------------------------------------------ pairing */
 
-/** A one-time code the signed-in admin sends to the bot to link their Telegram account. */
-export async function createPairingCode(userId: string): Promise<string> {
+/** A one-time code the signed-in admin sends to a store's bot to link their Telegram account. */
+export async function createPairingCode(storeId: string, userId: string): Promise<string> {
   const code = randomBytes(9).toString("base64url");
-  await upsert(KEY.pairing, JSON.stringify({ code, userId, expiresAt: Date.now() + PAIRING_TTL_MS }));
+  await upsertStoreValue(storeId, KEY.pairing, JSON.stringify({ code, userId, expiresAt: Date.now() + PAIRING_TTL_MS }));
   return code;
 }
 
 /** Returns the panel user id the code was issued for, and burns the code. */
-export async function consumePairingCode(code: string): Promise<string | null> {
-  const row = await prisma.setting.findUnique({ where: { key: KEY.pairing } });
-  if (!row) return null;
+export async function consumePairingCode(storeId: string, code: string): Promise<string | null> {
+  const raw = (await readStoreValues(storeId, [KEY.pairing])).get(KEY.pairing);
+  if (!raw) return null;
   let pairing: { code?: string; userId?: string; expiresAt?: number };
   try {
-    pairing = JSON.parse(row.value);
+    pairing = JSON.parse(raw);
   } catch {
     return null;
   }
@@ -154,17 +169,17 @@ export async function consumePairingCode(code: string): Promise<string | null> {
     typeof pairing.expiresAt === "number" &&
     pairing.expiresAt > Date.now();
   if (!valid || !pairing.userId) return null;
-  await prisma.setting.delete({ where: { key: KEY.pairing } });
+  await prisma.storeSetting.deleteMany({ where: { storeId, key: KEY.pairing } });
   return pairing.userId;
 }
 
-export async function saveTelegramLink(link: TelegramLink): Promise<void> {
-  const { links } = await getTelegramConfig();
+export async function saveTelegramLink(storeId: string, link: TelegramLink): Promise<void> {
+  const { links } = await getTelegramConfig(storeId);
   const next = [...links.filter((entry) => entry.telegramUserId !== link.telegramUserId), link];
-  await upsert(KEY.links, JSON.stringify(next));
+  await upsertStoreValue(storeId, KEY.links, JSON.stringify(next));
 }
 
-export async function removeTelegramLink(telegramUserId: number): Promise<void> {
-  const { links } = await getTelegramConfig();
-  await upsert(KEY.links, JSON.stringify(links.filter((entry) => entry.telegramUserId !== telegramUserId)));
+export async function removeTelegramLink(storeId: string, telegramUserId: number): Promise<void> {
+  const { links } = await getTelegramConfig(storeId);
+  await upsertStoreValue(storeId, KEY.links, JSON.stringify(links.filter((entry) => entry.telegramUserId !== telegramUserId)));
 }

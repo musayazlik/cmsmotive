@@ -11,6 +11,7 @@ import {
   setPostStatusRecord,
 } from "../lib/posts";
 import { iso, ToolError, runTool } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const postSelect = {
   id: true,
@@ -72,6 +73,7 @@ export function registerPostTools(server: McpServer) {
         await publishDuePosts();
 
         const where: Prisma.PostWhereInput = {
+          storeId: mcpStoreId(),
           ...(args.q
             ? {
                 OR: [
@@ -124,8 +126,8 @@ export function registerPostTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const post = await prisma.post.findUnique({
-          where: { id: args.id },
+        const post = await prisma.post.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { ...postSelect, content: true },
         });
         if (!post) throw new ToolError("Post could not be found.");
@@ -203,8 +205,8 @@ export function registerPostTools(server: McpServer) {
       runTool(async () => {
         await publishDuePosts();
         const actor = await resolveMcpActor();
-        const existing = await prisma.post.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.post.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: {
             id: true,
             title: true,

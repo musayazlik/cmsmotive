@@ -7,25 +7,70 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id            String       @id
+/// A storefront (tenant) served by this app. Every request belongs to the
+/// store owning its host (StoreDomain); stores come from the seed and the
+/// panel, never from code. See lib/stores.ts.
+model Store {
+  id            String                 @id @default(cuid())
+  /// Stable handle for seeds and panel URLs.
+  key           String                 @unique
   name          String
-  email         String       @unique
-  emailVerified Boolean      @default(false)
-  termsVersion String?
-  privacyVersion String?
+  /// Served at unprefixed URLs; the other locales carry a prefix.
+  defaultLocale String                 @default("en")
+  /// Every published locale, including defaultLocale.
+  locales       String[]               @default(["en"])
+  /// Serves hosts no domain matches (localhost, the server IP). Keep exactly one.
+  isDefault     Boolean                @default(false)
+  domains       StoreDomain[]
+  settings      StoreSetting[]
+  themes        Theme[]
+  extensions    Extension[]
+  posts         Post[]
+  categories    Category[]
+  tags          Tag[]
+  inquiries     ContactInquiry[]
+  reviews       ProductReview[]
+  media         MediaAsset[]
+  subscribers   NewsletterSubscriber[]
+  billingPlans  BillingPlan[]
+  releases      ProductRelease[]
+  pageViews     PageViewDaily[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+}
+
+model StoreDomain {
+  id        String   @id @default(cuid())
+  /// Hostname without protocol or port.
+  host      String   @unique
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  /// Canonical host for the store's links; the others are aliases (www).
+  primary   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+}
+
+model User {
+  id              String       @id
+  name            String
+  email           String       @unique
+  emailVerified   Boolean      @default(false)
+  termsVersion    String?
+  privacyVersion  String?
   termsAcceptedAt DateTime?
-  accountLocale String @default("en")
-  image         String?
+  accountLocale   String       @default("en")
+  image           String?
   /// "admin" grants panel administration; "user" is the default account level.
   /// Additional levels (editor, reviewer) can be added without a schema change.
-  role          String       @default("user")
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  uploads       MediaAsset[]
-  posts         Post[]
+  role            String       @default("user")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  uploads         MediaAsset[]
+  posts           Post[]
 
   @@map("user")
 }
@@ -79,6 +124,8 @@ model Verification {
 
 model ContactInquiry {
   id           String    @id @default(cuid())
+  storeId      String
+  store        Store     @relation(fields: [storeId], references: [id])
   name         String
   email        String
   agency       String
@@ -92,7 +139,7 @@ model ContactInquiry {
   archivedAt   DateTime?
   createdAt    DateTime  @default(now())
 
-  @@index([createdAt])
+  @@index([storeId, createdAt])
 }
 
 /// Guest review on a static-site product page (theme-<productSlug>). Every
@@ -100,6 +147,8 @@ model ContactInquiry {
 /// counted in the star rating; moderation happens in /panel/reviews.
 model ProductReview {
   id          String     @id @default(cuid())
+  storeId     String
+  store       Store      @relation(fields: [storeId], references: [id])
   /// The reviewed product: exactly one of themeId / extensionId is set.
   themeId     String?
   theme       Theme?     @relation(fields: [themeId], references: [id], onDelete: Cascade)
@@ -123,14 +172,16 @@ model ProductReview {
 
   @@index([themeId, status, createdAt])
   @@index([extensionId, status, createdAt])
-  @@index([status, createdAt])
+  @@index([storeId, status, createdAt])
   @@index([authorEmail, createdAt])
 }
 
 /// Uploads handled by UploadThing; the row is written by onUploadComplete.
 model MediaAsset {
   id               String             @id @default(cuid())
-  key              String             @unique
+  storeId          String
+  store            Store              @relation(fields: [storeId], references: [id])
+  key              String
   url              String
   fileName         String
   fileSize         Int
@@ -147,16 +198,19 @@ model MediaAsset {
   extensionGallery ExtensionGallery[]
   createdAt        DateTime           @default(now())
 
-  @@index([createdAt])
+  @@unique([storeId, key])
+  @@index([storeId, createdAt])
   @@map("MediaAsset")
 }
 
 model Theme {
   id            String           @id @default(cuid())
-  slug          String           @unique
+  storeId       String
+  store         Store            @relation(fields: [storeId], references: [id])
+  slug          String
   name          String
   summary       String
-  compliance Json @default("{}")
+  compliance    Json             @default("{}")
   /// Tiptap HTML output.
   description   String
   status        String           @default("concept")
@@ -189,7 +243,8 @@ model Theme {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  @@index([status])
+  @@unique([storeId, slug])
+  @@index([storeId, status])
   @@map("Theme")
 }
 
@@ -208,10 +263,12 @@ model ThemeGallery {
 
 model Extension {
   id            String             @id @default(cuid())
-  slug          String             @unique
+  storeId       String
+  store         Store              @relation(fields: [storeId], references: [id])
+  slug          String
   name          String
   summary       String
-  compliance Json @default("{}")
+  compliance    Json               @default("{}")
   /// Tiptap HTML output.
   description   String
   status        String             @default("concept")
@@ -233,7 +290,8 @@ model Extension {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
-  @@index([status])
+  @@unique([storeId, slug])
+  @@index([storeId, status])
   @@map("Extension")
 }
 
@@ -275,30 +333,33 @@ model ExtensionGallery {
 /// Blog post written in the panel. `excerpt` doubles as the SEO meta
 /// description (max 160 chars) and the list teaser.
 model Post {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
+  storeId     String
+  store       Store         @relation(fields: [storeId], references: [id])
   title       String
-  slug        String      @unique
-  excerpt     String      @default("")
+  slug        String
+  excerpt     String        @default("")
   /// Tiptap HTML output.
-  content     String      @default("")
+  content     String        @default("")
   coverId     String?
-  cover       MediaAsset? @relation("PostCover", fields: [coverId], references: [id], onDelete: SetNull)
+  cover       MediaAsset?   @relation("PostCover", fields: [coverId], references: [id], onDelete: SetNull)
   /// draft | scheduled | published
-  status      String      @default("draft")
+  status      String        @default("draft")
   scheduledAt DateTime?
-  featured    Boolean     @default(false)
-  readingTime Int         @default(1)
+  featured    Boolean       @default(false)
+  readingTime Int           @default(1)
   publishedAt DateTime?
   authorId    String?
-  author      User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  author      User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
   categoryId  String?
-  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   tags        PostTag[]
   comments    PostComment[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  @@index([status])
+  @@unique([storeId, slug])
+  @@index([storeId, status])
   @@index([categoryId])
   @@index([createdAt])
   @@map("Post")
@@ -306,27 +367,27 @@ model Post {
 
 /// Moderated blog discussion. Email and pending/rejected messages remain private.
 model PostComment {
-  id          String        @id @default(cuid())
-  postId      String
-  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parentId    String?
-  parent      PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     PostComment[] @relation("CommentReplies")
-  authorName  String
-  authorEmail String
-  body        String
+  id            String        @id @default(cuid())
+  postId        String
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId      String?
+  parent        PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       PostComment[] @relation("CommentReplies")
+  authorName    String
+  authorEmail   String
+  body          String
   /// pending | approved | rejected
-  status      String        @default("pending")
-  locale      String        @default("en")
-  requestKey  String        @unique
-  moderatedAt DateTime?
+  status        String        @default("pending")
+  locale        String        @default("en")
+  requestKey    String        @unique
+  moderatedAt   DateTime?
   /// pending | checking | passed | flagged | error | unavailable | not_checked; advisory only
-  aiStatus    String        @default("pending")
-  aiNote      String?
-  aiModel     String?
-  aiCheckedAt DateTime?
+  aiStatus      String        @default("pending")
+  aiNote        String?
+  aiModel       String?
+  aiCheckedAt   DateTime?
   aiReviewToken String?
-  createdAt   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
 
   @@index([postId, status, createdAt])
   @@index([parentId, status, createdAt])
@@ -336,25 +397,31 @@ model PostComment {
 
 model Category {
   id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
   name        String
-  slug        String   @unique
+  slug        String
   description String?
   color       String   @default("#4353e8")
   posts       Post[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([storeId, slug])
   @@map("Category")
 }
 
 model Tag {
   id        String    @id @default(cuid())
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id])
   name      String
-  slug      String    @unique
+  slug      String
   posts     PostTag[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  @@unique([storeId, slug])
   @@map("Tag")
 }
 
@@ -369,97 +436,120 @@ model PostTag {
   @@map("PostTag")
 }
 
-/// Key-value site settings edited from the panel settings page.
-/// Values are stored as strings; consumers parse them against defaults.
+/// Install-wide settings shared by every store: only the panel's own
+/// security (private entry path). Values are stored as strings.
 model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
 }
 
+/// Per-store settings edited from the panel settings page: `<group>.<field>`
+/// rows holding JSON (lib/settings-store.ts). Each store keeps its own.
+model StoreSetting {
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@id([storeId, key])
+}
+
 /// Footer newsletter signup. Emails are unique so resubscribing simply
 /// refreshes the stored name instead of creating a second row.
 model NewsletterSubscriber {
-  id        String   @id @default(cuid())
-  email     String
-  firstName String
-  lastName  String
-  source    String   @default("footer")
-  locale String @default("en")
-  consentVersion String?
-  confirmedAt DateTime?
-  unsubscribedAt DateTime?
-  confirmationTokenHash String? @unique
+  id                    String    @id @default(cuid())
+  storeId               String
+  store                 Store     @relation(fields: [storeId], references: [id])
+  email                 String
+  firstName             String
+  lastName              String
+  source                String    @default("footer")
+  locale                String    @default("en")
+  consentVersion        String?
+  confirmedAt           DateTime?
+  unsubscribedAt        DateTime?
+  confirmationTokenHash String?   @unique
   confirmationExpiresAt DateTime?
-  confirmationSentAt DateTime?
-  unsubscribeTokenHash String? @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@unique([email, source])
+  confirmationSentAt    DateTime?
+  unsubscribeTokenHash  String?   @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([storeId, email, source])
 }
 
 /// Kept outside content backups: billing identity and access must never roll back with page content.
 model BillingPlan {
-  id String @id @default(cuid())
-  kind String
-  productSlug String
-  name String
-  priceCents Int
-  currency String @default("EUR")
-  installations Int @default(1)
-  creemTestProductId String? @unique
-  creemLiveProductId String? @unique
-  enabled Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([kind, productSlug])
+  id                 String   @id @default(cuid())
+  storeId            String
+  store              Store    @relation(fields: [storeId], references: [id])
+  kind               String
+  productSlug        String
+  name               String
+  priceCents         Int
+  currency           String   @default("EUR")
+  installations      Int      @default(1)
+  creemTestProductId String?  @unique
+  creemLiveProductId String?  @unique
+  enabled            Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([storeId, kind, productSlug])
 }
 
 model CheckoutAttempt {
-  id String @id @default(cuid())
-  userId String
-  planId String
+  id             String   @id @default(cuid())
+  userId         String
+  planId         String
   creemProductId String
-  mode String
-  termsVersion String
+  mode           String
+  termsVersion   String
   privacyVersion String
-  acceptedAt DateTime @default(now())
-  createdAt DateTime @default(now())
+  acceptedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
   @@index([userId, createdAt])
 }
 
 model ProductSubscription {
-  id String @id @default(cuid())
-  userId String
-  planId String
-  creemSubscriptionId String @unique
-  creemCustomerId String
-  mode String
-  status String
-  currentPeriodStart DateTime
-  currentPeriodEnd DateTime
-  providerUpdatedAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String
+  planId              String
+  creemSubscriptionId String   @unique
+  creemCustomerId     String
+  mode                String
+  status              String
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  providerUpdatedAt   DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
   @@index([userId, mode])
 }
 
 model ProductRelease {
-  id String @id @default(cuid())
-  kind String
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  kind        String
   productSlug String
-  version String
-  fileKey String @unique
-  fileName String
+  version     String
+  fileKey     String   @unique
+  fileName    String
   codeLicense String
-  createdAt DateTime @default(now())
-  @@unique([kind, productSlug, version])
+  createdAt   DateTime @default(now())
+
+  @@unique([storeId, kind, productSlug, version])
 }
 
 model PaymentEvent {
-  id String @id
-  type String
-  mode String
+  id          String   @id
+  type        String
+  mode        String
   processedAt DateTime @default(now())
 }
 
@@ -468,10 +558,12 @@ model PaymentEvent {
 /// panel overview.
 model PageViewDaily {
   id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id])
   date      DateTime @db.Date
   slug      String
   views     Int      @default(0)
   updatedAt DateTime @updatedAt
 
-  @@unique([date, slug])
+  @@unique([storeId, date, slug])
 }

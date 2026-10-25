@@ -25,9 +25,6 @@ export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   notifySubscribers: false,
 };
 
-/** Used when neither the setting nor PLUNK_CONTACT_TO_EMAIL names an inbox. */
-export const FALLBACK_CONTACT_RECIPIENT = "info@cmsmotive.de";
-
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateEmailSettings(input: Record<string, unknown>): { error: string } | { data: EmailSettings } {

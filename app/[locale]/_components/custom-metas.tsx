@@ -1,3 +1,4 @@
+import { currentStoreId } from "@/lib/current-store";
 import { getSeoSettings } from "@/lib/settings";
 import type { CustomMeta } from "@/lib/seo-settings-shared";
 
@@ -8,7 +9,7 @@ import type { CustomMeta } from "@/lib/seo-settings-shared";
  * names (e.g. several marketing tags) are rendered exactly as saved.
  */
 export default async function CustomMetaTags() {
-  const { customMetas } = await getSeoSettings();
+  const { customMetas } = await getSeoSettings(await currentStoreId());
   return customMetas.map((meta) => <MetaTag key={`${meta.attr}-${meta.name}-${meta.content}`} meta={meta} />);
 }
 

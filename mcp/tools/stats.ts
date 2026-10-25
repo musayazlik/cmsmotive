@@ -11,6 +11,8 @@ import { getMcpActorUserId } from "@/lib/mcp-settings";
 import { ADMIN_ROLES, resolveMcpActor } from "../context";
 import { listNotifications } from "../lib/notifications";
 import { runTool } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
+import { changelogInStore } from "@/lib/changelog";
 
 export function registerStatsTools(server: McpServer) {
   server.registerTool(
@@ -38,16 +40,16 @@ export function registerStatsTools(server: McpServer) {
           storage,
           system,
         ] = await Promise.all([
-          prisma.post.groupBy({ by: ["status"], _count: { _all: true } }),
-          prisma.theme.count(),
-          prisma.extension.count(),
-          prisma.changelogEntry.count(),
+          prisma.post.groupBy({ by: ["status"], where: { storeId: mcpStoreId() }, _count: { _all: true } }),
+          prisma.theme.count({ where: { storeId: mcpStoreId() } }),
+          prisma.extension.count({ where: { storeId: mcpStoreId() } }),
+          prisma.changelogEntry.count({ where: changelogInStore(mcpStoreId()) }),
           prisma.user.count({ where: { role: { not: "superadmin" } } }),
           prisma.user.count({ where: { role: { in: [...ADMIN_ROLES] } } }),
-          prisma.newsletterSubscriber.count(),
-          prisma.productReview.count({ where: { status: "pending" } }),
-          prisma.contactInquiry.count({ where: { readAt: null, archivedAt: null } }),
-          prisma.contactInquiry.count({ where: { archivedAt: { not: null } } }),
+          prisma.newsletterSubscriber.count({ where: { storeId: mcpStoreId() } }),
+          prisma.productReview.count({ where: { storeId: mcpStoreId(), status: "pending" } }),
+          prisma.contactInquiry.count({ where: { storeId: mcpStoreId(), readAt: null, archivedAt: null } }),
+          prisma.contactInquiry.count({ where: { storeId: mcpStoreId(), archivedAt: { not: null } } }),
           getStorageStatus(),
           getSystemStatus(),
         ]);
@@ -87,7 +89,7 @@ export function registerStatsTools(server: McpServer) {
       },
       annotations: { readOnlyHint: true },
     },
-    async (args) => runTool(async () => getDailyReads(args.days)),
+    async (args) => runTool(async () => getDailyReads(mcpStoreId(), args.days)),
   );
 
   server.registerTool(
@@ -110,7 +112,7 @@ export function registerStatsTools(server: McpServer) {
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
-    async () => runTool(async () => getMailStatus()),
+    async () => runTool(async () => getMailStatus(mcpStoreId())),
   );
 
   server.registerTool(
@@ -135,7 +137,7 @@ export function registerStatsTools(server: McpServer) {
     },
     async () =>
       runTool(async () => {
-        const [actor, configured] = await Promise.all([resolveMcpActor(), getMcpActorUserId()]);
+        const [actor, configured] = await Promise.all([resolveMcpActor(), getMcpActorUserId(mcpStoreId())]);
         return {
           id: actor.id,
           name: actor.name,

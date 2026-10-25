@@ -1,18 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { creemConfigured, creemMode } from "@/lib/creem";
 import BillingManager from "./billing-manager";
+import { panelStore } from "@/lib/panel-store";
 export default async function BillingPage() {
+  const storeId = (await panelStore()).id;
   const [themes, extensions, plans, releases] = await Promise.all([
     prisma.theme.findMany({
+      where: { storeId },
       select: { name: true, slug: true },
       orderBy: { name: "asc" },
     }),
     prisma.extension.findMany({
+      where: { storeId },
       select: { name: true, slug: true },
       orderBy: { name: "asc" },
     }),
-    prisma.billingPlan.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.billingPlan.findMany({ where: { storeId }, orderBy: { createdAt: "asc" } }),
     prisma.productRelease.findMany({
+      where: { storeId },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

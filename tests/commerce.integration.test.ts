@@ -58,8 +58,10 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
         emailVerified: true,
       },
     });
+    const store = await db.store.findFirstOrThrow();
     const plan = await db.billingPlan.create({
       data: {
+        storeId: store.id,
         kind: "theme",
         productSlug: "fixture",
         name: "Annual",

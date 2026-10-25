@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { runCommentAiReview } from "@/lib/comment-ai";
 import { getPublicComments } from "@/lib/blog-comments";
 import { COMMENT_LIMITS, parseCommentInput } from "@/lib/blog-comments-shared";
+import { currentStoreId } from "@/lib/current-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const postId = params.get("postId") ?? "";
   const cursor = params.get("cursor") ?? undefined;
   if (!/^[a-z0-9]{1,64}$/i.test(postId) || (cursor && !/^[a-z0-9]{1,64}$/i.test(cursor))) return fail("invalid", 400);
-  const post = await prisma.post.findFirst({ where: { id: postId, status: "published" }, select: { id: true } });
+  const post = await prisma.post.findFirst({ where: { id: postId, storeId: await currentStoreId(), status: "published" }, select: { id: true } });
   if (!post) return fail("unavailable", 404);
   if (cursor && !await prisma.postComment.findFirst({ where: { id: cursor, postId, status: "approved", parentId: null }, select: { id: true } })) return fail("invalid", 400);
   return Response.json(await getPublicComments(post.id, cursor), { headers: { "Cache-Control": "no-store" } });
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   if (Number(request.headers.get("content-length")) > 16384) return fail("invalid", 413);
   const input = parseCommentInput(await request.json().catch(() => null));
   if (!input) return fail("invalid", 400);
+  const storeId = await currentStoreId();
   try {
     const createdId = await prisma.$transaction(async (tx) => {
       // Serialize per-email submissions and retries so the hourly limit cannot be raced.
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
         if (existing.postId !== input.postId || existing.authorEmail !== input.authorEmail) throw new Error("invalid");
         return;
       }
-      const post = await tx.post.findFirst({ where: { id: input.postId, status: "published" }, select: { id: true } });
+      const post = await tx.post.findFirst({ where: { id: input.postId, storeId, status: "published" }, select: { id: true } });
       if (!post) throw new Error("unavailable");
       if (input.parentId && !await tx.postComment.findFirst({ where: { id: input.parentId, postId: input.postId, parentId: null, status: "approved" }, select: { id: true } })) throw new Error("unavailable");
       const recent = await tx.postComment.count({ where: { authorEmail: input.authorEmail, createdAt: { gte: new Date(Date.now() - 3_600_000) } } });

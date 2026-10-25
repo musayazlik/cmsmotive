@@ -7,8 +7,9 @@ const id = text.min(1);
 const integer = z.number().int().min(-2147483648).max(2147483647);
 const date = z.iso.datetime({ offset: true }).pipe(z.coerce.date());
 const timestamps = { createdAt: date, updatedAt: date };
+const owned = { storeId: id };
 const product = {
-  id, compliance: z.json().default({}), slug: id, name: text, summary: text, description: text, status: text,
+  id, ...owned, compliance: z.json().default({}), slug: id, name: text, summary: text, description: text, status: text,
   position: integer, tagline: text.nullable(), intro: text.nullable(),
   highlights: z.array(text), compatibility: z.json(), ctaLabel: text.nullable(),
   ctaUrl: text.nullable(), demoUrl: text.nullable(), coverId: id.nullable(), ...timestamps,
@@ -29,34 +30,37 @@ export const backupSchema = z.strictObject({
   // Identities only: used to reconnect authors and integrations by email on another installation.
   users: rows(z.strictObject({ id, email: z.email() })),
   data: z.strictObject({
+    stores: rows(z.strictObject({ id, key: id, name: text, defaultLocale: text, locales: z.array(text), isDefault: z.boolean(), ...timestamps })),
+    storeDomains: rows(z.strictObject({ id, host: id, storeId: id, primary: z.boolean(), createdAt: date })),
+    storeSettings: rows(z.strictObject({ storeId: id, key: id, value: text, updatedAt: date })),
     themes: rows(z.strictObject({ ...product, industry: text, versionTarget: text, price: integer.nullable(), licences: z.json() })),
     extensions: rows(z.strictObject(product)),
     themeGallery: rows(z.strictObject({ id, themeId: id, assetId: id, position: integer })),
     extensionGallery: rows(z.strictObject({ id, extensionId: id, assetId: id, position: integer })),
     changelog: rows(z.strictObject({ id, ...productLink, version: text, title: text, releasedAt: date, changes: z.json(), ...timestamps })),
     media: rows(z.strictObject({
-      id, key: id, url: mediaUrl, fileName: text, fileSize: integer.nonnegative(), mimeType: text,
+      id, ...owned, key: id, url: mediaUrl, fileName: text, fileSize: integer.nonnegative(), mimeType: text,
       alt: text.nullable(), width: integer.nullable(), height: integer.nullable(), uploadedById: id.nullable(), createdAt: date,
     })),
     posts: rows(z.strictObject({
-      id, title: text, slug: id, excerpt: text, content: text, coverId: id.nullable(), status: text,
+      id, ...owned, title: text, slug: id, excerpt: text, content: text, coverId: id.nullable(), status: text,
       scheduledAt: date.nullable(), featured: z.boolean(), readingTime: integer,
       publishedAt: date.nullable(), authorId: id.nullable(), categoryId: id.nullable(), ...timestamps,
     })),
-    categories: rows(z.strictObject({ id, name: text, slug: id, description: text.nullable(), color: text, ...timestamps })),
-    tags: rows(z.strictObject({ id, name: text, slug: id, ...timestamps })),
+    categories: rows(z.strictObject({ id, ...owned, name: text, slug: id, description: text.nullable(), color: text, ...timestamps })),
+    tags: rows(z.strictObject({ id, ...owned, name: text, slug: id, ...timestamps })),
     postTags: rows(z.strictObject({ postId: id, tagId: id })),
     comments: rows(z.strictObject({
       ...moderation, postId: id, parentId: id.nullable(), aiStatus: text, aiNote: text.nullable(),
       aiModel: text.nullable(), aiCheckedAt: date.nullable(), aiReviewToken: text.nullable(),
     })),
-    reviews: rows(z.strictObject({ ...moderation, ...productLink, productSlug: text, rating: integer.min(1).max(5) })),
+    reviews: rows(z.strictObject({ ...moderation, ...owned, ...productLink, productSlug: text, rating: integer.min(1).max(5) })),
     inquiries: rows(z.strictObject({
-      id, name: text, email: text, agency: text, typo3Version: text, license: text, message: text,
+      id, ...owned, name: text, email: text, agency: text, typo3Version: text, license: text, message: text,
       emailSent: z.boolean(), readAt: date.nullable(), archivedAt: date.nullable(), createdAt: date,
     })),
-    subscribers: rows(z.strictObject({ id, email: text, firstName: text, lastName: text, source: text, locale: text.default("en"), consentVersion: text.nullable().default(null), confirmedAt: date.nullable().default(null), unsubscribedAt: date.nullable().default(null), confirmationTokenHash: text.nullable().default(null), confirmationExpiresAt: date.nullable().default(null), confirmationSentAt: date.nullable().default(null), unsubscribeTokenHash: text.nullable().default(null), ...timestamps })),
-    pageViews: rows(z.strictObject({ id, date, slug: text, views: integer, updatedAt: date })),
+    subscribers: rows(z.strictObject({ id, ...owned, email: text, firstName: text, lastName: text, source: text, locale: text.default("en"), consentVersion: text.nullable().default(null), confirmedAt: date.nullable().default(null), unsubscribedAt: date.nullable().default(null), confirmationTokenHash: text.nullable().default(null), confirmationExpiresAt: date.nullable().default(null), confirmationSentAt: date.nullable().default(null), unsubscribeTokenHash: text.nullable().default(null), ...timestamps })),
+    pageViews: rows(z.strictObject({ id, ...owned, date, slug: text, views: integer, updatedAt: date })),
     settings: rows(z.strictObject({ key: id, value: text, updatedAt: date })),
   }),
 });
@@ -100,20 +104,25 @@ export function parseBackup(input: unknown): Backup {
   const identities = unique(backup.users, (row) => row.id, "user ID");
   unique(backup.users, (row) => row.email.toLowerCase(), "user email");
   for (const [name, records] of Object.entries(d)) {
-    if (name !== "settings" && name !== "postTags") {
+    if (name !== "settings" && name !== "postTags" && name !== "storeSettings") {
       unique(records as { id: string }[], (row) => row.id, `${name} ID`);
     }
   }
-  for (const name of ["themes", "extensions", "posts", "categories", "tags"] as const) unique<{ slug: string }>(d[name], (row) => row.slug, `${name} slug`);
-  unique(d.media, (row) => row.key, "media key");
+  // Slugs, media keys, subscribers and counters are unique within their store.
+  for (const name of ["themes", "extensions", "posts", "categories", "tags"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
+  unique(d.media, (row) => `${row.storeId}:${row.key}`, "media key");
   unique(d.settings, (row) => row.key, "setting key");
+  unique(d.storeSettings, (row) => `${row.storeId}:${row.key}`, "store setting key");
+  unique(d.stores, (row) => row.key, "store key");
+  unique(d.storeDomains, (row) => row.host, "store domain");
+  if (d.settings.some((row) => !row.key.startsWith("security."))) fail("Only panel security settings are install-wide; other settings belong to a store.");
   unique(d.reviews, (row) => row.requestKey, "review request key");
   unique(d.comments, (row) => row.requestKey, "comment request key");
-  unique(d.subscribers, (row) => `${row.email.toLowerCase()}:${row.source}`, "subscriber email/purpose");
+  unique(d.subscribers, (row) => `${row.storeId}:${row.email.toLowerCase()}:${row.source}`, "subscriber email/purpose");
   unique(d.postTags, (row) => JSON.stringify([row.postId, row.tagId]), "post tag link");
   unique(d.themeGallery, (row) => JSON.stringify([row.themeId, row.assetId]), "theme gallery link");
   unique(d.extensionGallery, (row) => JSON.stringify([row.extensionId, row.assetId]), "extension gallery link");
-  unique(d.pageViews, (row) => JSON.stringify([row.date.toISOString().slice(0, 10), row.slug]), "page view date and slug");
+  unique(d.pageViews, (row) => JSON.stringify([row.storeId, row.date.toISOString().slice(0, 10), row.slug]), "page view date and slug");
 
   const ids = (records: { id: string }[]) => new Set(records.map((row) => row.id));
   const themes = ids(d.themes), extensions = ids(d.extensions), media = ids(d.media);
@@ -121,6 +130,10 @@ export function parseBackup(input: unknown): Backup {
   const reference = (set: Set<string>, value: string | null, label: string) => {
     if (value !== null && !set.has(value)) fail(`Missing ${label} reference in backup.`);
   };
+  const stores = ids(d.stores);
+  for (const name of ["themes", "extensions", "media", "posts", "categories", "tags", "reviews", "inquiries", "subscribers", "pageViews", "storeDomains", "storeSettings"] as const) {
+    for (const row of d[name] as { storeId: string }[]) reference(stores, row.storeId, "store");
+  }
   for (const item of [...d.themes, ...d.extensions]) reference(media, item.coverId, "cover image");
   for (const row of d.media) reference(identities, row.uploadedById, "uploader");
   for (const row of d.posts) {
@@ -152,8 +165,7 @@ export function parseBackup(input: unknown): Backup {
     for (const key of chain) visited.add(key);
   }
   backupPanelPath(backup);
-  const telegramLinks = d.settings.find((row) => row.key === "telegram.links");
-  if (telegramLinks) {
+  for (const telegramLinks of d.storeSettings.filter((row) => row.key === "telegram.links")) {
     let links: unknown;
     try { links = JSON.parse(telegramLinks.value); } catch { fail("Invalid Telegram account links in backup."); }
     const result = z.array(z.object({
@@ -163,8 +175,9 @@ export function parseBackup(input: unknown): Backup {
     if (!result.success) fail("Invalid Telegram account links in backup.");
     for (const link of result.data) reference(identities, link.userId, "Telegram administrator");
   }
-  const actor = d.settings.find((row) => row.key === "mcp.actor.userId")?.value;
-  if (actor) reference(identities, actor, "MCP administrator");
+  for (const row of d.storeSettings) {
+    if (row.key === "mcp.actor.userId" && row.value) reference(identities, row.value, "MCP administrator");
+  }
   return backup;
 }
 

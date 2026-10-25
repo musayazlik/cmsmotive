@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin-guard";
 import { isOpenRouterConfigured, listTextAndImageModels } from "@/lib/openrouter";
 import { getAiSettings } from "@/lib/settings";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,7 @@ export const runtime = "nodejs";
 export async function GET() {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   if (!isOpenRouterConfigured()) {
     return Response.json(
@@ -17,7 +19,7 @@ export async function GET() {
   }
 
   try {
-    const [{ text, image }, defaults] = await Promise.all([listTextAndImageModels(), getAiSettings()]);
+    const [{ text, image }, defaults] = await Promise.all([listTextAndImageModels(), getAiSettings(storeId)]);
     return Response.json({ text, image, defaults });
   } catch (error) {
     console.error("ai models: list failed", error);

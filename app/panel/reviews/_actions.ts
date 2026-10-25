@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { isReviewStatus } from "@/lib/reviews";
 import type { ActionResult } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 /**
  * Review moderation. Every action re-checks the admin role because server
@@ -24,7 +25,7 @@ export async function setReviewStatus(id: string, status: string): Promise<Actio
 
   try {
     await prisma.productReview.update({
-      where: { id },
+      where: { id, storeId: (await panelStore()).id },
       data: { status, moderatedAt: status === "pending" ? null : new Date() },
     });
     refresh();
@@ -40,7 +41,7 @@ export async function deleteReview(id: string): Promise<ActionResult> {
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
 
   try {
-    await prisma.productReview.delete({ where: { id } });
+    await prisma.productReview.delete({ where: { id, storeId: (await panelStore()).id } });
     refresh();
     return { ok: true };
   } catch (error) {

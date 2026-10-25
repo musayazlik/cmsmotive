@@ -6,6 +6,7 @@ import { getTranslator } from "@/lib/i18n/translate";
 import { absoluteUrl, breadcrumbSchema, pageMetadata, siteOrigin } from "@/lib/seo";
 import { SiteFrame } from "../../_components/site-chrome";
 import { JsonLd } from "../../_components/json-ld";
+import { currentStoreId } from "@/lib/current-store";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,8 @@ export default async function BlogPage({ params }: Props) {
   const locale = (await params).locale as Locale;
   const t = getTranslator(locale);
   const href = (path: string) => localizePath(path, locale);
-  trackPageView("blog");
+  const storeId = await currentStoreId();
+  trackPageView(storeId, "blog");
 
   /** "SEPTEMBER 2026" style card footer dates, in the page language. */
   const monthYear = (date: Date | null) =>
@@ -34,7 +36,7 @@ export default async function BlogPage({ params }: Props) {
   const categoryLabel = (name: string | undefined) => (name ?? t("JOURNAL")).toLocaleUpperCase(LOCALE_TAGS[locale]);
 
   const posts = await prisma.post.findMany({
-    where: { status: "published" },
+    where: { storeId, status: "published" },
     orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
     take: 13,
     select: {

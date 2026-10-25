@@ -9,6 +9,7 @@ import {
   saveTagRecord,
 } from "../lib/taxonomy";
 import { runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const pageSizeSchema = z.union([z.literal(20), z.literal(50), z.literal(100)]).default(20);
 
@@ -29,14 +30,17 @@ export function registerTaxonomyTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const where: Prisma.CategoryWhereInput = args.q
-          ? {
-              OR: [
-                { name: { contains: args.q, mode: "insensitive" } },
-                { slug: { contains: args.q, mode: "insensitive" } },
-              ],
-            }
-          : {};
+        const where: Prisma.CategoryWhereInput = {
+          storeId: mcpStoreId(),
+          ...(args.q
+            ? {
+                OR: [
+                  { name: { contains: args.q, mode: "insensitive" } },
+                  { slug: { contains: args.q, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+        };
         const [total, categories] = await Promise.all([
           prisma.category.count({ where }),
           prisma.category.findMany({
@@ -105,8 +109,8 @@ export function registerTaxonomyTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const existing = await prisma.category.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.category.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { name: true, slug: true, description: true, color: true },
         });
         if (!existing) throw new ToolError("Category could not be found.");
@@ -148,14 +152,17 @@ export function registerTaxonomyTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const where: Prisma.TagWhereInput = args.q
-          ? {
-              OR: [
-                { name: { contains: args.q, mode: "insensitive" } },
-                { slug: { contains: args.q, mode: "insensitive" } },
-              ],
-            }
-          : {};
+        const where: Prisma.TagWhereInput = {
+          storeId: mcpStoreId(),
+          ...(args.q
+            ? {
+                OR: [
+                  { name: { contains: args.q, mode: "insensitive" } },
+                  { slug: { contains: args.q, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+        };
         const [total, tags] = await Promise.all([
           prisma.tag.count({ where }),
           prisma.tag.findMany({
@@ -214,8 +221,8 @@ export function registerTaxonomyTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const existing = await prisma.tag.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.tag.findFirst({
+          where: { id: args.id, storeId: mcpStoreId() },
           select: { name: true, slug: true },
         });
         if (!existing) throw new ToolError("Tag could not be found.");

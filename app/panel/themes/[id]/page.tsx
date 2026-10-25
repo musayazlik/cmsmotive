@@ -2,13 +2,15 @@ import { requirePanelUser } from "@/lib/panel-auth";
 import { notFound } from "next/navigation";
 import CatalogForm from "../../_components/catalog-form";
 import { loadTheme } from "../../_components/catalog-record";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditThemePage({ params }: { params: Promise<{ id: string }> }) {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   const { id } = await params;
-  const theme = await loadTheme(id);
+  const theme = await loadTheme(storeId, id);
   if (!theme) notFound();
 
   return (

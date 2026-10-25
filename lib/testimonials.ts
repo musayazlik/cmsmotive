@@ -54,7 +54,7 @@ function reviewCard(review: Review) {
   return `<figure class="voice-card"><span class="voice-stars" role="img" aria-label="Rated ${rating} out of 5">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><blockquote lang="${escapeHtml(review.locale)}"><p>${escapeHtml(quote)}</p></blockquote><figcaption><span class="voice-avatar" aria-hidden="true">${escapeHtml(initials)}</span><span class="voice-meta"><strong>${escapeHtml(name)}</strong>${product ? `<small><a href="${escapeHtml(product.href)}">${escapeHtml(product.name)}</a> · <span>${product.kind}</span></small>` : ""}</span></figcaption></figure>`;
 }
 
-export async function injectTestimonials(html: string): Promise<string> {
+export async function injectTestimonials(html: string, storeId: string): Promise<string> {
   const match = MARKER.exec(html);
   if (!match) return html;
   const limit = Number(/\blimit=(\d+)/.exec(match[1])?.[1] ?? 3);
@@ -62,10 +62,10 @@ export async function injectTestimonials(html: string): Promise<string> {
 
   let reviews: Review[];
   try {
-    const settings = await getReviewSettings();
+    const settings = await getReviewSettings(storeId);
     if (!settings.showcase) return html;
     const recent = await prisma.productReview.findMany({
-      where: { status: "approved", rating: { gte: settings.showcaseMinRating } },
+      where: { storeId, status: "approved", rating: { gte: settings.showcaseMinRating } },
       orderBy: { createdAt: "desc" },
       // Room for short reviews that are skipped below.
       take: limit * 4,

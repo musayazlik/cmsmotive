@@ -94,9 +94,9 @@ function toRecord(row: {
   };
 }
 
-export async function loadTheme(id: string): Promise<CatalogRecord | null> {
+export async function loadTheme(storeId: string, id: string): Promise<CatalogRecord | null> {
   const [theme, pendingReviews] = await Promise.all([
-    prisma.theme.findUnique({ where: { id }, include }),
+    prisma.theme.findFirst({ where: { id, storeId }, include }),
     prisma.productReview.count({ where: { themeId: id, status: "pending" } }),
   ]);
   if (!theme) return null;
@@ -110,9 +110,9 @@ export async function loadTheme(id: string): Promise<CatalogRecord | null> {
   };
 }
 
-export async function loadExtension(id: string): Promise<CatalogRecord | null> {
+export async function loadExtension(storeId: string, id: string): Promise<CatalogRecord | null> {
   const [extension, pendingReviews] = await Promise.all([
-    prisma.extension.findUnique({ where: { id }, include }),
+    prisma.extension.findFirst({ where: { id, storeId }, include }),
     prisma.productReview.count({ where: { extensionId: id, status: "pending" } }),
   ]);
   if (!extension) return null;

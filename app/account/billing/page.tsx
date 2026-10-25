@@ -3,16 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { creemMode } from "@/lib/creem";
 import { copy } from "@/lib/legal-copy";
 import { getRequestLocale } from "@/lib/i18n/request";
+import { currentStoreId } from "@/lib/current-store";
 export default async function BillingPage() {
   const user = await requireCustomer();
   const l = await getRequestLocale();
-  const subscriptions = await prisma.productSubscription.findMany({
+  const allSubscriptions = await prisma.productSubscription.findMany({
     where: { userId: user.id, mode: creemMode() },
     orderBy: { createdAt: "desc" },
   });
+  // Accounts are shared; each store's account area lists that store's purchases.
   const plans = await prisma.billingPlan.findMany({
-    where: { id: { in: subscriptions.map((s) => s.planId) } },
+    where: { id: { in: allSubscriptions.map((s) => s.planId) }, storeId: await currentStoreId() },
   });
+  const subscriptions = allSubscriptions.filter((s) => plans.some((p) => p.id === s.planId));
   return (
     <>
       <div className="workspace-title-row">

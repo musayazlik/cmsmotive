@@ -4,6 +4,7 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { LOCALES, localizePath } from "@/lib/i18n/config";
 import { absoluteUrl, siteOrigin } from "@/lib/seo";
+import { currentStore } from "@/lib/current-store";
 
 // Lists the current catalogue and journal, so it is built per request.
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ const NOT_PAGES = new Set(["404", "500", "loading", "blog"]);
  * pages are still listed.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const origin = await siteOrigin();
+  const [origin, { store }] = await Promise.all([siteOrigin(), currentStore()]);
+  const storeId = store.id;
   const url = (pagePath: string, locale: (typeof LOCALES)[number]) => absoluteUrl(origin, localizePath(pagePath, locale));
   const pages: { path: string; lastModified?: Date }[] = readdirSync(path.join(process.cwd(), "static-site"))
     .filter((file) => /^[a-z0-9-]+\.html$/.test(file))
@@ -29,9 +31,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const [themes, extensions, posts] = await Promise.all([
-      prisma.theme.findMany({ select: { slug: true, updatedAt: true } }),
-      prisma.extension.findMany({ select: { slug: true, updatedAt: true } }),
-      prisma.post.findMany({ where: { status: "published" }, select: { slug: true, updatedAt: true } }),
+      prisma.theme.findMany({ where: { storeId }, select: { slug: true, updatedAt: true } }),
+      prisma.extension.findMany({ where: { storeId }, select: { slug: true, updatedAt: true } }),
+      prisma.post.findMany({ where: { storeId, status: "published" }, select: { slug: true, updatedAt: true } }),
     ]);
     pages.push(
       ...themes.map((theme) => ({ path: `/theme/${theme.slug}`, lastModified: theme.updatedAt })),

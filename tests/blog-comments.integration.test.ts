@@ -9,7 +9,8 @@ class Rollback extends Error {}
 test('public comments preserve moderation, privacy, reply visibility and pagination', async () => {
 try {
   await prisma.$transaction(async tx => {
-    const post = await tx.post.create({data:{title:'Isolated comment verification',slug:`comment-check-${randomUUID()}`,status:'draft'}});
+    const store = await tx.store.findFirstOrThrow({orderBy:{isDefault:'desc'}});
+    const post = await tx.post.create({data:{storeId:store.id,title:'Isolated comment verification',slug:`comment-check-${randomUUID()}`,status:'draft'}});
     const data = (body:string,status:string,parentId?:string) => ({postId:post.id,authorName:'Verification reader',authorEmail:'comment-verification@example.com',body,status,parentId,requestKey:randomUUID()});
     const approved = await tx.postComment.create({data:data('Approved root','approved')});
     const hidden = await tx.postComment.create({data:data('Rejected root','rejected')});

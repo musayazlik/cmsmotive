@@ -64,16 +64,18 @@ export type PublicPost = {
 const coverSelect = { select: { url: true, alt: true, width: true, height: true } } as const;
 
 
-export async function listThemes(): Promise<PublicTheme[]> {
+export async function listThemes(storeId: string): Promise<PublicTheme[]> {
   const themes = await prisma.theme.findMany({
+    where: { storeId },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     select: { slug: true, name: true, summary: true, status: true, industry: true, versionTarget: true, price: true, cover: coverSelect },
   });
   return themes.map((theme) => ({ ...theme, href: `/theme/${theme.slug}` }));
 }
 
-export async function listExtensions(): Promise<PublicExtension[]> {
+export async function listExtensions(storeId: string): Promise<PublicExtension[]> {
   const extensions = await prisma.extension.findMany({
+    where: { storeId },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     select: { slug: true, name: true, summary: true, status: true, cover: coverSelect },
   });
@@ -84,9 +86,9 @@ export async function listExtensions(): Promise<PublicExtension[]> {
 const JOURNAL_TAKE = 12;
 
 /** Published posts in the journal list order (featured first, then by date) — same as app/[locale]/blog. */
-export async function listPosts(): Promise<PublicPost[]> {
+export async function listPosts(storeId: string): Promise<PublicPost[]> {
   const posts = await prisma.post.findMany({
-    where: { status: "published" },
+    where: { storeId, status: "published" },
     orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
     take: JOURNAL_TAKE,
     select: { slug: true, title: true, excerpt: true, publishedAt: true, category: { select: { name: true } }, cover: coverSelect },
@@ -193,11 +195,11 @@ function extensionPlaceholder(withCover: boolean) {
 const MARKER = /<!--\s*catalog:(themes|extensions|journal)((?:\s+[\w=]+)*)\s*-->[\s\S]*?<!--\s*\/catalog:\1\s*-->/g;
 
 /**
- * Replaces the marked product grids in `html` with the current catalogue.
+ * Replaces the marked product grids in `html` with the store's catalogue.
  * Pages without a marker are returned untouched; if the database cannot be
  * reached the static cards from build.py stay in place.
  */
-export async function injectCatalog(html: string): Promise<string> {
+export async function injectCatalog(html: string, storeId: string): Promise<string> {
   const kinds = new Set(Array.from(html.matchAll(MARKER), (match) => match[1]));
   if (kinds.size === 0) return html;
 
@@ -206,9 +208,9 @@ export async function injectCatalog(html: string): Promise<string> {
   let posts: PublicPost[];
   try {
     [themes, extensions, posts] = await Promise.all([
-      kinds.has("themes") ? listThemes() : Promise.resolve([]),
-      kinds.has("extensions") ? listExtensions() : Promise.resolve([]),
-      kinds.has("journal") ? listPosts() : Promise.resolve([]),
+      kinds.has("themes") ? listThemes(storeId) : Promise.resolve([]),
+      kinds.has("extensions") ? listExtensions(storeId) : Promise.resolve([]),
+      kinds.has("journal") ? listPosts(storeId) : Promise.resolve([]),
     ]);
   } catch (error) {
     console.error("catalogue unavailable, serving the static cards", error);

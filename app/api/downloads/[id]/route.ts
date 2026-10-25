@@ -15,7 +15,7 @@ export async function GET(
   });
   if (!release) return new Response("Not found", { status: 404 });
   const plans = await prisma.billingPlan.findMany({
-    where: { kind: release.kind, productSlug: release.productSlug },
+    where: { storeId: release.storeId, kind: release.kind, productSlug: release.productSlug },
     select: { id: true },
   });
   const subscriptions = await prisma.productSubscription.findMany({

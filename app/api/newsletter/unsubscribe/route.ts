@@ -3,7 +3,7 @@ import { readUnsubscribeToken } from "@/lib/newsletter";
 import { billingOrigin } from "@/lib/creem";
 import { isLocale } from "@/lib/i18n/config";
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== billingOrigin())
+  if (request.headers.get("origin") !== (await billingOrigin(request)))
     return new Response("Forbidden", { status: 403 });
   const form = await request.formData();
   const id = readUnsubscribeToken(String(form.get("token") ?? ""));
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       },
     });
   return Response.redirect(
-    `${billingOrigin()}/newsletter/unsubscribe?done=${id ? "ok" : "invalid"}&lang=${l}`,
+    `${await billingOrigin(request)}/newsletter/unsubscribe?done=${id ? "ok" : "invalid"}&lang=${l}`,
     303,
   );
 }

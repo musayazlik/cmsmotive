@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { validateChangelog } from "@/lib/catalog-guard";
 import { prismaErrors } from "@/lib/prisma-errors";
-import { productExists } from "@/lib/changelog";
+import { changelogInStore, productExists } from "@/lib/changelog";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ function productFilter(value: string | null) {
 export async function GET(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   const params = new URL(request.url).searchParams;
   const q = (params.get("q") ?? "").trim();
@@ -28,17 +30,20 @@ export async function GET(request: Request) {
   const pageSize = [20, 50, 100].includes(Number(params.get("pageSize"))) ? Number(params.get("pageSize")) : 20;
 
   const where = {
-    ...productFilter(params.get("product")),
-    ...(q
-      ? {
-          OR: [
-            { version: { contains: q, mode: "insensitive" as const } },
-            { title: { contains: q, mode: "insensitive" as const } },
-            { theme: { name: { contains: q, mode: "insensitive" as const } } },
-            { extension: { name: { contains: q, mode: "insensitive" as const } } },
-          ],
-        }
-      : {}),
+    AND: [
+      changelogInStore(storeId),
+      productFilter(params.get("product")),
+      q
+        ? {
+            OR: [
+              { version: { contains: q, mode: "insensitive" as const } },
+              { title: { contains: q, mode: "insensitive" as const } },
+              { theme: { name: { contains: q, mode: "insensitive" as const } } },
+              { extension: { name: { contains: q, mode: "insensitive" as const } } },
+            ],
+          }
+        : {},
+    ],
   };
 
   const [total, entries] = await Promise.all([
@@ -72,6 +77,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   let body: Record<string, unknown>;
   try {
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
 
   const validated = validateChangelog(body);
   if ("error" in validated) return Response.json({ error: validated.error }, { status: 400 });
-  if (!(await productExists(validated.data))) {
+  if (!(await productExists(storeId, validated.data))) {
     return Response.json({ error: "The chosen theme or extension no longer exists." }, { status: 400 });
   }
 

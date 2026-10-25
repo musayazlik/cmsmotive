@@ -41,6 +41,29 @@ export function runAsActor<T>(userId: string, fn: () => Promise<T>): Promise<T> 
 }
 
 /**
+ * The store every tool reads and writes. The HTTP endpoint scopes each
+ * request to the store its token belongs to and the Telegram bot to its own
+ * store (runInStore); the stdio server picks one store at startup
+ * (setProcessStore).
+ */
+const storeScope = new AsyncLocalStorage<string>();
+let processStore: string | null = null;
+
+export function runInStore<T>(storeId: string, fn: () => Promise<T>): Promise<T> {
+  return storeScope.run(storeId, fn);
+}
+
+export function setProcessStore(storeId: string) {
+  processStore = storeId;
+}
+
+export function mcpStoreId(): string {
+  const storeId = storeScope.getStore() ?? processStore;
+  if (!storeId) throw new Error("No store is selected for this MCP session.");
+  return storeId;
+}
+
+/**
  * Model choices that replace the Settings → AI ones for the AI tools awaited
  * inside fn — the Telegram bot passes its own content and image models.
  * Empty values fall through to Settings → AI.
@@ -69,7 +92,7 @@ export async function resolveMcpActor(): Promise<McpActor> {
     return user;
   }
 
-  const configured = await getMcpActorUserId();
+  const configured = await getMcpActorUserId(mcpStoreId());
   let user = configured
     ? await prisma.user.findUnique({ where: { id: configured }, select: ACTOR_SELECT })
     : null;

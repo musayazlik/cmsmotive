@@ -318,10 +318,11 @@ export function validateCore(body: Record<string, unknown>): ValidationResult<Co
 }
 
 /** Confirms the referenced uploads exist before the record is written. */
-export async function assertAssetsExist(assetIds: (string | null)[], prisma: typeof import("@/lib/prisma").prisma) {
+/** Every selected image must exist in the store's own media library. */
+export async function assertAssetsExist(storeId: string, assetIds: (string | null)[], prisma: typeof import("@/lib/prisma").prisma) {
   const ids = assetIds.filter((id): id is string => Boolean(id));
   if (ids.length === 0) return null;
-  const found = await prisma.mediaAsset.count({ where: { id: { in: ids } } });
+  const found = await prisma.mediaAsset.count({ where: { id: { in: ids }, storeId } });
   if (found !== new Set(ids).size) {
     return Response.json({ error: "One or more selected images could not be found." }, { status: 400 });
   }

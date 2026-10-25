@@ -4,8 +4,8 @@ import {
   DEFAULT_LEGAL_SETTINGS,
   type LegalSettings,
 } from "./legal-settings-shared";
-export const getLegalSettings = cache(() =>
-  readSettingsGroup("legal", DEFAULT_LEGAL_SETTINGS),
+export const getLegalSettings = cache((storeId: string) =>
+  readSettingsGroup(storeId, "legal", DEFAULT_LEGAL_SETTINGS),
 );
-export const saveLegalSettings = (data: LegalSettings) =>
-  writeSettingsGroup("legal", data);
+export const saveLegalSettings = (storeId: string, data: LegalSettings) =>
+  writeSettingsGroup(storeId, "legal", data);

@@ -11,10 +11,11 @@ import {
 } from "@/lib/creem";
 import { isLocale } from "@/lib/i18n/config";
 import { safePurchaseReturn } from "@/lib/purchase-flow";
+import { resolveRequestStore } from "@/lib/stores";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin || origin !== billingOrigin())
+  if (!origin || origin !== (await billingOrigin(request)))
     return Response.json({ error: "Invalid request origin." }, { status: 403 });
   const form = await request.formData();
   const lang = form.get("lang");
@@ -40,7 +41,8 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   const testCheckout = creemMode() === "test";
-  const legal = await getLegalSettings();
+  const storeId = (await resolveRequestStore(request)).store.id;
+  const legal = await getLegalSettings(storeId);
   if (
     !creemConfigured() ||
     (!testCheckout &&
@@ -63,14 +65,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   const plan = await prisma.billingPlan.findFirst({
-    where: { id: String(form.get("planId") ?? ""), enabled: true },
+    where: { id: String(form.get("planId") ?? ""), storeId, enabled: true },
   });
   if (!plan) return Response.json({ error: "Unknown plan." }, { status: 404 });
   const product =
     plan.kind === "theme"
-      ? await prisma.theme.findUnique({ where: { slug: plan.productSlug } })
+      ? await prisma.theme.findUnique({ where: { storeId_slug: { storeId, slug: plan.productSlug } } })
       : await prisma.extension.findUnique({
-          where: { slug: plan.productSlug },
+          where: { storeId_slug: { storeId, slug: plan.productSlug } },
         });
   const { readCompliance, publicationMissing } = await import(
     "@/lib/product-compliance"
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
   if (
     !testCheckout &&
     !(await prisma.productRelease.findFirst({
-      where: { kind: plan.kind, productSlug: plan.productSlug },
+      where: { storeId, kind: plan.kind, productSlug: plan.productSlug },
       select: { id: true },
     }))
   )
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
     },
   });
   if (existing)
-    return finish(`${billingOrigin()}/account/billing?lang=${locale}`);
+    return finish(`${await billingOrigin(request)}/account/billing?lang=${locale}`);
   try {
     const remote = await creemRequest(
       `/v1/products/${encodeURIComponent(productId)}`,
@@ -163,7 +165,7 @@ export async function POST(request: Request) {
       product_id: productId,
       units: 1,
       customer: { email: session.user.email },
-      success_url: `${billingOrigin()}/account?lang=${locale}&checkout=pending`,
+      success_url: `${await billingOrigin(request)}/account?lang=${locale}&checkout=pending`,
       metadata: { checkoutAttemptId: attempt.id },
     });
     return finish(creemRedirect(result.checkout_url));

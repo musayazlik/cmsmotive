@@ -2,18 +2,21 @@ import { requirePanelUser } from "@/lib/panel-auth";
 import { prisma } from "@/lib/prisma";
 import BlogList from "./_components/blog-list";
 import type { PostRow } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   // Promote scheduled posts whose time has come; no cron needed at panel load.
   await prisma.post.updateMany({
-    where: { status: "scheduled", scheduledAt: { lte: new Date() } },
+    where: { storeId, status: "scheduled", scheduledAt: { lte: new Date() } },
     data: { status: "published", publishedAt: new Date(), scheduledAt: null },
   });
 
   const posts = await prisma.post.findMany({
+    where: { storeId },
     orderBy: { updatedAt: "desc" },
     include: {
       category: { select: { id: true, name: true, color: true } },

@@ -7,8 +7,9 @@ import {
   CHANGELOG_LIMITS,
   validateChangelog,
 } from "@/lib/catalog-guard";
-import { productExists, readChanges } from "@/lib/changelog";
+import { changelogInStore, productExists, readChanges } from "@/lib/changelog";
 import { runTool, ToolError } from "../lib/result";
+import { mcpStoreId } from "@/mcp/context";
 
 const productSelect = { select: { id: true, name: true, slug: true } } as const;
 
@@ -56,17 +57,20 @@ export function registerChangelogTools(server: McpServer) {
     async (args) =>
       runTool(async () => {
         const where: Prisma.ChangelogEntryWhereInput = {
-          ...productFilter(args.product),
-          ...(args.q
-            ? {
-                OR: [
-                  { version: { contains: args.q, mode: "insensitive" } },
-                  { title: { contains: args.q, mode: "insensitive" } },
-                  { theme: { name: { contains: args.q, mode: "insensitive" } } },
-                  { extension: { name: { contains: args.q, mode: "insensitive" } } },
-                ],
-              }
-            : {}),
+          AND: [
+            changelogInStore(mcpStoreId()),
+            productFilter(args.product),
+            args.q
+              ? {
+                  OR: [
+                    { version: { contains: args.q, mode: "insensitive" } },
+                    { title: { contains: args.q, mode: "insensitive" } },
+                    { theme: { name: { contains: args.q, mode: "insensitive" } } },
+                    { extension: { name: { contains: args.q, mode: "insensitive" } } },
+                  ],
+                }
+              : {},
+          ],
         };
 
         const [total, entries] = await Promise.all([
@@ -120,8 +124,8 @@ export function registerChangelogTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const entry = await prisma.changelogEntry.findUnique({
-          where: { id: args.id },
+        const entry = await prisma.changelogEntry.findFirst({
+          where: { id: args.id, ...changelogInStore(mcpStoreId()) },
           select: {
             id: true,
             version: true,
@@ -171,7 +175,7 @@ export function registerChangelogTools(server: McpServer) {
       runTool(async () => {
         const validated = validateChangelog(args);
         if ("error" in validated) throw new ToolError(validated.error);
-        if (!(await productExists(validated.data))) {
+        if (!(await productExists(mcpStoreId(), validated.data))) {
           throw new ToolError("The chosen theme or extension no longer exists.");
         }
         const entry = await prisma.changelogEntry.create({
@@ -200,8 +204,8 @@ export function registerChangelogTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const existing = await prisma.changelogEntry.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.changelogEntry.findFirst({
+          where: { id: args.id, ...changelogInStore(mcpStoreId()) },
           select: {
             id: true,
             themeId: true,
@@ -224,7 +228,7 @@ export function registerChangelogTools(server: McpServer) {
 
         const validated = validateChangelog(body);
         if ("error" in validated) throw new ToolError(validated.error);
-        if (!(await productExists(validated.data))) {
+        if (!(await productExists(mcpStoreId(), validated.data))) {
           throw new ToolError("The chosen theme or extension no longer exists.");
         }
 
@@ -247,8 +251,8 @@ export function registerChangelogTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const existing = await prisma.changelogEntry.findUnique({
-          where: { id: args.id },
+        const existing = await prisma.changelogEntry.findFirst({
+          where: { id: args.id, ...changelogInStore(mcpStoreId()) },
           select: { id: true },
         });
         if (!existing) throw new ToolError("Changelog entry not found.");

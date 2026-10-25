@@ -10,6 +10,7 @@ import { authText } from "@/lib/auth-copy";
 import { getLegalSettings } from "@/lib/legal";
 import { accountRegistrationReady, googleAuthConfigured, localRegistrationPreview } from "@/lib/account-registration";
 import { safePurchaseReturn } from "@/lib/purchase-flow";
+import { currentStoreId } from "@/lib/current-store";
 
 type AuthSearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -32,9 +33,10 @@ export function authRoute(page: AuthPageName) {
   }
 
   async function Page({ searchParams }: { searchParams: AuthSearchParams }) {
+    const storeId = await currentStoreId();
     const [{ panelPath }, { allowSignup }, query, requestHeaders] = await Promise.all([
       getAdminAccessSettings(),
-      getSiteSettings(),
+      getSiteSettings(storeId),
       searchParams,
       headers(),
     ]);
@@ -49,7 +51,7 @@ export function authRoute(page: AuthPageName) {
 
     const lang=first(query.lang);
     const locale=isLocale(lang)?lang:"de";
-    const legal=await getLegalSettings();
+    const legal=await getLegalSettings(storeId);
     const source=AUTH_CONTENT[page];
     const content={...source, ...Object.fromEntries(Object.entries(source).filter(([,v])=>typeof v==="string").map(([key,v])=>[key,authText(locale,String(v))])),fields:source.fields.map(f=>({...f,label:authText(locale,f.label),placeholder:authText(locale,f.placeholder),hint:f.hint?authText(locale,f.hint):undefined}))};
 

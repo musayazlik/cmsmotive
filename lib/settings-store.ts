@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Generic access to a group of settings in the Setting table. Each field of
- * a group is one row, `<prefix>.<field>`, holding the JSON-encoded value, so
- * a group is declared by its defaults alone (see lib/*-settings-shared.ts).
+ * Generic access to a store's group of settings in the StoreSetting table.
+ * Each field of a group is one row, `<prefix>.<field>`, holding the
+ * JSON-encoded value, so a group is declared by its defaults alone (see
+ * lib/*-settings-shared.ts). Every store keeps its own values.
  * Values are validated before they are written; on read, a missing row or a
  * value of the wrong type falls back to the field's default.
  */
@@ -28,9 +29,9 @@ function sameShape(value: unknown, fallback: Json): boolean {
   return typeof value === typeof fallback;
 }
 
-export async function readSettingsGroup<T extends SettingsGroup>(prefix: string, defaults: T): Promise<T> {
+export async function readSettingsGroup<T extends SettingsGroup>(storeId: string, prefix: string, defaults: T): Promise<T> {
   try {
-    const rows = await prisma.setting.findMany({ where: { key: { startsWith: `${prefix}.` } } });
+    const rows = await prisma.storeSetting.findMany({ where: { storeId, key: { startsWith: `${prefix}.` } } });
     const values = new Map(rows.map((row) => [row.key.slice(prefix.length + 1), row.value]));
     const result = { ...defaults };
     for (const field of Object.keys(defaults) as (keyof T & string)[]) {
@@ -49,12 +50,19 @@ export async function readSettingsGroup<T extends SettingsGroup>(prefix: string,
   }
 }
 
-export async function writeSettingsGroup<T extends SettingsGroup>(prefix: string, values: T): Promise<void> {
+export async function writeSettingsGroup<T extends SettingsGroup>(storeId: string, prefix: string, values: T): Promise<void> {
   await prisma.$transaction(
-    Object.entries(values).map(([field, value]) => {
-      const key = `${prefix}.${field}`;
-      const encoded = JSON.stringify(value);
-      return prisma.setting.upsert({ where: { key }, update: { value: encoded }, create: { key, value: encoded } });
-    }),
+    Object.entries(values).map(([field, value]) => upsertStoreValue(storeId, `${prefix}.${field}`, JSON.stringify(value))),
   );
+}
+
+/** Raw string values of a store's settings rows, for modules that keep their own encoding. */
+export async function readStoreValues(storeId: string, keys: string[]): Promise<Map<string, string>> {
+  const rows = await prisma.storeSetting.findMany({ where: { storeId, key: { in: keys } } });
+  return new Map(rows.map((row) => [row.key, row.value]));
+}
+
+/** Upsert of one raw store setting; usable inside a transaction. */
+export function upsertStoreValue(storeId: string, key: string, value: string) {
+  return prisma.storeSetting.upsert({ where: { storeId_key: { storeId, key } }, update: { value }, create: { storeId, key, value } });
 }

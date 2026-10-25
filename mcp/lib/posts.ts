@@ -10,6 +10,7 @@ import {
   type PostStatus,
 } from "@/app/panel/blog/_lib";
 import { ToolError } from "./result";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * Blog post business rules shared by the MCP tools. The panel keeps the same
@@ -35,7 +36,7 @@ export type PostWriteInput = {
 /** Publishes scheduled posts whose time has passed, like the panel list does. */
 export async function publishDuePosts(): Promise<number> {
   const result = await prisma.post.updateMany({
-    where: { status: "scheduled", scheduledAt: { lte: new Date() } },
+    where: { storeId: mcpStoreId(), status: "scheduled", scheduledAt: { lte: new Date() } },
     data: { status: "published", publishedAt: new Date(), scheduledAt: null },
   });
   return result.count;
@@ -48,7 +49,7 @@ async function uniquePostSlug(slug: string, excludeId?: string): Promise<string>
   let counter = 2;
   for (;;) {
     const existing = await prisma.post.findUnique({
-      where: { slug: candidate },
+      where: { storeId_slug: { storeId: mcpStoreId(), slug: candidate } },
       select: { id: true },
     });
     if (!existing || existing.id === excludeId) return candidate;
@@ -95,8 +96,8 @@ export async function savePostRecord(
 
   const coverId = input.coverId;
   if (coverId) {
-    const cover = await prisma.mediaAsset.findUnique({
-      where: { id: coverId },
+    const cover = await prisma.mediaAsset.findFirst({
+      where: { id: coverId, storeId: mcpStoreId() },
       select: { id: true },
     });
     if (!cover) throw new ToolError("Cover image could not be found.");
@@ -104,8 +105,8 @@ export async function savePostRecord(
 
   const categoryId = input.categoryId;
   if (categoryId) {
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, storeId: mcpStoreId() },
       select: { id: true },
     });
     if (!category) throw new ToolError("Category could not be found.");
@@ -113,7 +114,7 @@ export async function savePostRecord(
 
   const tagIds = [...new Set(input.tagIds)];
   if (tagIds.length > 0) {
-    const found = await prisma.tag.count({ where: { id: { in: tagIds } } });
+    const found = await prisma.tag.count({ where: { id: { in: tagIds }, storeId: mcpStoreId() } });
     if (found !== tagIds.length) throw new ToolError("One or more tags could not be found.");
   }
 
@@ -140,14 +141,14 @@ export async function savePostRecord(
     const tagLinks = tagIds.map((tagId) => ({ tagId }));
 
     if (input.id) {
-      const existing = await prisma.post.findUnique({
-        where: { id: input.id },
+      const existing = await prisma.post.findFirst({
+        where: { id: input.id, storeId: mcpStoreId() },
         select: { publishedAt: true },
       });
       if (!existing) throw new ToolError("Post could not be found.");
 
       await prisma.post.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId: mcpStoreId() },
         data: {
           ...data,
           tags: { deleteMany: {}, create: tagLinks },
@@ -162,6 +163,7 @@ export async function savePostRecord(
     const created = await prisma.post.create({
       data: {
         ...data,
+        storeId: mcpStoreId(),
         tags: { create: tagLinks },
         authorId,
         publishedAt: input.status === "published" ? new Date() : null,
@@ -185,8 +187,8 @@ export async function setPostStatusRecord(
     throw new ToolError("Status must be either draft or published.");
   }
 
-  const existing = await prisma.post.findUnique({
-    where: { id },
+  const existing = await prisma.post.findFirst({
+    where: { id, storeId: mcpStoreId() },
     select: { id: true, categoryId: true, _count: { select: { tags: true } } },
   });
   if (!existing) throw new ToolError("Post could not be found.");
@@ -195,7 +197,7 @@ export async function setPostStatusRecord(
   }
 
   await prisma.post.update({
-    where: { id },
+    where: { id, storeId: mcpStoreId() },
     data: {
       status,
       scheduledAt: null,
@@ -206,8 +208,8 @@ export async function setPostStatusRecord(
 }
 
 export async function deletePostRecord(id: string): Promise<{ id: string; deleted: true }> {
-  const existing = await prisma.post.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.post.findFirst({ where: { id, storeId: mcpStoreId() }, select: { id: true } });
   if (!existing) throw new ToolError("Post could not be found.");
-  await prisma.post.delete({ where: { id } });
+  await prisma.post.delete({ where: { id: existing.id } });
   return { id, deleted: true };
 }

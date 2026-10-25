@@ -18,6 +18,7 @@ import {
   type PostStatus,
   type TagInput,
 } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 /**
  * Blog mutations for the panel. Every action re-checks the admin role because
@@ -30,8 +31,9 @@ function revalidateBlog() {
   revalidatePath("/panel/blog/tags");
 }
 
-/** Appends -2, -3, … until the slug is free (excluding the edited record). */
+/** Appends -2, -3, … until the slug is free in the store (excluding the edited record). */
 async function uniqueSlug(
+  storeId: string,
   model: "post" | "category" | "tag",
   slug: string,
   excludeId?: string,
@@ -42,11 +44,11 @@ async function uniqueSlug(
   for (;;) {
     let existing: { id: string } | null = null;
     if (model === "post") {
-      existing = await prisma.post.findUnique({ where: { slug: candidate }, select: { id: true } });
+      existing = await prisma.post.findUnique({ where: { storeId_slug: { storeId, slug: candidate } }, select: { id: true } });
     } else if (model === "category") {
-      existing = await prisma.category.findUnique({ where: { slug: candidate }, select: { id: true } });
+      existing = await prisma.category.findUnique({ where: { storeId_slug: { storeId, slug: candidate } }, select: { id: true } });
     } else {
-      existing = await prisma.tag.findUnique({ where: { slug: candidate }, select: { id: true } });
+      existing = await prisma.tag.findUnique({ where: { storeId_slug: { storeId, slug: candidate } }, select: { id: true } });
     }
     if (!existing || existing.id === excludeId) return candidate;
     candidate = `${base}-${counter++}`;
@@ -64,6 +66,7 @@ function isUniqueViolation(error: unknown): boolean {
 export async function savePost(input: PostInput): Promise<ActionResult> {
   const { session, failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
 
   const title = input.title.trim();
   if (!title) return { ok: false, error: "Title is required." };
@@ -96,19 +99,19 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
 
   const coverId = input.coverId;
   if (coverId) {
-    const cover = await prisma.mediaAsset.findUnique({ where: { id: coverId }, select: { id: true } });
+    const cover = await prisma.mediaAsset.findFirst({ where: { id: coverId, storeId }, select: { id: true } });
     if (!cover) return { ok: false, error: "Cover image could not be found." };
   }
 
   const categoryId = input.categoryId;
   if (categoryId) {
-    const category = await prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } });
+    const category = await prisma.category.findFirst({ where: { id: categoryId, storeId }, select: { id: true } });
     if (!category) return { ok: false, error: "Category could not be found." };
   }
 
   const tagIds = [...new Set(input.tagIds)];
   if (tagIds.length > 0) {
-    const found = await prisma.tag.count({ where: { id: { in: tagIds } } });
+    const found = await prisma.tag.count({ where: { id: { in: tagIds }, storeId } });
     if (found !== tagIds.length) {
       return { ok: false, error: "One or more tags could not be found." };
     }
@@ -121,7 +124,7 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
   }
 
   try {
-    const finalSlug = await uniqueSlug("post", slug, input.id);
+    const finalSlug = await uniqueSlug(storeId, "post", slug, input.id);
     // Nested deleteMany is only valid on update — a fresh create has
     // nothing to replace, so the tag writes are shaped per branch.
     const data = {
@@ -140,14 +143,14 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
 
     let savedId: string;
     if (input.id) {
-      const existing = await prisma.post.findUnique({
-        where: { id: input.id },
+      const existing = await prisma.post.findFirst({
+        where: { id: input.id, storeId },
         select: { publishedAt: true },
       });
       if (!existing) return { ok: false, error: "Post could not be found." };
 
       await prisma.post.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId },
         data: {
           ...data,
           tags: { deleteMany: {}, create: tagLinks },
@@ -161,6 +164,7 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
       const created = await prisma.post.create({
         data: {
           ...data,
+          storeId,
           tags: { create: tagLinks },
           authorId: session?.user.id ?? null,
           publishedAt: input.status === "published" ? new Date() : null,
@@ -185,13 +189,14 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
 export async function setPostStatus(id: string, status: PostStatus): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
   if (status !== "draft" && status !== "published") {
     return { ok: false, error: "Status must be either draft or published." };
   }
 
   try {
-    const existing = await prisma.post.findUnique({
-      where: { id },
+    const existing = await prisma.post.findFirst({
+      where: { id, storeId },
       select: { id: true, categoryId: true, _count: { select: { tags: true } } },
     });
     if (!existing) return { ok: false, error: "Post could not be found." };
@@ -201,7 +206,7 @@ export async function setPostStatus(id: string, status: PostStatus): Promise<Act
     }
 
     await prisma.post.update({
-      where: { id },
+      where: { id, storeId },
       data: {
         status,
         scheduledAt: null,
@@ -219,9 +224,10 @@ export async function setPostStatus(id: string, status: PostStatus): Promise<Act
 export async function deletePost(id: string): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
 
   try {
-    await prisma.post.delete({ where: { id } });
+    await prisma.post.delete({ where: { id, storeId } });
     revalidateBlog();
     return { ok: true };
   } catch (error) {
@@ -237,6 +243,7 @@ export async function deletePost(id: string): Promise<ActionResult> {
 export async function saveCategory(input: CategoryInput): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Category name is required." };
@@ -256,20 +263,20 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
 
   try {
     if (input.id) {
-      const clash = await prisma.category.findUnique({ where: { slug }, select: { id: true } });
+      const clash = await prisma.category.findUnique({ where: { storeId_slug: { storeId, slug } }, select: { id: true } });
       if (clash && clash.id !== input.id) {
         return { ok: false, error: "A category with this slug already exists." };
       }
       await prisma.category.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId },
         data: { name, slug, description: description || null, color },
       });
       revalidateBlog();
       return { ok: true, id: input.id, name };
     } else {
-      const slug2 = await uniqueSlug("category", slug);
+      const slug2 = await uniqueSlug(storeId, "category", slug);
       const created = await prisma.category.create({
-        data: { name, slug: slug2, description: description || null, color },
+        data: { storeId, name, slug: slug2, description: description || null, color },
         select: { id: true, name: true },
       });
       revalidateBlog();
@@ -287,10 +294,11 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
 export async function deleteCategory(id: string): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
 
   try {
     // Posts keep existing via onDelete: SetNull — they just become uncategorized.
-    await prisma.category.delete({ where: { id } });
+    await prisma.category.delete({ where: { id, storeId } });
     revalidateBlog();
     return { ok: true };
   } catch (error) {
@@ -306,6 +314,7 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
 export async function saveTag(input: TagInput): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Tag name is required." };
@@ -318,17 +327,17 @@ export async function saveTag(input: TagInput): Promise<ActionResult> {
 
   try {
     if (input.id) {
-      const clash = await prisma.tag.findUnique({ where: { slug }, select: { id: true } });
+      const clash = await prisma.tag.findUnique({ where: { storeId_slug: { storeId, slug } }, select: { id: true } });
       if (clash && clash.id !== input.id) {
         return { ok: false, error: "A tag with this slug already exists." };
       }
-      await prisma.tag.update({ where: { id: input.id }, data: { name, slug } });
+      await prisma.tag.update({ where: { id: input.id, storeId }, data: { name, slug } });
       revalidateBlog();
       return { ok: true, id: input.id, name };
     } else {
-      const slug2 = await uniqueSlug("tag", slug);
+      const slug2 = await uniqueSlug(storeId, "tag", slug);
       const created = await prisma.tag.create({
-        data: { name, slug: slug2 },
+        data: { storeId, name, slug: slug2 },
         select: { id: true, name: true },
       });
       revalidateBlog();
@@ -346,9 +355,10 @@ export async function saveTag(input: TagInput): Promise<ActionResult> {
 export async function deleteTag(id: string): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: "You are not allowed to perform this action." };
+  const storeId = (await panelStore()).id;
 
   try {
-    await prisma.tag.delete({ where: { id } });
+    await prisma.tag.delete({ where: { id, storeId } });
     revalidateBlog();
     return { ok: true };
   } catch (error) {

@@ -7,6 +7,7 @@ import { isAdminRole } from "@/lib/admin-guard";
 import {accountMenuHtml,type PublicAccount} from "@/lib/site-account-menu";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { getMaintenanceSettings } from "@/lib/settings";
+import { currentStoreId } from "@/lib/current-store";
 
 /**
  * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
@@ -281,7 +282,7 @@ export async function SiteFrame({
   const account = await getPublicAccount();
   const showAdmin = isAdminRole(account?.role);
   const adminHref = showAdmin ? (await getAdminAccessSettings()).panelPath : undefined;
-  const showMaintenance = showAdmin && (await getMaintenanceSettings()).enabled;
+  const showMaintenance = showAdmin && (await getMaintenanceSettings(await currentStoreId())).enabled;
   return (
     <>
       {/* React hoists these into <head>. */}

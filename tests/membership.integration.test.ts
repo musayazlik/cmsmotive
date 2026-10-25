@@ -61,8 +61,10 @@ test("registration records current consent, cannot assign privileges, and Google
       PLUNK_SECRET_KEY: "fixture-only",
       PLUNK_FROM_EMAIL: "sender@example.test",
     });
-    await db.setting.create({
-      data: { key: "site.allowSignup", value: "true" },
+    // Sign-up is a per-store setting; the migration leaves a default store in an empty database.
+    const store = await db.store.findFirstOrThrow();
+    await db.storeSetting.create({
+      data: { storeId: store.id, key: "site.allowSignup", value: "true" },
     });
     const { POST } = await import("../app/api/auth/[...all]/route");
     let mailCount = 0;

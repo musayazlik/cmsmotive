@@ -1,18 +1,17 @@
 import { z } from "zod";
+import { resolveRequestStore } from "./stores";
 export function creemMode(): "test" | "prod" {
   return process.env.CREEM_MODE === "live" ? "prod" : "test";
 }
 export function creemConfigured() {
   return Boolean(process.env.CREEM_API_KEY && process.env.CREEM_WEBHOOK_SECRET);
 }
-export function billingOrigin() {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.BETTER_AUTH_URL;
-  if (!raw)
-    throw new Error("Configure the public site URL before enabling billing.");
-  const url = new URL(raw);
+/** Canonical origin of the store `request` was addressed to; checkout and email links return there. */
+export async function billingOrigin(request: Request) {
+  const url = new URL((await resolveRequestStore(request)).origin);
   if (
     url.protocol !== "https:" &&
-    !["localhost", "127.0.0.1"].includes(url.hostname)
+    !/^(localhost|127\.0\.0\.1|.+\.localhost)$/.test(url.hostname)
   )
     throw new Error("Billing requires an HTTPS site URL.");
   return url.origin;

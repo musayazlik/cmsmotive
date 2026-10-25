@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 import { isValidSlug } from "@/app/panel/blog/_lib";
 import { ToolError } from "./result";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * Category and tag rules mirrored from app/panel/blog/_actions.ts. Slugs are
@@ -22,8 +23,8 @@ async function uniqueSlug(
   for (;;) {
     const existing =
       model === "category"
-        ? await prisma.category.findUnique({ where: { slug: candidate }, select: { id: true } })
-        : await prisma.tag.findUnique({ where: { slug: candidate }, select: { id: true } });
+        ? await prisma.category.findUnique({ where: { storeId_slug: { storeId: mcpStoreId(), slug: candidate } }, select: { id: true } })
+        : await prisma.tag.findUnique({ where: { storeId_slug: { storeId: mcpStoreId(), slug: candidate } }, select: { id: true } });
     if (!existing || existing.id === excludeId) return candidate;
     candidate = `${base}-${counter++}`;
   }
@@ -62,12 +63,12 @@ export async function saveCategoryRecord(
 
   try {
     if (input.id) {
-      const clash = await prisma.category.findUnique({ where: { slug }, select: { id: true } });
+      const clash = await prisma.category.findUnique({ where: { storeId_slug: { storeId: mcpStoreId(), slug } }, select: { id: true } });
       if (clash && clash.id !== input.id) {
         throw new ToolError("A category with this slug already exists.");
       }
       const updated = await prisma.category.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId: mcpStoreId() },
         data: { name, slug, description: description || null, color },
         select: { id: true, name: true, slug: true },
       });
@@ -76,7 +77,7 @@ export async function saveCategoryRecord(
 
     const finalSlug = await uniqueSlug("category", slug);
     const created = await prisma.category.create({
-      data: { name, slug: finalSlug, description: description || null, color },
+      data: { storeId: mcpStoreId(), name, slug: finalSlug, description: description || null, color },
       select: { id: true, name: true, slug: true },
     });
     return created;
@@ -91,10 +92,10 @@ export async function saveCategoryRecord(
 export async function deleteCategoryRecord(
   id: string,
 ): Promise<{ id: string; deleted: true }> {
-  const existing = await prisma.category.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.category.findFirst({ where: { id, storeId: mcpStoreId() }, select: { id: true } });
   if (!existing) throw new ToolError("Category could not be found.");
   // Posts keep existing via onDelete: SetNull — they just become uncategorized.
-  await prisma.category.delete({ where: { id } });
+  await prisma.category.delete({ where: { id: existing.id } });
   return { id, deleted: true };
 }
 
@@ -118,12 +119,12 @@ export async function saveTagRecord(
 
   try {
     if (input.id) {
-      const clash = await prisma.tag.findUnique({ where: { slug }, select: { id: true } });
+      const clash = await prisma.tag.findUnique({ where: { storeId_slug: { storeId: mcpStoreId(), slug } }, select: { id: true } });
       if (clash && clash.id !== input.id) {
         throw new ToolError("A tag with this slug already exists.");
       }
       const updated = await prisma.tag.update({
-        where: { id: input.id },
+        where: { id: input.id, storeId: mcpStoreId() },
         data: { name, slug },
         select: { id: true, name: true, slug: true },
       });
@@ -132,7 +133,7 @@ export async function saveTagRecord(
 
     const finalSlug = await uniqueSlug("tag", slug);
     const created = await prisma.tag.create({
-      data: { name, slug: finalSlug },
+      data: { storeId: mcpStoreId(), name, slug: finalSlug },
       select: { id: true, name: true, slug: true },
     });
     return created;
@@ -145,8 +146,8 @@ export async function saveTagRecord(
 }
 
 export async function deleteTagRecord(id: string): Promise<{ id: string; deleted: true }> {
-  const existing = await prisma.tag.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.tag.findFirst({ where: { id, storeId: mcpStoreId() }, select: { id: true } });
   if (!existing) throw new ToolError("Tag could not be found.");
-  await prisma.tag.delete({ where: { id } });
+  await prisma.tag.delete({ where: { id: existing.id } });
   return { id, deleted: true };
 }

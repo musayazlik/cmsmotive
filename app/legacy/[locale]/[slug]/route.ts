@@ -13,6 +13,7 @@ import {isAdminRole} from "@/lib/admin-guard";
 import {injectAccountMenu} from "@/lib/site-account-menu";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { getTranslator } from "@/lib/i18n/translate";
+import { currentStoreId } from "@/lib/current-store";
 
 export const runtime = "nodejs";
 
@@ -27,14 +28,15 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
   const { locale, slug } = await context.params;
   if (!isLocale(locale) || !/^[a-z0-9-]+$/.test(slug)) notFound();
   try {
+    const storeId = await currentStoreId();
     // Product grids and review quotes come from the database before the page is translated.
-    const base = await injectTestimonials(await injectCatalog(await readLegacyPage(`${slug}.html`)));
-    trackPageView(slug);
+    const base = await injectTestimonials(await injectCatalog(await readLegacyPage(`${slug}.html`), storeId), storeId);
+    trackPageView(storeId, slug);
     const pagePath = slug === "index" ? "/" : `/${slug}`;
     // Search tags and JSON-LD are read from the translated page, so they match its language.
     let localized = localizeLegacyHtml(base, locale, pagePath);
     localized = localized.replace(/href="\/account"/g, `href="/account?lang=${locale}"`);
-    const legal = await getLegalSettings();
+    const legal = await getLegalSettings(storeId);
     localized = localized.replace(/data-consent-version="[^"]*"/g, `data-consent-version="${legal.privacyVersion.replace(/[^a-zA-Z0-9.-]/g, "")}"`);
     // Inject after URL localization: private admin paths never get a public language prefix.
     const account=await getPublicAccount();
@@ -43,13 +45,13 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     if(account)localized=injectAccountMenu(localized,account,locale,adminHref);
     if (showAdmin) {
       const t = getTranslator(locale);
-      const [admin, maintenance] = await Promise.all([getAdminAccessSettings(), getMaintenanceSettings()]);
+      const [admin, maintenance] = await Promise.all([getAdminAccessSettings(), getMaintenanceSettings(storeId)]);
       localized = injectAdminPanelLink(localized, admin.panelPath, t("Admin panel"));
       if (maintenance.enabled) {
         localized = injectMaintenanceNotice(localized, t("This site is currently in maintenance mode."));
       }
     }
-    const [site, seo, origin] = await Promise.all([getSiteSettings(), getSeoSettings(), siteOrigin()]);
+    const [site, seo, origin] = await Promise.all([getSiteSettings(storeId), getSeoSettings(storeId), siteOrigin()]);
     const response = htmlResponse(addLegacySeo(localized, { origin, locale, pagePath, site, seo }));
     if (account) {
       response.headers.set("Cache-Control", "private, no-store");

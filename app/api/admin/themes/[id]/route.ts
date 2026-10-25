@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { assertAssetsExist, isThemeStatus, THEME_INDUSTRIES, validateCore, validateDetail, validateLicences, validateListing, VERSION_TARGETS } from "@/lib/catalog-guard";
 import { prismaErrors } from "@/lib/prisma-errors";
+import { panelStore } from "@/lib/panel-store";
 
 export const runtime = "nodejs";
 
@@ -13,9 +14,10 @@ type Context = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, context: Context) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   const { id } = await context.params;
-  const existing = await prisma.theme.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.theme.findFirst({ where: { id, storeId }, select: { id: true } });
   if (!existing) return Response.json({ error: "Theme not found." }, { status: 404 });
 
   let body: Record<string, unknown>;
@@ -49,21 +51,21 @@ export async function PATCH(request: Request, context: Context) {
 
   const compliance = validateCompliance(body.compliance);
   if ("error" in compliance) return Response.json({ error: compliance.error }, { status: 400 });
-  const releaseError = await publicationError(body.status, String(body.name ?? ""), compliance.data);
+  const releaseError = await publicationError(storeId, body.status, String(body.name ?? ""), compliance.data);
   if (releaseError) return Response.json({ error: releaseError }, { status: 400 });
   const detail = validateDetail(body);
   if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
   const licences = validateLicences(body);
   if ("error" in licences) return Response.json({ error: licences.error }, { status: 400 });
 
-  const assetError = await assertAssetsExist([coverId, ...galleryIds], prisma);
+  const assetError = await assertAssetsExist(storeId, [coverId, ...galleryIds], prisma);
   if (assetError) return assetError;
 
   try {
     const theme = await prisma.$transaction(async (tx) => {
       await tx.themeGallery.deleteMany({ where: { themeId: id } });
       return tx.theme.update({
-        where: { id },
+        where: { id, storeId },
         data: {
           name, slug, summary, description, industry, versionTarget, price, position,
           ...detail.data,
@@ -86,13 +88,14 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(_request: Request, context: Context) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
+  const storeId = (await panelStore()).id;
 
   const { id } = await context.params;
-  const existing = await prisma.theme.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.theme.findFirst({ where: { id, storeId }, select: { id: true } });
   if (!existing) return Response.json({ error: "Theme not found." }, { status: 404 });
 
   try {
-    await prisma.theme.delete({ where: { id } });
+    await prisma.theme.delete({ where: { id, storeId } });
     return Response.json({ ok: true });
   } catch (error) {
     return prismaErrors(error, "The theme could not be deleted.") ?? Response.json({ error: "Unexpected error." }, { status: 500 });

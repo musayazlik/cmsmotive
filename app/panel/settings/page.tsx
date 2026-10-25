@@ -33,6 +33,7 @@ import SeoSettingsForm from "./_components/seo-settings-form";
 import TelegramSettingsForm, { type WebhookState } from "./_components/telegram-settings-form";
 import SettingsTabs from "./_components/settings-tabs";
 import { resolveSettingsTab, type SettingsTabId } from "./_tabs";
+import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
@@ -62,34 +63,35 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 }
 
 async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
+  const storeId = (await panelStore()).id;
   switch (tab) {
     case "legal":
-      return <LegalSettingsForm settings={await getLegalSettings()} />;
+      return <LegalSettingsForm settings={await getLegalSettings(storeId)} />;
     case "security":
       return <SecuritySettingsForm settings={await getAdminAccessSettings()} origin={await siteOrigin()} />;
     case "general":
-      return <GeneralSettingsForm settings={await getSiteSettings()} />;
+      return <GeneralSettingsForm settings={await getSiteSettings(storeId)} />;
     case "seo":
       return (
         <SeoSettingsForm
-          settings={await getSeoSettings()}
-          origin={await siteOrigin()}
+          settings={await getSeoSettings(storeId)}
+          origin={await panelStoreOrigin()}
           defaultShareImage={DEFAULT_SHARE_IMAGE.url}
         />
       );
     case "reviews":
       return (
         <ReviewSettingsForm
-          settings={await getReviewSettings()}
+          settings={await getReviewSettings(storeId)}
           recaptchaConfigured={Boolean(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY)}
         />
       );
     case "maintenance":
-      return <MaintenanceSettingsForm settings={await getMaintenanceSettings()} />;
+      return <MaintenanceSettingsForm settings={await getMaintenanceSettings(storeId)} />;
     case "email":
       return <EmailPanel />;
     case "ai":
-      return <AiSettingsForm settings={await getAiSettings()} configured={isOpenRouterConfigured()} />;
+      return <AiSettingsForm settings={await getAiSettings(storeId)} configured={isOpenRouterConfigured()} />;
     case "telegram":
       return <TelegramPanel />;
     case "media":
@@ -100,7 +102,8 @@ async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
 }
 
 async function EmailPanel() {
-  const settings = await getEmailSettings();
+  const storeId = (await panelStore()).id;
+  const settings = await getEmailSettings(storeId);
   return (
     <EmailSettingsForm
       settings={settings}
@@ -112,11 +115,12 @@ async function EmailPanel() {
 }
 
 async function TelegramPanel() {
+  const storeId = (await panelStore()).id;
   const [settings, config, origin, ai] = await Promise.all([
-    getTelegramSettings(),
-    getTelegramConfig(),
-    siteOrigin(),
-    getAiSettings(),
+    getTelegramSettings(storeId),
+    getTelegramConfig(storeId),
+    panelStoreOrigin(),
+    getAiSettings(storeId),
   ]);
   let webhook: WebhookState | null = null;
   if (config.token) {
@@ -145,7 +149,8 @@ async function TelegramPanel() {
 }
 
 async function MediaPanel() {
-  const settings = await getUploadSettings();
+  const storeId = (await panelStore()).id;
+  const settings = await getUploadSettings(storeId);
   return (
     <>
       <MediaSettingsForm settings={settings} />
@@ -158,14 +163,15 @@ async function MediaPanel() {
 }
 
 async function McpPanel() {
+  const storeId = (await panelStore()).id;
   const [settings, admins, origin] = await Promise.all([
-    getMcpSettings(),
+    getMcpSettings(storeId),
     prisma.user.findMany({
       where: { role: { in: [...ADMIN_ROLES] } },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, email: true, role: true },
     }),
-    siteOrigin(),
+    panelStoreOrigin(),
   ]);
   // The stdio command runs from a local checkout; outside development the
   // server's own directory would only mislead, so a placeholder is shown.

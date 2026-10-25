@@ -4,6 +4,7 @@ import { creemMode } from "@/lib/creem";
 import { releaseIsIncluded, subscriptionHasAccess } from "@/lib/billing-access";
 import { getRequestLocale } from "@/lib/i18n/request";
 import { copy } from "@/lib/legal-copy";
+import { currentStoreId } from "@/lib/current-store";
 export default async function AccountPage({
   searchParams,
 }: {
@@ -14,16 +15,18 @@ export default async function AccountPage({
     getRequestLocale(),
     searchParams,
   ]);
-  const subscriptions = await prisma.productSubscription.findMany({
+  const allSubscriptions = await prisma.productSubscription.findMany({
     where: { userId: user.id, mode: creemMode() },
     orderBy: { createdAt: "desc" },
   });
+  // Accounts are shared; each store's account area lists that store's purchases.
   const plans = await prisma.billingPlan.findMany({
-    where: { id: { in: subscriptions.map((s) => s.planId) } },
+    where: { id: { in: allSubscriptions.map((s) => s.planId) }, storeId: await currentStoreId() },
   });
+  const subscriptions = allSubscriptions.filter((s) => plans.some((p) => p.id === s.planId));
   const releases = await prisma.productRelease.findMany({
     where: {
-      OR: plans.map((p) => ({ kind: p.kind, productSlug: p.productSlug })),
+      OR: plans.map((p) => ({ storeId: p.storeId, kind: p.kind, productSlug: p.productSlug })),
     },
     orderBy: { createdAt: "desc" },
     select: {

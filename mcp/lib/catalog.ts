@@ -20,6 +20,7 @@ import {
   type Licence,
 } from "@/lib/catalog-guard";
 import { ToolError } from "./result";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * Theme and extension rules mirrored from the admin API routes. Creation
@@ -67,21 +68,21 @@ export type ExtensionCreateInput = CatalogInput & {
 async function assertAssetsExist(ids: (string | null | undefined)[]): Promise<void> {
   const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   if (unique.length === 0) return;
-  const found = await prisma.mediaAsset.count({ where: { id: { in: unique } } });
+  const found = await prisma.mediaAsset.count({ where: { id: { in: unique }, storeId: mcpStoreId() } });
   if (found !== unique.length) {
     throw new ToolError("One or more selected images could not be found.");
   }
 }
 
 async function ensureThemeSlugFree(slug: string, excludeId?: string): Promise<void> {
-  const clash = await prisma.theme.findUnique({ where: { slug }, select: { id: true } });
+  const clash = await prisma.theme.findUnique({ where: { storeId_slug: { storeId: mcpStoreId(), slug } }, select: { id: true } });
   if (clash && clash.id !== excludeId) {
     throw new ToolError("A theme with this slug already exists.");
   }
 }
 
 async function ensureExtensionSlugFree(slug: string, excludeId?: string): Promise<void> {
-  const clash = await prisma.extension.findUnique({ where: { slug }, select: { id: true } });
+  const clash = await prisma.extension.findUnique({ where: { storeId_slug: { storeId: mcpStoreId(), slug } }, select: { id: true } });
   if (clash && clash.id !== excludeId) {
     throw new ToolError("An extension with this slug already exists.");
   }
@@ -122,7 +123,7 @@ export async function createTheme(input: ThemeCreateInput) {
   if ("error" in core) throw new ToolError(core.error);
   const listing = validateListing(body);
   if ("error" in listing) throw new ToolError(listing.error);
-  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance({}));
+  const releaseError = await publicationError(mcpStoreId(), status, String(body.name ?? ""), readCompliance({}));
   if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
@@ -134,6 +135,7 @@ export async function createTheme(input: ThemeCreateInput) {
 
   const theme = await prisma.theme.create({
     data: {
+      storeId: mcpStoreId(),
       name: core.data.name,
       slug: core.data.slug,
       summary: core.data.summary,
@@ -156,8 +158,8 @@ export async function createTheme(input: ThemeCreateInput) {
 }
 
 export async function updateTheme(id: string, input: CatalogInput) {
-  const current = await prisma.theme.findUnique({
-    where: { id },
+  const current = await prisma.theme.findFirst({
+    where: { id, storeId: mcpStoreId() },
     include: { gallery: { orderBy: { position: "asc" }, select: { assetId: true } } },
   });
   if (!current) throw new ToolError("Theme not found.");
@@ -205,7 +207,7 @@ export async function updateTheme(id: string, input: CatalogInput) {
   if ("error" in core) throw new ToolError(core.error);
   const listing = validateListing(body);
   if ("error" in listing) throw new ToolError(listing.error);
-  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance(current.compliance));
+  const releaseError = await publicationError(mcpStoreId(), status, String(body.name ?? ""), readCompliance(current.compliance));
   if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
@@ -218,7 +220,7 @@ export async function updateTheme(id: string, input: CatalogInput) {
   const theme = await prisma.$transaction(async (tx) => {
     await tx.themeGallery.deleteMany({ where: { themeId: id } });
     return tx.theme.update({
-      where: { id },
+      where: { id, storeId: mcpStoreId() },
       data: {
         name: core.data.name,
         slug: core.data.slug,
@@ -244,9 +246,9 @@ export async function updateTheme(id: string, input: CatalogInput) {
 }
 
 export async function deleteThemeRecord(id: string): Promise<{ id: string; deleted: true }> {
-  const existing = await prisma.theme.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.theme.findFirst({ where: { id, storeId: mcpStoreId() }, select: { id: true } });
   if (!existing) throw new ToolError("Theme not found.");
-  await prisma.theme.delete({ where: { id } });
+  await prisma.theme.delete({ where: { id: existing.id } });
   return { id, deleted: true };
 }
 
@@ -277,7 +279,7 @@ export async function createExtension(input: ExtensionCreateInput) {
   if ("error" in core) throw new ToolError(core.error);
   const position = validatePosition(body);
   if ("error" in position) throw new ToolError(position.error);
-  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance({}));
+  const releaseError = await publicationError(mcpStoreId(), status, String(body.name ?? ""), readCompliance({}));
   if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
@@ -287,6 +289,7 @@ export async function createExtension(input: ExtensionCreateInput) {
 
   const extension = await prisma.extension.create({
     data: {
+      storeId: mcpStoreId(),
       name: core.data.name,
       slug: core.data.slug,
       summary: core.data.summary,
@@ -305,8 +308,8 @@ export async function createExtension(input: ExtensionCreateInput) {
 }
 
 export async function updateExtension(id: string, input: CatalogInput) {
-  const current = await prisma.extension.findUnique({
-    where: { id },
+  const current = await prisma.extension.findFirst({
+    where: { id, storeId: mcpStoreId() },
     include: { gallery: { orderBy: { position: "asc" }, select: { assetId: true } } },
   });
   if (!current) throw new ToolError("Extension not found.");
@@ -344,7 +347,7 @@ export async function updateExtension(id: string, input: CatalogInput) {
   if ("error" in core) throw new ToolError(core.error);
   const position = validatePosition(body);
   if ("error" in position) throw new ToolError(position.error);
-  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance(current.compliance));
+  const releaseError = await publicationError(mcpStoreId(), status, String(body.name ?? ""), readCompliance(current.compliance));
   if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
@@ -355,7 +358,7 @@ export async function updateExtension(id: string, input: CatalogInput) {
   const extension = await prisma.$transaction(async (tx) => {
     await tx.extensionGallery.deleteMany({ where: { extensionId: id } });
     return tx.extension.update({
-      where: { id },
+      where: { id, storeId: mcpStoreId() },
       data: {
         name: core.data.name,
         slug: core.data.slug,
@@ -382,8 +385,8 @@ export async function updateExtension(id: string, input: CatalogInput) {
 export async function deleteExtensionRecord(
   id: string,
 ): Promise<{ id: string; deleted: true }> {
-  const existing = await prisma.extension.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.extension.findFirst({ where: { id, storeId: mcpStoreId() }, select: { id: true } });
   if (!existing) throw new ToolError("Extension not found.");
-  await prisma.extension.delete({ where: { id } });
+  await prisma.extension.delete({ where: { id: existing.id } });
   return { id, deleted: true };
 }

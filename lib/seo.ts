@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { LOCALES, LOCALE_TAGS, localizePath, type Locale } from "./i18n/config";
 import { DEFAULT_TITLE_SUFFIX, type SeoSettings } from "./seo-settings-shared";
 import { getSeoSettings, getSiteSettings } from "./settings";
 import type { SiteSettings } from "./site-settings-shared";
+import { currentStore, currentStoreId } from "./current-store";
 
 /**
  * Search and link-preview metadata for the public site.
@@ -26,17 +26,11 @@ const SHARE_COPIES = new Set(["nordform-architecture", "hero-typo3-template-v1",
 export const DEFAULT_SHARE_IMAGE: ShareImage = { url: "/assets/images/og/nordform-architecture.jpg", width: 1200, height: 630 };
 
 /**
- * Public origin (`https://cmsmotive.de`) for canonical URLs, hreflang, Open
- * Graph, JSON-LD, the sitemap and robots.txt. Set NEXT_PUBLIC_SITE_URL in
- * production; without it the auth URL, then the request's own host is used.
+ * Canonical origin of the store this request belongs to (lib/stores.ts) for
+ * canonical URLs, hreflang, Open Graph, JSON-LD, the sitemap and robots.txt.
  */
 export async function siteOrigin(): Promise<string> {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.BETTER_AUTH_URL;
-  if (configured) return configured.replace(/\/+$/, "");
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? (/^(localhost|127\.)/.test(host) ? "http" : "https");
-  return `${protocol}://${host}`;
+  return (await currentStore()).origin;
 }
 
 /** Resolves a root-relative or page-relative URL (`/assets/x.jpg`, `assets/x.jpg`) against the origin. */
@@ -97,7 +91,8 @@ type PageMetadataInput = {
 
 /** Indexable page metadata: canonical, hreflang, Open Graph and Twitter card. Relative URLs resolve against `metadataBase`. */
 export async function pageMetadata({ locale, path, title: rawTitle, description, image, type = "website", publishedTime, modifiedTime, authors }: PageMetadataInput): Promise<Metadata> {
-  const [site, seo] = await Promise.all([getSiteSettings(), getSeoSettings()]);
+  const storeId = await currentStoreId();
+  const [site, seo] = await Promise.all([getSiteSettings(storeId), getSeoSettings(storeId)]);
   const url = localizePath(path, locale);
   const share = shareImage(image, seo.shareImageUrl);
   const title = withTitleSuffix(rawTitle, seo.titleSuffix);

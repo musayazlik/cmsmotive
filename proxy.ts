@@ -6,6 +6,7 @@ import { maintenancePage } from "@/lib/maintenance-page";
 import { DEFAULT_MAINTENANCE_SETTINGS, type MaintenanceSettings } from "@/lib/maintenance-settings-shared";
 import { hasPanelSessionFor } from "@/lib/public-session";
 import { readSettingsGroup } from "@/lib/settings-store";
+import { resolveRequestStore } from "@/lib/stores";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { ADMIN_ENTRY_COOKIE, ADMIN_ENTRY_TTL, issueAdminEntry } from "@/lib/admin-entry";
 
@@ -78,15 +79,17 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next({ request: { headers } });
 }
 
-/** Public visitors, including regular members, see maintenance; administrators may review the live site. */
+/** Public visitors, including regular members, see the store's maintenance page; administrators may review the live site. */
 async function maintenanceResponse(request: NextRequest): Promise<Response | null> {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   // Legal information stays reachable while collecting reopening notifications.
   if (/^\/(imprint|privacy|terms|cookies)$/.test(splitLocale(request.nextUrl.pathname).path)) return null;
 
   let settings: MaintenanceSettings;
+  let storeId: string;
   try {
-    settings = await readSettingsGroup("maintenance", DEFAULT_MAINTENANCE_SETTINGS);
+    storeId = (await resolveRequestStore(request)).store.id;
+    settings = await readSettingsGroup(storeId, "maintenance", DEFAULT_MAINTENANCE_SETTINGS);
   } catch {
     return null;
   }
@@ -105,7 +108,7 @@ async function maintenanceResponse(request: NextRequest): Promise<Response | nul
   if (request.headers.get("RSC") === "1" || request.headers.get("x-nextjs-data")) {
     return NextResponse.json({ maintenance: true }, { status: 503, headers });
   }
-  return new Response(maintenancePage(settings, splitLocale(request.nextUrl.pathname).locale, { privacyVersion: (await getLegalSettings()).privacyVersion }), {
+  return new Response(maintenancePage(settings, splitLocale(request.nextUrl.pathname).locale, { privacyVersion: (await getLegalSettings(storeId)).privacyVersion }), {
     status: 503,
     headers: { ...headers, "Content-Type": "text/html; charset=utf-8" },
   });

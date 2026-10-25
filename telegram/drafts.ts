@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { deletePostRecord, setPostStatusRecord } from "@/mcp/lib/posts";
 import { sendText, type InlineKeyboard } from "./api";
+import { mcpStoreId } from "@/mcp/context";
 
 /**
  * The review step for blog posts in Telegram. Whenever the agent creates or
@@ -22,8 +23,8 @@ export const isDraftAction = (data: string) => /^(publish|discard!?|keep):[\w-]+
 
 /** Sends the review card for a post; published posts get a short "live" note instead. */
 export async function sendPostCard(chat: Chat, postId: string) {
-  const post = await prisma.post.findUnique({
-    where: { id: postId },
+  const post = await prisma.post.findFirst({
+    where: { id: postId, storeId: mcpStoreId() },
     select: {
       id: true,
       slug: true,
@@ -73,7 +74,7 @@ export async function sendPostCard(chat: Chat, postId: string) {
  */
 export async function handleDraftAction(chat: Chat, data: string): Promise<string | null> {
   const [action, postId] = data.split(":");
-  const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true, title: true, slug: true } });
+  const post = await prisma.post.findFirst({ where: { id: postId, storeId: mcpStoreId() }, select: { id: true, title: true, slug: true } });
   if (!post) {
     await sendText(chat.token, chat.chatId, "This post no longer exists.");
     return null;

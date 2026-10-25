@@ -64,8 +64,11 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
         emailVerified: true,
       },
     });
+    // The store_scoped_content migration leaves a default store in an empty database.
+    const store = await db.store.findFirstOrThrow();
     await db.theme.create({
       data: {
+        storeId: store.id,
         name: "Sample",
         slug: "sample",
         summary: "Sample theme",
@@ -77,6 +80,7 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
     });
     const plan = await db.billingPlan.create({
       data: {
+        storeId: store.id,
         kind: "theme",
         productSlug: "sample",
         name: "Annual",

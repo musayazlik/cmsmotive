@@ -10,6 +10,7 @@ import {
 } from "@/lib/status";
 import { formatBytes } from "./media/_lib";
 import SystemCharts from "./_components/system-charts";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
@@ -106,11 +107,12 @@ function DailyReadsTable({ reads }: { reads: DailyReads }) {
 export default async function PanelOverviewPage() {
   const session = await requirePanelUser();
   const firstName = session.name.trim().split(/\s+/)[0] || "there";
+  const storeId = (await panelStore()).id;
   const [system, mail, storage, reads] = await Promise.all([
     getSystemStatus(),
-    getMailStatus(),
+    getMailStatus(storeId),
     getStorageStatus(),
-    getDailyReads(),
+    getDailyReads(storeId),
   ]);
 
   return (

@@ -6,6 +6,7 @@ import { utapi, UT_MAX_FILES, UT_PAGE_SIZE } from "@/lib/utapi";
 import MediaList from "./_components/media-list";
 import { TableCardSkeleton } from "../_components/skeletons";
 import { guessMimeType, type MediaRow, type MediaUsageInfo } from "./_lib";
+import { panelStore } from "@/lib/panel-store";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +34,8 @@ async function listStorageFiles() {
  * and a usage round-trip), so it renders behind <Suspense> while the page
  * header paints immediately.
  */
-async function MediaLibrary() {
-  const [storage, assets, embedded] = await Promise.all([
+async function MediaLibrary({ storeId }: { storeId: string }) {
+  const [storage, assets, embedded, foreign] = await Promise.all([
     listStorageFiles().then(
       (result) => ({ result, error: null as string | null }),
       (error: unknown) => {
@@ -43,6 +44,7 @@ async function MediaLibrary() {
       },
     ),
     prisma.mediaAsset.findMany({
+      where: { storeId },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -57,10 +59,15 @@ async function MediaLibrary() {
       },
     }),
     // Images placed inside post bodies and descriptions have no relation; they are found by key.
-    getEmbeddedUsage().catch((error: unknown) => {
+    getEmbeddedUsage(storeId).catch((error: unknown) => {
       console.error("media library: embedded usage failed", error);
       return new Map<string, EmbeddedUsage>();
     }),
+    // One UploadThing bucket serves every store: files another store owns stay out of this library.
+    Promise.all([
+      prisma.mediaAsset.findMany({ where: { storeId: { not: storeId } }, select: { key: true } }),
+      prisma.productRelease.findMany({ where: { storeId: { not: storeId } }, select: { fileKey: true } }),
+    ]).then(([media, releases]) => new Set([...media.map((row) => row.key), ...releases.map((row) => row.fileKey)])),
   ]);
 
   // Storage stats are what the plan bills against, so they come straight
@@ -84,6 +91,7 @@ async function MediaLibrary() {
   // storage copy vanished are "missing".
   if (storage.result) {
     for (const file of storage.result.files) {
+      if (foreign.has(file.key)) continue;
       const asset = assetsByKey.get(file.key);
       let url = asset?.url ?? "";
       if (!asset) {
@@ -150,6 +158,7 @@ async function MediaLibrary() {
 
 export default async function MediaPage() {
   await requirePanelUser();
+  const storeId = (await panelStore()).id;
   return (
     <>
       <div className="workspace-eyebrow">
@@ -169,7 +178,7 @@ export default async function MediaPage() {
       </div>
 
       <Suspense fallback={<TableCardSkeleton rows={6} columns={6} />}>
-        <MediaLibrary />
+        <MediaLibrary storeId={storeId} />
       </Suspense>
     </>
   );

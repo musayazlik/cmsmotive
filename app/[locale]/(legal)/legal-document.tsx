@@ -1,4 +1,5 @@
 import { getLegalSettings } from "@/lib/legal";
+import { currentStoreId } from "@/lib/current-store";
 import { legalReadiness } from "@/lib/legal-settings-shared";
 import {
   copy,
@@ -26,7 +27,7 @@ export function legalPage(slug: LegalSlug) {
   async function Page({ params }: Props) {
     const { locale: l } = await params;
     if (!isLocale(l)) notFound();
-    const s = await getLegalSettings();
+    const s = await getLegalSettings(await currentStoreId());
     const title = legalTitle(slug, l);
     const incomplete = legalReadiness(s).length > 0;
     return (

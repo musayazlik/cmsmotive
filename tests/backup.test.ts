@@ -8,10 +8,17 @@ const now = "2026-10-22T10:00:00.000Z";
 function empty(): z.input<typeof backupSchema> {
   return {
     format: BACKUP_FORMAT, version: BACKUP_VERSION, createdAt: now, users: [],
-    data: { themes: [], extensions: [], themeGallery: [], extensionGallery: [], changelog: [], media: [], posts: [], categories: [], tags: [], postTags: [], comments: [], reviews: [], inquiries: [], subscribers: [], pageViews: [], settings: [] },
+    data: { stores: [], storeDomains: [], storeSettings: [], themes: [], extensions: [], themeGallery: [], extensionGallery: [], changelog: [], media: [], posts: [], categories: [], tags: [], postTags: [], comments: [], reviews: [], inquiries: [], subscribers: [], pageViews: [], settings: [] },
   };
 }
-const post = { id: "post", title: "A post", slug: "a-post", excerpt: "", content: "<p>Content</p>", coverId: null, status: "published", scheduledAt: null, featured: false, readingTime: 2, publishedAt: now, authorId: null, categoryId: null, createdAt: now, updatedAt: now };
+const store = { id: "store", key: "main", name: "Main store", defaultLocale: "en", locales: ["en"], isDefault: true, createdAt: now, updatedAt: now };
+/** An empty backup that carries one store, for sections whose rows belong to a store. */
+function withStore(): z.input<typeof backupSchema> {
+  const backup = empty();
+  backup.data.stores.push(store);
+  return backup;
+}
+const post = { id: "post", storeId: "store", title: "A post", slug: "a-post", excerpt: "", content: "<p>Content</p>", coverId: null, status: "published", scheduledAt: null, featured: false, readingTime: 2, publishedAt: now, authorId: null, categoryId: null, createdAt: now, updatedAt: now };
 const comment = { id: "comment", postId: "post", parentId: null, authorName: "Reader", authorEmail: "reader@example.com", body: "A comment", status: "approved", locale: "en", requestKey: "comment-key", moderatedAt: now, aiStatus: "passed", aiNote: null, aiModel: null, aiCheckedAt: null, aiReviewToken: null, createdAt: now };
 
 test("empty backups are valid and explicitly describe every replaceable section", () => {
@@ -26,16 +33,16 @@ test("empty backups are valid and explicitly describe every replaceable section"
 });
 
 test("unsupported versions, extra authentication data and invalid dates are rejected", () => {
-  assert.throws(() => parseBackup({ ...empty(), version: 2 }), /unsupported/);
+  assert.throws(() => parseBackup({ ...empty(), version: 1 }), /unsupported/);
   assert.throws(() => parseBackup({ ...empty(), accounts: [{ password: "secret" }] }), /unsupported/);
   assert.throws(() => parseBackup({ ...empty(), createdAt: "yesterday" }), /createdAt/);
-  const backup = empty();
+  const backup = withStore();
   backup.data.posts.push({ ...post, createdAt: "invalid" });
   assert.throws(() => parseBackup(backup), /createdAt/);
 });
 
 test("dates round-trip and post content is preserved verbatim", () => {
-  const backup = empty();
+  const backup = withStore();
   backup.data.posts.push(post);
   const parsed = parseBackup(backup);
   assert.ok(parsed.data.posts[0].createdAt instanceof Date);
@@ -45,38 +52,46 @@ test("dates round-trip and post content is preserved verbatim", () => {
 
 test("media supports seeded local assets and storage URLs, rejecting executable URLs", () => {
   for (const url of ["/assets/images/theme.webp", "https://example.com/image.png", "javascript:alert(1)", "//evil.example/image.png"]) {
-    const backup = empty();
-    backup.data.media.push({ id: "media", key: "key", url, fileName: "image.png", fileSize: 1, mimeType: "image/png", alt: null, width: null, height: null, uploadedById: null, createdAt: now });
+    const backup = withStore();
+    backup.data.media.push({ id: "media", storeId: "store", key: "key", url, fileName: "image.png", fileSize: 1, mimeType: "image/png", alt: null, width: null, height: null, uploadedById: null, createdAt: now });
     if (url.startsWith("/assets/") || url.startsWith("https:")) assert.equal(parseBackup(backup).data.media[0].url, url);
     else assert.throws(() => parseBackup(backup), /media.0.url/);
   }
 });
 
 test("duplicate IDs, slugs, settings and composite links are rejected", () => {
-  const backup = empty();
+  const backup = withStore();
   backup.data.posts.push(post, { ...post, id: "other" });
   assert.throws(() => parseBackup(backup), /Duplicate posts slug/);
   backup.data.posts[1].slug = "other";
   backup.data.posts[1].id = "post";
   assert.throws(() => parseBackup(backup), /Duplicate posts ID/);
-  const settings = empty();
-  settings.data.settings.push({ key: "site.name", value: '"Site"', updatedAt: now }, { key: "site.name", value: '"Other"', updatedAt: now });
-  assert.throws(() => parseBackup(settings), /Duplicate setting/);
+  const settings = withStore();
+  settings.data.storeSettings.push({ storeId: "store", key: "site.name", value: '"Site"', updatedAt: now }, { storeId: "store", key: "site.name", value: '"Other"', updatedAt: now });
+  assert.throws(() => parseBackup(settings), /Duplicate store setting/);
+  // The same slug in two stores is fine; a store setting outside the shared table is not.
+  const twoStores = withStore();
+  twoStores.data.stores.push({ ...store, id: "other-store", key: "other", isDefault: false });
+  twoStores.data.posts.push(post, { ...post, id: "other", storeId: "other-store" });
+  assert.equal(parseBackup(twoStores).data.posts.length, 2);
+  const shared = empty();
+  shared.data.settings.push({ key: "site.name", value: '"Site"', updatedAt: now });
+  assert.throws(() => parseBackup(shared), /install-wide/);
   const links = empty();
   links.data.postTags.push({ postId: "p", tagId: "t" }, { postId: "p", tagId: "t" });
   assert.throws(() => parseBackup(links), /Duplicate post tag/);
 });
 
 test("dangling foreign keys are rejected before restoring", () => {
-  for (const field of ["coverId", "authorId", "categoryId"] as const) {
-    const backup = empty();
+  for (const field of ["coverId", "authorId", "categoryId", "storeId"] as const) {
+    const backup = withStore();
     backup.data.posts.push({ ...post, [field]: "missing" });
     assert.throws(() => parseBackup(backup), /Missing .* reference/);
   }
 });
 
 test("comment replies accept any source order but reject cross-post parents and cycles", () => {
-  const backup = empty();
+  const backup = withStore();
   backup.data.posts.push(post);
   backup.data.comments.push({ ...comment, id: "reply", requestKey: "reply-key", parentId: "comment" }, comment);
   assert.equal(parseBackup(backup).data.comments.length, 2);

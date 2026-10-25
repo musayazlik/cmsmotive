@@ -7,10 +7,10 @@ export type CompatibilityDraft = { area: string; target: string; status: string 
 
 /** Starting rows for an empty compatibility table; every cell stays editable. */
 const TYPICAL_COMPATIBILITY: CompatibilityDraft[] = [
-  { area: "TYPO3 CMS", target: "13 LTS / 14 LTS", status: "To verify at release" },
-  { area: "PHP", target: "8.2+", status: "To verify at release" },
-  { area: "Installation", target: "Composer", status: "To verify at release" },
-  { area: "Templating", target: "Fluid / TypoScript", status: "To verify at release" },
+  { area: "Platform", target: "", status: "To verify at release" },
+  { area: "Runtime", target: "", status: "To verify at release" },
+  { area: "Database", target: "", status: "To verify at release" },
+  { area: "Installation", target: "", status: "To verify at release" },
 ];
 
 function move<T>(rows: T[], index: number, by: -1 | 1) {
@@ -100,7 +100,7 @@ export function CompatibilityEditor({ rows, onChange }: { rows: CompatibilityDra
         </div>
         {rows.map((row, index) => (
           <div className="wrepeat-row" role="row" key={index}>
-            <input aria-label={`Row ${index + 1} area`} value={row.area} maxLength={cell} placeholder="TYPO3 CMS" onChange={(event) => update(index, { area: event.target.value })} />
+            <input aria-label={`Row ${index + 1} area`} value={row.area} maxLength={cell} placeholder="Platform" onChange={(event) => update(index, { area: event.target.value })} />
             <input aria-label={`Row ${index + 1} target`} value={row.target} maxLength={cell} placeholder="13 LTS / 14 LTS" onChange={(event) => update(index, { target: event.target.value })} />
             <input aria-label={`Row ${index + 1} status`} value={row.status} maxLength={cell} placeholder="Supported" onChange={(event) => update(index, { status: event.target.value })} />
             <RowTools

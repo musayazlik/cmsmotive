@@ -9,17 +9,15 @@ import { Select } from "../../_components/ui";
 import type { SelectOption } from "../../_components/ui";
 
 export const PRODUCT_STATUS_LABELS: Record<string, string> = {
-  concept: "Concept",
-  planning: "Planning",
-  "in-development": "In development",
+  draft: "Draft",
+  preview: "Preview",
   published: "Published",
 };
 
 const STATUS_BADGES: Record<string, string> = {
   published: "wbadge wbadge-verified",
-  "in-development": "wbadge wbadge-pending",
-  planning: "wbadge wbadge-user",
-  concept: "wbadge wbadge-missing",
+  preview: "wbadge wbadge-user",
+  draft: "wbadge wbadge-missing",
 };
 
 type Row = {
@@ -32,7 +30,7 @@ type Row = {
   technologies: string[];
   type: { key: string; name: string };
   cover: { url: string; fileName: string } | null;
-  ownedHere: boolean;
+  badge: string | null;
   position: number;
   prices: number;
   enabledPrices: number;
@@ -46,7 +44,7 @@ const PAGE_SIZES = [20, 50, 100];
 const stamp = (iso: string) =>
   new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso));
 
-/** Every product listed in the store, with its type, state and commerce counts. */
+/** Every product of the store, with its type, state and commerce counts. */
 export default function ProductList({
   types,
   createHref,
@@ -265,10 +263,8 @@ export default function ProductList({
                     <td className="wtable-actions-col">
                       <RowActions label={row.name} actions={[
                         { label: "Edit", href: `/panel/products/${row.id}` },
-                        { label: "View on site", href: `/products/${row.slug}`, external: true },
-                        ...(row.ownedHere
-                          ? [{ label: "Delete", danger: true, separated: true, onSelect: () => setPendingDelete(row) }]
-                          : []),
+                        ...(row.status === "draft" ? [] : [{ label: "View on site", href: `/products/${row.slug}`, external: true }]),
+                        { label: "Delete", danger: true, separated: true, onSelect: () => setPendingDelete(row) },
                       ]} />
                     </td>
                   </tr>

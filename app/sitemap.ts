@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { LOCALES, localizePath } from "@/lib/i18n/config";
 import { absoluteUrl, siteOrigin } from "@/lib/seo";
 import { currentStore } from "@/lib/current-store";
+import { VISIBLE_STATUSES } from "@/lib/catalog-guard";
 
 // Lists the current catalogue and journal, so it is built per request.
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const [products, posts] = await Promise.all([
-      prisma.product.findMany({ where: { listings: { some: { storeId } } }, select: { slug: true, updatedAt: true } }),
+      prisma.product.findMany({ where: { storeId, status: { in: VISIBLE_STATUSES } }, select: { slug: true, updatedAt: true } }),
       prisma.post.findMany({ where: { storeId, status: "published" }, select: { slug: true, updatedAt: true } }),
     ]);
     pages.push(

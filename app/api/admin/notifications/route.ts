@@ -33,7 +33,7 @@ export async function GET() {
     prisma.user.count({ where: { emailVerified: false, storeMemberships: { some: { storeId } } } }),
     prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null } }),
     prisma.contactInquiry.count({ where: { storeId, readAt: null, archivedAt: null, emailSent: false } }),
-    prisma.product.count({ where: { storeId, status: { in: ["concept", "planning", "in-development"] } } }),
+    prisma.product.count({ where: { storeId, status: { in: ["draft", "preview"] } } }),
     prisma.postComment.count({ where: { post: { storeId }, status: "pending" } }),
   ]);
 
@@ -76,7 +76,7 @@ export async function GET() {
       id: "products-roadmap",
       tone: "info",
       title: `${roadmapProducts} product${roadmapProducts === 1 ? "" : "s"} not published yet`,
-      detail: "Concepts and work in progress are shown as roadmap cards only.",
+      detail: "Drafts are hidden; previews are shown but cannot be bought until published.",
       href: "/panel/products",
       count: roadmapProducts,
       actionable: false,

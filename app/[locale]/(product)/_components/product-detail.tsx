@@ -20,9 +20,7 @@ import ProductCheckoutForm from "@/app/_components/product-checkout-form";
  */
 
 const STATUS_LABELS: Record<string, string> = {
-  concept: "Preview concept",
-  planning: "Planning",
-  "in-development": "In development",
+  preview: "Preview concept",
   published: "Available now",
 };
 
@@ -172,27 +170,27 @@ function ReviewsPanel({ product, t, locale }: { product: ProductPageData; t: Tra
 
 /** Price, price picker, buttons and highlight lines in the sticky product box. */
 function BuyPanel({ product, t, c, href, locale, initialPriceId }: { product: ProductPageData; t: Translate; c: Translate; href: (path: string) => string; locale: Locale; initialPriceId?: string }) {
-  const { name, listPrice } = product;
+  const { name } = product;
   const published = product.status === "published";
   const hasCheckout = product.prices.length > 0 && (published || product.checkout.mode === "test");
   const badges: [string, string][] = [];
   if (product.technologies.length > 0) badges.push([product.technologies.join(" / "), "orange"]);
   if (published) badges.push([t("Available"), "green"]);
-  else if (listPrice === 0) badges.push([t("Planned free"), "green"]);
+  else if (product.badge) badges.push([c(product.badge), ""]);
 
   // Before anything can be bought: the store's prices as indicative options, else the list price.
   const tag = LOCALE_TAGS[locale];
   const options = product.indicativePrices;
   const first: PublicPrice | undefined = options[0];
   const display = (price: PublicPrice) => formatAmount(price.amountCents, price.currency, tag);
-  const priceText = first ? display(first) : listPrice ? `€${listPrice}` : listPrice === 0 ? t("Free") : t("TBD");
-  const priceLabel = !first && listPrice === null ? t("Roadmap price") : !first && listPrice === 0 ? t("Planned price") : published ? t("Price") : t("Indicative concept price");
+  const priceText = !first ? t("TBD") : first.amountCents === 0 ? t("Free") : display(first);
+  const priceLabel = !first ? t("Roadmap price") : first.amountCents === 0 ? t("Planned price") : published ? t("Price") : t("Indicative concept price");
   const suffix = first ? billingSuffix(first) : "";
   const ctaUrl = product.ctaUrl ?? "/contact";
 
   return (
     <aside className="buy-panel" aria-label={t("{name} product information", { name })}>
-      <span className="badge indigo">{t(STATUS_LABELS[product.status] ?? "Preview concept")}</span>
+      <span className="badge indigo">{product.status !== "published" && product.badge ? c(product.badge) : t(STATUS_LABELS[product.status] ?? "Preview concept")}</span>
       <h2>{name}</h2>
       <p>{c(product.summary)}</p>
       {badges.length > 0 ? (
@@ -204,7 +202,7 @@ function BuyPanel({ product, t, c, href, locale, initialPriceId }: { product: Pr
           ))}
         </div>
       ) : null}
-      {!hasCheckout && (first || listPrice !== null) ? (
+      {!hasCheckout && first ? (
         <div className="buy-price">
           <small>{priceLabel}</small>
           <span id="licence-price">{priceText}</span>

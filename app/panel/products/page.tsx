@@ -25,8 +25,8 @@ export default async function ProductsPage() {
             Products in the <em>catalogue.</em>
           </h1>
           <p>
-            Everything this store lists, in the order of its pages: themes, extensions and every other type. Each
-            product carries its own detail page, prices per store and private releases. Types are managed under
+            Everything this store sells, in the order of its pages. Create a draft, then fill in its General,
+            Prices and Packages tabs and publish it once the checklist is complete. Types are managed under
             Products → Types.
           </p>
         </div>

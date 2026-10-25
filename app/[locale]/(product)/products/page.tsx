@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { pageMetadata } from "@/lib/seo";
 import { trackPageView } from "@/lib/analytics";
 import { SiteFrame } from "../../_components/site-chrome";
+import { VISIBLE_STATUSES } from "@/lib/catalog-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ type
 /** Product types that have products in the store, in their panel order. */
 async function storeTypes(storeId: string) {
   return prisma.productType.findMany({
-    where: { products: { some: { listings: { some: { storeId } } } } },
+    where: { products: { some: { storeId, status: { in: VISIBLE_STATUSES } } } },
     orderBy: [{ position: "asc" }, { name: "asc" }],
     select: { key: true, name: true, pluralName: true },
   });

@@ -13,6 +13,7 @@ import { isLocale } from "@/lib/i18n/config";
 import { safePurchaseReturn } from "@/lib/purchase-flow";
 import { resolveRequestStore } from "@/lib/stores";
 import { creemProductMismatch } from "@/lib/prices";
+import { VISIBLE_STATUSES } from "@/lib/catalog-guard";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
@@ -56,9 +57,8 @@ export async function POST(request: Request) {
   const price = await prisma.price.findFirst({
     where: {
       id: String(form.get("priceId") ?? ""),
-      storeId,
       enabled: true,
-      product: { listings: { some: { storeId } } },
+      product: { storeId, status: { in: VISIBLE_STATUSES } },
     },
     include: { product: true },
   });

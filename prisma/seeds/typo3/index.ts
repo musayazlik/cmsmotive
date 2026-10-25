@@ -25,7 +25,8 @@ export const typo3Store: StoreSeed = {
       ],
     },
     email: { senderName: "CMSMotive", contactRecipient: "info@cmsmotive.de" },
-    legal: { ...LEGAL_ENTITY, contactEmail: "info@cmsmotive.de", privacyEmail: "info@cmsmotive.de" },
+    // The TYPO3 Association's trademark policy: product names never contain "TYPO3".
+    legal: { ...LEGAL_ENTITY, contactEmail: "info@cmsmotive.de", privacyEmail: "info@cmsmotive.de", reservedNameTerms: "TYPO3" },
   },
   content: seedCatalog,
 };

@@ -74,7 +74,6 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
     const price = await db.price.create({
       data: {
         productId: product.id,
-        storeId: store.id,
         name: "Annual",
         billingType: "recurring",
         interval: "year",

@@ -66,6 +66,14 @@ export default function LegalSettingsForm({
           onChange={(v) => set("address", v)}
           rows={3}
         />
+        <TextField
+          label="Trademarks product names may not contain"
+          hint="comma separated"
+          value={values.reservedNameTerms}
+          onChange={(v) => set("reservedNameTerms", v)}
+          maxLength={3000}
+          note="Checked before a product is published, e.g. a platform name products may only claim compatibility with."
+        />
         <label className="wfield">
           <span>Customer audience</span>
           <select
@@ -101,7 +109,7 @@ export default function LegalSettingsForm({
             ],
             [
               "membershipDetails",
-              "TYPO3 membership / permission reference (internal)",
+              "Trademark or membership permission reference (internal)",
             ],
           ] as const
         ).map(([key, label]) => (

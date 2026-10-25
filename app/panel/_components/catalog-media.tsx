@@ -16,7 +16,7 @@ type Endpoint = "productMedia";
 const toImage = (item: UploadedMedia): UploadedImage => ({ assetId: item.assetId, url: item.url, name: item.name });
 
 /** Highlights a drop target while files are dragged over it and hands the dropped files on. */
-function useDropTarget(onFiles: (files: File[]) => void, disabled: boolean) {
+export function useDropTarget(onFiles: (files: File[]) => void, disabled: boolean) {
   const [dragging, setDragging] = useState(false);
   return {
     dragging,

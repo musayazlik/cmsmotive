@@ -5,7 +5,7 @@ import type { ChangeItem } from "./catalog-guard";
 export async function productExists(storeId: string, productId: string) {
   return Boolean(
     await prisma.product.findFirst({
-      where: { id: productId, OR: [{ storeId }, { listings: { some: { storeId } } }] },
+      where: { id: productId, storeId },
       select: { id: true },
     }),
   );
@@ -13,7 +13,7 @@ export async function productExists(storeId: string, productId: string) {
 
 /** Changelog entries have no store of their own: they belong to their product's store. */
 export function changelogInStore(storeId: string) {
-  return { product: { OR: [{ storeId }, { listings: { some: { storeId } } }] } };
+  return { product: { storeId } };
 }
 
 /** Stored change lists are JSON; anything malformed is skipped rather than rendered. */

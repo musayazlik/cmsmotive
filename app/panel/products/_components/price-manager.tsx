@@ -2,20 +2,10 @@
 
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useState } from "react";
-import {
-  BILLING_INTERVALS,
-  BILLING_TYPES,
-  CURRENCIES,
-  INTERVAL_LABELS,
-  PRICE_LIMITS,
-  TAX_MODES,
-  creemProductMismatch,
-  describeBilling,
-  formatAmount,
-} from "@/lib/prices";
+import { BILLING_INTERVALS, CURRENCIES, INTERVAL_LABELS, PRICE_LIMITS, TAX_MODES, describeBilling, formatAmount } from "@/lib/prices";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { Select, Switch, TextArea, TextField } from "../../_components/ui";
-import CreemProductPicker, { type CreemProductOption } from "./creem-product-picker";
+import RowActions from "@/app/panel/_components/row-actions";
 
 /** A price of the product as the edit page loads it. */
 export type PriceRow = {
@@ -29,8 +19,8 @@ export type PriceRow = {
   updatesMonths: number | null;
   seats: number;
   features: string[];
-  creemTestProductId: string | null;
-  creemLiveProductId: string | null;
+  /** The Creem product of the current payment mode, once created or linked. */
+  creemProductId: string | null;
   enabled: boolean;
   position: number;
   /** Whether any order or subscription used it; its terms are then frozen. */
@@ -40,54 +30,51 @@ export type PriceRow = {
 type Props = {
   productId: string;
   prices: PriceRow[];
-  /** The active Creem environment; the matching product ID is verified before a price can go live. */
+  /** The active Creem environment (test or prod). */
   mode: string;
   configured: boolean;
 };
 
-const INTERVAL_OPTIONS = BILLING_INTERVALS.map((value) => ({ value, label: `${INTERVAL_LABELS[value].adjective} (every ${INTERVAL_LABELS[value].per})` }));
+const INTERVAL_OPTIONS = BILLING_INTERVALS.map((value) => ({ value, label: INTERVAL_LABELS[value].adjective }));
 
-/** Pricing tab: the buy options of one product in the edited store. */
+/**
+ * Prices tab: the ways to buy the product. "On sale" is the only Creem step:
+ * saving creates (or updates) the matching Creem product in the current
+ * payment mode. Draft prices show on the site as indicative "from" prices.
+ */
 export default function PriceManager({ productId, prices, mode, configured }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState<PriceRow | null>(null);
   const [name, setName] = useState("");
-  const [billingType, setBillingType] = useState<string>("onetime");
-  const [interval, setInterval] = useState<string>("year");
+  const [billingType, setBillingType] = useState("onetime");
+  const [interval, setInterval] = useState("year");
   const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("EUR");
+  const [currency, setCurrency] = useState<string>(prices[0]?.currency ?? "EUR");
   const [taxMode, setTaxMode] = useState("inclusive");
-  const [updatesMonths, setUpdatesMonths] = useState("");
+  const [updatesMonths, setUpdatesMonths] = useState("12");
   const [seats, setSeats] = useState("1");
   const [features, setFeatures] = useState("");
-  const [testId, setTestId] = useState("");
-  const [liveId, setLiveId] = useState("");
-  const [enabled, setEnabled] = useState(false);
   const [position, setPosition] = useState("0");
+  const [enabled, setEnabled] = useState(true);
+  const [linkId, setLinkId] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<PriceRow | null>(null);
-  const [picking, setPicking] = useState(false);
-  /** The Creem product last chosen from the picker; drives the match note. */
-  const [picked, setPicked] = useState<CreemProductOption | null>(null);
 
-  const fresh = () => {
+  const reset = () => {
     setEditing(null);
     setName("");
     setBillingType("onetime");
     setInterval("year");
     setAmount("");
-    setCurrency("EUR");
     setTaxMode("inclusive");
-    setUpdatesMonths("");
+    setUpdatesMonths("12");
     setSeats("1");
     setFeatures("");
-    setTestId("");
-    setLiveId("");
-    setEnabled(false);
     setPosition("0");
-    setPicked(null);
+    setEnabled(true);
+    setLinkId("");
   };
 
   const startEdit = (price: PriceRow) => {
@@ -101,11 +88,9 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
     setUpdatesMonths(price.updatesMonths === null ? "" : String(price.updatesMonths));
     setSeats(String(price.seats));
     setFeatures(price.features.join("\n"));
-    setTestId(price.creemTestProductId ?? "");
-    setLiveId(price.creemLiveProductId ?? "");
-    setEnabled(price.enabled);
     setPosition(String(price.position));
-    setPicked(null);
+    setEnabled(price.enabled);
+    setLinkId("");
     setError("");
     setSaved("");
   };
@@ -115,34 +100,33 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
     setSaving(true);
     setError("");
     setSaved("");
-    const payload = {
-      name,
-      billingType,
-      interval: billingType === "recurring" ? interval : null,
-      amountCents: Math.round(Number(amount) * 100),
-      currency,
-      taxMode,
-      updatesMonths: billingType === "onetime" && updatesMonths.trim() ? Number(updatesMonths) : null,
-      seats: Number(seats),
-      features,
-      creemTestProductId: testId.trim() || null,
-      creemLiveProductId: liveId.trim() || null,
-      enabled,
-      position: position.trim() === "" ? 0 : Number(position),
-    };
     try {
       const response = await fetch(editing ? `/api/admin/prices/${editing.id}` : `/api/admin/products/${productId}/prices`, {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name,
+          billingType,
+          interval: billingType === "recurring" ? interval : null,
+          amountCents: Math.round(Number(amount.replace(",", ".")) * 100),
+          currency,
+          taxMode,
+          updatesMonths: billingType === "onetime" && updatesMonths.trim() ? Number(updatesMonths) : null,
+          seats: Number(seats),
+          features,
+          position: position.trim() === "" ? 0 : Number(position),
+          enabled,
+          creemProductId: linkId.trim() || null,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
         setError(data.error ?? "The price could not be saved.");
+        router.refresh();
         return;
       }
-      setSaved(editing ? "Price saved." : "Price added.");
-      fresh();
+      setSaved(enabled ? `Saved and on sale (Creem ${mode}).` : "Saved as a draft price.");
+      reset();
       router.refresh();
     } catch {
       setError("Could not reach the server.");
@@ -157,10 +141,9 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
     try {
       const response = await fetch(`/api/admin/prices/${confirmDelete.id}`, { method: "DELETE" });
       const data = await response.json();
-      if (!response.ok) setError(data.error ?? "The price could not be deleted.");
+      if (!response.ok) setError(data.error ?? "The price could not be removed.");
       else {
-        if (editing?.id === confirmDelete.id) fresh();
-        setSaved("Price removed.");
+        if (editing?.id === confirmDelete.id) reset();
         router.refresh();
       }
     } catch {
@@ -171,151 +154,138 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
     }
   }
 
-  const remoteId = mode === "prod" ? liveId : testId;
   const sold = editing?.sold ?? false;
-
-  /** The picked Creem product only while it still fills the active mode's field. */
-  const pickedForMode =
-    picked && ((mode === "prod" && picked.id === liveId.trim()) || (mode === "test" && picked.id === testId.trim())) ? picked : null;
-  const pickedMismatch = pickedForMode
-    ? creemProductMismatch(
-        {
-          status: pickedForMode.status ?? undefined,
-          billing_type: pickedForMode.billingType,
-          billing_period: pickedForMode.billingPeriod ?? undefined,
-          price: pickedForMode.amountCents,
-          currency: pickedForMode.currency,
-          tax_mode: pickedForMode.taxMode ?? undefined,
-        },
-        {
-          billingType,
-          interval: billingType === "recurring" ? interval : null,
-          amountCents: Math.round(Number(amount) * 100) || 0,
-          currency,
-          taxMode,
-        },
-      )
-    : null;
 
   return (
     <div className="wform-stack">
-      <div className="wfield-card">
-        <p className="wsection-label">Creem / {mode}</p>
+      {!configured ? (
         <p className="wfield-hint-block">
-          {configured
-            ? `Every price maps 1:1 to a Creem product of the ${mode} environment: one amount, currency and billing period. An enabled price is verified against Creem before it can be bought.`
-            : "Add CREEM_API_KEY and CREEM_WEBHOOK_SECRET in the server environment. Prices can be drafted, but nothing can be bought until Creem is configured."}
+          Creem is not configured (CREEM_API_KEY, CREEM_WEBHOOK_SECRET). Prices can be drafted; nothing can be put on sale yet.
         </p>
+      ) : null}
+
+      <div className="wtable-card">
+        <div className="wtable-scroll">
+          <table className="wtable">
+            <thead>
+              <tr>
+                <th scope="col">Price</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Terms</th>
+                <th scope="col">State</th>
+                <th scope="col" className="wtable-actions-col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {prices.length === 0 ? (
+                <tr>
+                  <td className="wtable-state" colSpan={5}>
+                    No prices yet. Add the first one below.
+                  </td>
+                </tr>
+              ) : (
+                prices.map((price) => (
+                  <tr key={price.id}>
+                    <td>
+                      <strong>{price.name}</strong>
+                    </td>
+                    <td>
+                      <strong>{formatAmount(price.amountCents, price.currency)}</strong>
+                    </td>
+                    <td>
+                      <small>
+                        {describeBilling(price)} · {price.seats} installation{price.seats === 1 ? "" : "s"}
+                      </small>
+                    </td>
+                    <td>
+                      <span className={`wbadge ${price.enabled ? "wbadge-verified" : "wbadge-missing"}`}>{price.enabled ? "On sale" : "Draft"}</span>
+                      {price.sold ? <span className="wbadge wbadge-user">sold</span> : null}
+                    </td>
+                    <td className="wtable-actions-col">
+                      <RowActions
+                        label={price.name}
+                        actions={[
+                          { label: "Edit", onSelect: () => startEdit(price) },
+                          ...(price.sold ? [] : [{ label: "Remove", danger: true, separated: true, onSelect: () => setConfirmDelete(price) }]),
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <form className="wfield-card" onSubmit={handleSubmit}>
         <div className="wmedia-head">
           <p className="wsection-label">{editing ? `Edit “${editing.name}”` : "Add a price"}</p>
           {editing ? (
-            <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={fresh} disabled={saving}>
-              New price
+            <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={reset} disabled={saving}>
+              Cancel editing
             </button>
           ) : null}
         </div>
+        {sold ? <p className="wfield-hint-block">This price has been sold, so its amount and billing are fixed. Add a new price for new terms.</p> : null}
         <div className="wform">
           <div className="wfield-row">
-            <TextField id="pr-name" label="Label" value={name} onChange={setName} required maxLength={PRICE_LIMITS.name} placeholder="Single site" note="Shown in the buy panel, e.g. “Single site” or “Agency”." />
+            <TextField id="pr-name" label="Label" value={name} onChange={setName} required maxLength={PRICE_LIMITS.name} placeholder="Single site" />
             <Select
               id="pr-billing"
               label="Billing"
               value={billingType}
-              onChange={(next) => {
-                setBillingType(next);
-                setError("");
-              }}
-              options={BILLING_TYPES.map((value) => ({ value, label: value === "onetime" ? "One-time" : "Subscription" }))}
+              onChange={setBillingType}
+              options={[
+                { value: "onetime", label: "One-time" },
+                { value: "recurring", label: "Subscription" },
+              ]}
               disabled={sold}
-              note={sold ? "This price has been sold, so its terms cannot change. Add a new price instead." : undefined}
             />
             {billingType === "recurring" ? <Select id="pr-interval" label="Renews" value={interval} onChange={setInterval} options={INTERVAL_OPTIONS} disabled={sold} /> : null}
           </div>
           <div className="wfield-row">
-            <TextField
-              id="pr-amount"
-              label="Amount"
-              value={amount}
-              onChange={setAmount}
-              required
-              pattern="[0-9]+([.,][0-9]{1,2})?"
-              placeholder="269"
-              disabled={sold}
-              note="In the currency below, tax handling next to it."
-            />
+            <TextField id="pr-amount" label="Amount" value={amount} onChange={setAmount} required pattern="[0-9]+([.,][0-9]{1,2})?" placeholder="269" disabled={sold} />
             <Select id="pr-currency" label="Currency" value={currency} onChange={setCurrency} options={[...CURRENCIES]} disabled={sold} />
-            <Select id="pr-tax" label="Tax" value={taxMode} onChange={setTaxMode} options={[...TAX_MODES]} disabled={sold} note="inclusive = VAT included in the amount." />
+            <Select
+              id="pr-tax"
+              label="Tax"
+              value={taxMode}
+              onChange={setTaxMode}
+              options={TAX_MODES.map((value) => ({ value, label: value === "inclusive" ? "Included" : "Added at checkout" }))}
+              disabled={sold}
+            />
           </div>
           <div className="wfield-row">
             {billingType === "onetime" ? (
-              <TextField
-                id="pr-updates"
-                label="Included updates"
-                hint="months"
-                value={updatesMonths}
-                onChange={setUpdatesMonths}
-                pattern="[0-9]*"
-                placeholder="12"
-                note="Empty = lifetime updates. Subscriptions always include the active period."
-              />
+              <TextField id="pr-updates" label="Updates included" hint="months" value={updatesMonths} onChange={setUpdatesMonths} pattern="[0-9]*" note="Empty = lifetime updates." />
             ) : null}
-            <TextField id="pr-seats" label="Installations covered" value={seats} onChange={setSeats} pattern="[0-9]*" note="Support and licence keys cover this many installations." />
-            <TextField id="pr-position" label="Sort order" value={position} onChange={setPosition} pattern="[0-9]*" note="Lower numbers come first in the buy panel." />
+            <TextField id="pr-seats" label="Installations" value={seats} onChange={setSeats} pattern="[0-9]*" />
+            <TextField id="pr-position" label="Sort order" value={position} onChange={setPosition} pattern="[0-9]*" />
           </div>
-          <TextArea
-            id="pr-features"
-            label="Feature lines"
-            hint="one per line"
-            value={features}
-            onChange={setFeatures}
-            rows={3}
-            placeholder={"1 year of updates\nPriority support"}
-            note={`Up to ${PRICE_LIMITS.features} lines listed under the price.`}
+          <TextArea id="pr-features" label="Feature lines" hint="one per line" value={features} onChange={setFeatures} rows={3} placeholder={"1 year of updates\nPriority support"} />
+          <Switch
+            id="pr-enabled"
+            label="On sale"
+            checked={enabled}
+            onChange={setEnabled}
+            disabled={!configured}
+            note={`Saving creates or updates the product in Creem (${mode}). Off = a draft shown as an indicative price.`}
           />
-          <div className="wfield-row">
+          <details className="wdisclosure">
+            <summary>Link an existing Creem product instead</summary>
             <TextField
-              id="pr-test"
-              label="Creem test product ID"
-              value={testId}
-              onChange={(next) => {
-                setTestId(next);
-                setPicked((current) => (mode === "prod" ? current : null));
-              }}
-              placeholder="prod_…"
+              id="pr-link"
+              label={`Creem ${mode} product ID`}
+              value={linkId}
+              onChange={setLinkId}
+              placeholder={editing?.creemProductId ?? "prod_…"}
               disabled={sold}
+              note="Only for a product that already exists in Creem; it is updated to these terms."
             />
-            <TextField
-              id="pr-live"
-              label="Creem live product ID"
-              value={liveId}
-              onChange={(next) => {
-                setLiveId(next);
-                setPicked((current) => (mode === "test" ? current : null));
-              }}
-              placeholder="prod_…"
-              disabled={sold}
-            />
-          </div>
-          <div className="wcreem-browse">
-            <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={() => setPicking(true)} disabled={!configured || sold}>
-              Browse Creem {mode} products
-            </button>
-            {pickedForMode ? (
-              pickedMismatch ? (
-                <p className="wfield-error" role="alert">
-                  The Creem product does not match this price: {pickedMismatch}
-                </p>
-              ) : (
-                <p className="wfield-hint-block">
-                  Matches: {formatAmount(pickedForMode.amountCents, pickedForMode.currency)} · {pickedForMode.name}
-                </p>
-              )
-            ) : null}
-          </div>
-          <Switch id="pr-enabled" label="Buyable" checked={enabled} onChange={setEnabled} note={remoteId ? undefined : `Add the ${mode} product ID above before enabling.`} />
+          </details>
         </div>
         <div className="wpub-actions">
           <button className="wbtn wbtn-primary" type="submit" disabled={saving}>
@@ -334,70 +304,10 @@ export default function PriceManager({ productId, prices, mode, configured }: Pr
         ) : null}
       </form>
 
-      <div className="wfield-card">
-        <p className="wsection-label">Prices of this store</p>
-        {prices.length === 0 ? (
-          <p className="wrepeat-empty">No prices yet. While a product has no prices, its indicative price from the content tab is shown instead.</p>
-        ) : (
-          <div className="wrepeat wrepeat-table" role="table" aria-label="Prices">
-            <div className="wrepeat-head" role="row">
-              <span role="columnheader">Price</span>
-              <span role="columnheader">Terms</span>
-              <span role="columnheader">Creem</span>
-              <span role="columnheader">State</span>
-              <span aria-hidden="true" />
-            </div>
-            {prices.map((price) => (
-              <div className="wrepeat-row" role="row" key={price.id}>
-                <span role="cell">
-                  <strong>{price.name}</strong>
-                  <small>{formatAmount(price.amountCents, price.currency)}</small>
-                </span>
-                <span role="cell">
-                  <small>{describeBilling(price)}</small>
-                  <small>
-                    {price.seats} installation{price.seats === 1 ? "" : "s"}
-                  </small>
-                </span>
-                <span role="cell">
-                  <small className="status-slug">{(mode === "prod" ? price.creemLiveProductId : price.creemTestProductId) ?? "—"}</small>
-                </span>
-                <span role="cell">
-                  <span className={`wbadge ${price.enabled ? "wbadge-verified" : "wbadge-missing"}`}>{price.enabled ? "Buyable" : "Concept"}</span>
-                  {price.sold ? <span className="wbadge wbadge-user">sold</span> : null}
-                </span>
-                <div className="wrepeat-tools">
-                  <button type="button" onClick={() => startEdit(price)} aria-label={`Edit ${price.name}`}>
-                    ✎
-                  </button>
-                  <button type="button" className="is-danger" onClick={() => setConfirmDelete(price)} aria-label={`Remove ${price.name}`}>
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="wfield-hint-block">
-          A sold price keeps its terms forever so past invoices stay truthful. Disable it and add a new price for changed terms.
-        </p>
-      </div>
-
-      <CreemProductPicker
-        open={picking}
-        mode={mode}
-        onClose={() => setPicking(false)}
-        onSelect={(product) => {
-          setPicked(product);
-          if (mode === "prod") setLiveId(product.id);
-          else setTestId(product.id);
-        }}
-      />
-
       <ConfirmDialog
         open={confirmDelete !== null}
         title={`Remove ${confirmDelete?.name ?? "price"}?`}
-        body="Prices that were never sold are removed. Sold prices must stay; disable them instead."
+        body="Prices that were never sold are removed. Sold prices stay; take them off sale instead."
         busy={saving}
         onConfirm={handleDelete}
         onClose={() => setConfirmDelete(null)}

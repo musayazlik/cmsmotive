@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "@/app/panel/_components/panel-navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
+import { formatBytes } from "@/app/panel/media/_lib";
+import { useDropTarget } from "../../_components/catalog-media";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { TextField } from "../../_components/ui";
 
@@ -24,6 +26,25 @@ type Props = {
 const stamp = (iso: string) =>
   new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso));
 
+/** Mirrors the productPackage endpoint's limit so a wrong file is caught before the upload starts. */
+const MAX_PACKAGE_BYTES = 128 * 1024 * 1024;
+
+function packageProblem(file: File): string {
+  if (!file.name.toLowerCase().endsWith(".zip")) return "Choose a .zip file; other formats are rejected.";
+  if (file.size > MAX_PACKAGE_BYTES) return `This file is ${formatBytes(file.size)}; packages can be up to 128 MB.`;
+  return "";
+}
+
+function ArchiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" />
+      <rect x="2" y="3" width="20" height="5" rx="1.5" />
+      <path d="M10 12h4" />
+    </svg>
+  );
+}
+
 /**
  * Releases tab: the private ZIP packages customers download. Files go
  * straight to UploadThing's private storage; the database row is written by
@@ -33,12 +54,16 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
   const router = useRouter();
   const [version, setVersion] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState("");
+  const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<ReleaseRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
 
   const { startUpload, isUploading } = useUploadThing("productPackage", {
+    onUploadProgress: setProgress,
     onClientUploadComplete: () => {
       setFile(null);
       setVersion("");
@@ -48,11 +73,26 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
     onUploadError: (cause) => setError(cause.message || "The package could not be uploaded."),
   });
 
+  function choose(next: File | undefined) {
+    if (!next) return;
+    const problem = packageProblem(next);
+    setFileError(problem);
+    setMessage("");
+    if (!problem) setFile(next);
+  }
+
+  const drop = useDropTarget((files) => choose(files[0]), isUploading);
+  const browse = () => input.current?.click();
+
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!file) return;
+    if (!file) {
+      setFileError("Choose the ZIP package to upload.");
+      return;
+    }
     setError("");
     setMessage("");
+    setProgress(0);
     await startUpload([file], { productId, version: version.trim() });
   }
 
@@ -78,38 +118,93 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
   return (
     <div className="wform-stack">
       <form className="wfield-card" onSubmit={handleUpload}>
-        <p className="wsection-label">Upload a package</p>
-        <p className="wfield-hint-block">
+        <div className="wmedia-head">
+          <p className="wsection-label">Upload a package</p>
+          <span className="wmedia-count">ZIP · max 128 MB</span>
+        </div>
+        <p className="wfield-hint-block wpkg-intro">
           One ZIP per version, stored privately. Customers download it while their entitlement covers the version —
           orders include the months of releases their price grants, subscriptions the active period.
-          {!licenseReady ? " Complete the Code license step of the release checklist first; the upload is rejected otherwise." : ""}
         </p>
-        <div className="wform">
-          <div className="wfield-row">
-            <TextField
-              id="rel-version"
-              label="Version"
-              value={version}
-              onChange={setVersion}
-              required
-              pattern="[a-zA-Z0-9.+-]{1,40}"
-              placeholder="v1.0.0"
-              note="Letters, numbers, dots, plus and minus."
-            />
-            <label className="wfield">
-              <span className="wfield-label-like">Package file (ZIP)</span>
-              <input
-                type="file"
-                accept=".zip,application/zip"
-                required
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              />
-              <span className="wfield-hint-block">Up to 128 MB per package.</span>
-            </label>
+        {!licenseReady ? (
+          <p className="wpkg-notice" role="note">
+            Set the code license in the package checklist first; until then uploads are rejected.
+          </p>
+        ) : null}
+
+        <input
+          ref={input}
+          type="file"
+          accept=".zip,application/zip"
+          hidden
+          onChange={(event) => {
+            choose(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+        {file ? (
+          <div className={drop.dragging ? "wpkg-file is-dragging" : "wpkg-file"} {...drop.handlers}>
+            <span className="wtable-avatar wmedia-thumb wmedia-tile wmedia-tile-archive" aria-hidden="true">
+              ZIP
+            </span>
+            <div className="wpkg-file-meta">
+              <strong title={file.name}>{file.name}</strong>
+              <span>{isUploading ? `Uploading… ${progress}%` : formatBytes(file.size)}</span>
+              {isUploading ? (
+                <span
+                  className="wpkg-progress"
+                  role="progressbar"
+                  aria-label="Upload progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress}
+                >
+                  <span style={{ width: `${progress}%` }} />
+                </span>
+              ) : null}
+            </div>
+            {!isUploading ? (
+              <div className="wpkg-file-tools">
+                <button type="button" className="wbtn wbtn-sm wbtn-ghost" onClick={browse}>
+                  Replace
+                </button>
+                <button type="button" className="wbtn wbtn-sm wbtn-danger-ghost" onClick={() => setFile(null)}>
+                  Remove
+                </button>
+              </div>
+            ) : null}
           </div>
-        </div>
-        <div className="wpub-actions">
-          <button className="wbtn wbtn-primary" type="submit" disabled={isUploading || !file}>
+        ) : (
+          <button
+            type="button"
+            className={drop.dragging ? "wdrop wdrop-package is-dragging" : "wdrop wdrop-package"}
+            onClick={browse}
+            aria-describedby={fileError ? "rel-file-error" : undefined}
+            {...drop.handlers}
+          >
+            <ArchiveIcon />
+            <strong>Choose a ZIP package</strong>
+            <span>or drop it here · up to 128 MB</span>
+          </button>
+        )}
+        {fileError ? (
+          <p className="wfield-error" id="rel-file-error" role="alert">
+            {fileError}
+          </p>
+        ) : null}
+
+        <div className="wpkg-submit">
+          <TextField
+            id="rel-version"
+            label="Version"
+            value={version}
+            onChange={setVersion}
+            required
+            pattern="[a-zA-Z0-9.+-]{1,40}"
+            placeholder="v1.0.0"
+            note="Letters, numbers, dots, plus and minus."
+          />
+          <button className="wbtn wbtn-primary" type="submit" disabled={isUploading || !licenseReady}>
             {isUploading ? "Uploading…" : "Upload package"}
           </button>
         </div>

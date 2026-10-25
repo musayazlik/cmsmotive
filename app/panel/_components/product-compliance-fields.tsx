@@ -21,16 +21,16 @@ export default function ProductComplianceFields({
     <div className="wfield-card">
       <p className="wsection-label">Release and license checklist</p>
       <p className="wfield-hint-block">
-        Code rights are independent of the annual support/update subscription.
+        Code rights are independent of the support and update period.
         Publication requires this checklist and the legal review in Settings →
         Legal.
       </p>
       {(
         [
-          ["codeLicense", "Code license (SPDX)", "GPL-2.0-or-later"],
+          ["codeLicense", "Code license (SPDX or “Commercial”)", "MIT, GPL-3.0-or-later, Commercial"],
           ["noticesUrl", "License and third-party notices URL", "/docs"],
           ["releaseVersion", "Release version", "1.0.0"],
-          ["testedVersions", "Actually tested TYPO3 / PHP versions", ""],
+          ["testedVersions", "Actually tested platform and runtime versions", ""],
         ] as const
       ).map(([key, label, placeholder]) => (
         <TextField
@@ -49,9 +49,8 @@ export default function ProductComplianceFields({
         maxLength={2000}
       />
       <p className="wfield-hint-block">
-        12 months of updates and support. Automatically billed every year until
-        cancellation. Installation counts describe support coverage, not GPL
-        code-use restrictions.
+        Installation counts describe support coverage, not limits on the code
+        licence.
       </p>
       <Switch
         label="I verified the package, compatibility, rights and service scope"

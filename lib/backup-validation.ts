@@ -29,12 +29,11 @@ export const backupSchema = z.strictObject({
     productTypes: rows(z.strictObject({ id, key: id, name: text, pluralName: text, description: text.nullable(), listPath: text.nullable(), position: integer, ...timestamps })),
     products: rows(z.strictObject({
       id, ...owned, typeId: id, slug: id, name: text, summary: text, description: text, status: text,
-      category: text.nullable(), technologies: z.array(text), listPrice: integer.nullable(),
+      badge: text.nullable(), position: integer, category: text.nullable(), technologies: z.array(text),
       compliance: z.json().default({}), tagline: text.nullable(), intro: text.nullable(),
       highlights: z.array(text), compatibility: z.json(), ctaLabel: text.nullable(),
       ctaUrl: text.nullable(), demoUrl: text.nullable(), coverId: id.nullable(), ...timestamps,
     })),
-    productStores: rows(z.strictObject({ productId: id, storeId: id, position: integer, createdAt: date })),
     productGallery: rows(z.strictObject({ id, productId: id, assetId: id, position: integer })),
     changelog: rows(z.strictObject({ id, productId: id, version: text, title: text, releasedAt: date, changes: z.json(), ...timestamps })),
     media: rows(z.strictObject({
@@ -103,20 +102,18 @@ export function parseBackup(input: unknown): Backup {
   const identities = unique(backup.users, (row) => row.id, "user ID");
   unique(backup.users, (row) => row.email.toLowerCase(), "user email");
   for (const [name, records] of Object.entries(d)) {
-    if (name !== "settings" && name !== "postTags" && name !== "storeSettings" && name !== "productStores") {
+    if (name !== "settings" && name !== "postTags" && name !== "storeSettings") {
       unique(records as { id: string }[], (row) => row.id, `${name} ID`);
     }
   }
-  // Product slugs are unique across stores; posts, media keys, subscribers and counters within their store.
-  unique(d.products, (row) => row.slug, "product slug");
-  for (const name of ["posts", "categories", "tags"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
+  // Slugs, media keys, subscribers and counters are unique within their store.
+  for (const name of ["products", "posts", "categories", "tags"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
   unique(d.productTypes, (row) => row.key, "product type key");
   unique(d.media, (row) => `${row.storeId}:${row.key}`, "media key");
   unique(d.settings, (row) => row.key, "setting key");
   unique(d.storeSettings, (row) => `${row.storeId}:${row.key}`, "store setting key");
   unique(d.stores, (row) => row.key, "store key");
   unique(d.storeDomains, (row) => row.host, "store domain");
-  unique(d.productStores, (row) => JSON.stringify([row.productId, row.storeId]), "store listing");
   if (d.settings.some((row) => !row.key.startsWith("security."))) fail("Only panel security settings are install-wide; other settings belong to a store.");
   unique(d.reviews, (row) => row.requestKey, "review request key");
   unique(d.comments, (row) => row.requestKey, "comment request key");
@@ -139,7 +136,6 @@ export function parseBackup(input: unknown): Backup {
     reference(productTypes, product.typeId, "product type");
     reference(media, product.coverId, "cover image");
   }
-  for (const row of d.productStores) { reference(products, row.productId, "product"); reference(stores, row.storeId, "store"); }
   for (const row of d.media) reference(identities, row.uploadedById, "uploader");
   for (const row of d.posts) {
     reference(media, row.coverId, "post cover");

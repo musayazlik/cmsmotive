@@ -1,19 +1,20 @@
+import Link from "@/app/panel/_components/panel-navigation";
 import { requirePanelUser } from "@/lib/panel-auth";
-import ProductForm from "../_components/product-form";
-import { productFormOptions } from "../_record";
 import { panelStore } from "@/lib/panel-store";
+import NewProductForm from "../_components/new-product-form";
+import { productTypeOptions } from "../_record";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
   await requirePanelUser();
   const store = await panelStore();
-  const { types, stores } = await productFormOptions();
+  const types = await productTypeOptions();
 
   return (
     <>
       <div className="workspace-eyebrow">
-        <span className="workspace-dot" /> CATALOGUE / PRODUCTS / NEW
+        <span className="workspace-dot" /> CATALOGUE / <Link href="/panel/products">PRODUCTS</Link> / NEW
       </div>
       <div className="workspace-intro">
         <div>
@@ -22,14 +23,14 @@ export default async function NewProductPage() {
             <em>new product.</em>
           </h1>
           <p>
-            Create the product with a cover, a gallery and a rich description, then add its prices and releases on
-            the next screen. It is owned by {store.name} and listed there first.
+            Start with the basics; the product opens as a draft in {store.name}. Then fill in General, add Prices,
+            upload the Package and publish once the checklist is complete.
           </p>
         </div>
         <span className="workspace-index">CATALOGUE</span>
       </div>
 
-      <ProductForm types={types} stores={stores} storeId={store.id} />
+      <NewProductForm types={types} />
     </>
   );
 }

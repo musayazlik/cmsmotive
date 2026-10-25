@@ -48,7 +48,7 @@ export const uploadRouter = {
       const { storeId } = await requireAdminUpload(req);
       if (files.some((file) => !file.name.toLowerCase().endsWith(".zip"))) throw new UploadThingError("Product packages must be ZIP files.");
       const product = await prisma.product.findFirst({
-        where: { id: input.productId, OR: [{ storeId }, { listings: { some: { storeId } } }] },
+        where: { id: input.productId, storeId },
         select: { id: true, compliance: true },
       });
       const license = readCompliance(product?.compliance).codeLicense;

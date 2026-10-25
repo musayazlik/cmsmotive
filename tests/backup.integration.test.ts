@@ -46,7 +46,7 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   const media = await db.mediaAsset.create({ data: { storeId: store.id, key: "image-key", url: "https://example.com/image.png", fileName: "image.png", fileSize: 42, mimeType: "image/png", uploadedById: "destination-admin" } });
   // The products_and_commerce migration seeds the theme/extension product types.
   const type = await db.productType.findUniqueOrThrow({ where: { key: "theme" } });
-  const product = await db.product.create({ data: { storeId: store.id, typeId: type.id, name: "Theme", slug: "theme", summary: "Summary", description: "<p>Theme</p>", status: "concept", category: "Agency", technologies: ["TYPO3 13"], listPrice: 269, coverId: media.id, highlights: ["Fast"], compatibility: [{ area: "TYPO3", target: "13", status: "ready" }], gallery: { create: { assetId: media.id } }, listings: { create: { storeId: store.id, position: 10 } } } });
+  const product = await db.product.create({ data: { storeId: store.id, typeId: type.id, name: "Theme", slug: "theme", summary: "Summary", description: "<p>Theme</p>", status: "preview", badge: "In development", position: 10, category: "Agency", technologies: ["TYPO3 13"], coverId: media.id, highlights: ["Fast"], compatibility: [{ area: "TYPO3", target: "13", status: "ready" }], gallery: { create: { assetId: media.id } } } });
   await db.changelogEntry.create({ data: { productId: product.id, version: "1.0", title: "First release", releasedAt: new Date(), changes: [{ kind: "new", text: "Initial release" }] } });
   await db.productReview.create({ data: { storeId: store.id, productId: product.id, productSlug: product.slug, authorName: "Reader", authorEmail: "reader@example.com", rating: 5, body: "Excellent", requestKey: "review", status: "approved" } });
   const category = await db.category.create({ data: { storeId: store.id, name: "News", slug: "news" } });
@@ -96,7 +96,8 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   assert.deepEqual(restored.data.products[0].compatibility, [{ area: "TYPO3", target: "13", status: "ready" }]);
   assert.deepEqual(restored.data.products[0].technologies, ["TYPO3 13"]);
   assert.equal(restored.data.productGallery[0].assetId, media.id);
-  assert.equal(restored.data.productStores[0].position, 10);
+  assert.equal(restored.data.products[0].position, 10);
+  assert.equal(restored.data.products[0].badge, "In development");
   assert.equal(restored.data.changelog[0].productId, restored.data.products[0].id);
   assert.equal(restored.data.reviews[0].productId, restored.data.products[0].id);
   assert.equal(restored.data.comments.find((row) => row.requestKey === "reply")!.parentId, root.id);

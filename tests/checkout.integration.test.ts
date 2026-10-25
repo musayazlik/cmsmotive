@@ -76,14 +76,12 @@ test("product checkout preserves sign-in intent, redirects to Creem, binds the a
         slug: "sample",
         summary: "Sample theme",
         description: "Concept only",
-        status: "concept",
-        listings: { create: { storeId: store.id, position: 10 } },
+        status: "preview",
       },
     });
     const price = await db.price.create({
       data: {
         productId: product.id,
-        storeId: store.id,
         name: "Annual",
         billingType: "recurring",
         interval: "year",

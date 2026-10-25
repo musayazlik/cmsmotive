@@ -1,7 +1,7 @@
 /** Public backup contract. Keep database credentials and authentication tables out of this format. */
 export const BACKUP_FORMAT = "cmsmotive.backup";
-/** 3: themes and extensions became products with types, store listings and galleries. */
-export const BACKUP_VERSION = 3;
+/** 4: a product belongs to one store (no store listings), with draft/preview/published, a badge and its own sort order. */
+export const BACKUP_VERSION = 4;
 export const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 
 export const BACKUP_TABLE_LABELS = {
@@ -10,7 +10,6 @@ export const BACKUP_TABLE_LABELS = {
   storeSettings: "Store settings",
   productTypes: "Product types",
   products: "Products",
-  productStores: "Store listings",
   productGallery: "Product gallery images",
   changelog: "Changelog entries",
   posts: "Blog posts",

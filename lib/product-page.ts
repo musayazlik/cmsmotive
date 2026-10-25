@@ -4,7 +4,7 @@ import { getLegalSettings } from "./legal";
 import { legalReadiness } from "./legal-settings-shared";
 import { prisma } from "./prisma";
 import { readChanges } from "./changelog";
-import { readCompatibility, type ChangeItem, type CompatibilityRow } from "./catalog-guard";
+import { VISIBLE_STATUSES, readCompatibility, type ChangeItem, type CompatibilityRow } from "./catalog-guard";
 
 type Image = { url: string; alt: string; width: number; height: number };
 
@@ -36,7 +36,8 @@ export type ProductPageData = {
   intro: string | null;
   category: string | null;
   technologies: string[];
-  listPrice: number | null;
+  /** Optional progress note, e.g. "In development". */
+  badge: string | null;
   type: ProductTypeRef;
   /** Prices that open a Creem checkout in the current payment mode. */
   prices: PublicPrice[];
@@ -89,7 +90,7 @@ export function splitPrices(rows: PriceRow[]): { prices: PublicPrice[]; indicati
 /** The product of `slug` as listed in a store, with that store's prices and checkout readiness. */
 export async function loadProductPage(storeId: string, slug: string): Promise<ProductPageData | null> {
   const product = await prisma.product.findFirst({
-    where: { slug, listings: { some: { storeId } } },
+    where: { storeId, slug, status: { in: VISIBLE_STATUSES } },
     include: {
       type: true,
       cover: assetSelect,
@@ -98,7 +99,7 @@ export async function loadProductPage(storeId: string, slug: string): Promise<Pr
         orderBy: [{ releasedAt: "desc" }, { createdAt: "desc" }],
         select: { id: true, version: true, title: true, releasedAt: true, changes: true },
       },
-      prices: { where: { storeId }, orderBy: [{ position: "asc" }, { amountCents: "asc" }], select: priceSelect },
+      prices: { orderBy: [{ position: "asc" }, { amountCents: "asc" }], select: priceSelect },
     },
   });
   if (!product) return null;
@@ -116,7 +117,7 @@ export async function loadProductPage(storeId: string, slug: string): Promise<Pr
     intro: product.intro,
     category: product.category,
     technologies: product.technologies,
-    listPrice: product.listPrice,
+    badge: product.badge,
     type: { key: product.type.key, name: product.type.name, pluralName: product.type.pluralName, listPath: typeListPath(product.type) },
     ...splitPrices(product.prices),
     checkout: {

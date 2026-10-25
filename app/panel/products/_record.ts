@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { listStores } from "@/lib/stores";
 import type { UploadedImage } from "../_components/catalog-media";
 
-/** A product as the edit page loads it, seen from the store the panel is editing. */
+/** A product of the edited store, as its edit page loads it. */
 export type ProductRecord = {
   id: string;
   slug: string;
@@ -12,11 +12,10 @@ export type ProductRecord = {
   summary: string;
   description: string;
   status: string;
+  badge: string;
   typeId: string;
   category: string;
   technologies: string[];
-  listPrice: number | null;
-  /** Sort order in the edited store. */
   position: number;
   tagline: string;
   intro: string;
@@ -28,10 +27,7 @@ export type ProductRecord = {
   demoUrl: string;
   cover: UploadedImage | null;
   gallery: UploadedImage[];
-  /** Whether the edited store owns the product (its media library, deletion). */
-  ownedHere: boolean;
-  storeIds: string[];
-  counts: { changelog: number; reviews: number; pendingReviews: number; orders: number };
+  counts: { prices: number; pricesOnSale: number; releases: number; changelog: number; reviews: number; pendingReviews: number; orders: number };
   createdAt: string;
   updatedAt: string;
 };
@@ -42,15 +38,15 @@ export type StoreOption = { id: string; name: string };
 const assetSelect = { select: { id: true, url: true, fileName: true } } as const;
 const toImage = (asset: { id: string; url: string; fileName: string }): UploadedImage => ({ assetId: asset.id, url: asset.url, name: asset.fileName });
 
-/** The product if the store owns or lists it. */
+/** The product if it belongs to the store. */
 export async function loadProduct(storeId: string, id: string): Promise<ProductRecord | null> {
   const product = await prisma.product.findFirst({
-    where: { id, OR: [{ storeId }, { listings: { some: { storeId } } }] },
+    where: { id, storeId },
     include: {
       cover: assetSelect,
       gallery: { orderBy: { position: "asc" }, select: { asset: assetSelect } },
-      listings: { select: { storeId: true, position: true } },
-      _count: { select: { changelog: true, reviews: true, orders: true } },
+      prices: { select: { enabled: true } },
+      _count: { select: { releases: true, changelog: true, reviews: true, orders: true } },
     },
   });
   if (!product) return null;
@@ -62,11 +58,11 @@ export async function loadProduct(storeId: string, id: string): Promise<ProductR
     summary: product.summary,
     description: product.description,
     status: product.status,
+    badge: product.badge ?? "",
     typeId: product.typeId,
     category: product.category ?? "",
     technologies: product.technologies,
-    listPrice: product.listPrice,
-    position: product.listings.find((listing) => listing.storeId === storeId)?.position ?? 0,
+    position: product.position,
     tagline: product.tagline ?? "",
     intro: product.intro ?? "",
     highlights: product.highlights,
@@ -77,19 +73,26 @@ export async function loadProduct(storeId: string, id: string): Promise<ProductR
     demoUrl: product.demoUrl ?? "",
     cover: product.cover ? toImage(product.cover) : null,
     gallery: product.gallery.map((entry) => toImage(entry.asset)),
-    ownedHere: product.storeId === storeId,
-    storeIds: product.listings.map((listing) => listing.storeId),
-    counts: { changelog: product._count.changelog, reviews: product._count.reviews, pendingReviews, orders: product._count.orders },
+    counts: {
+      prices: product.prices.length,
+      pricesOnSale: product.prices.filter((price) => price.enabled).length,
+      releases: product._count.releases,
+      changelog: product._count.changelog,
+      reviews: product._count.reviews,
+      pendingReviews,
+      orders: product._count.orders,
+    },
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   };
 }
 
-/** Choices for the form's type and store pickers. */
-export async function productFormOptions(): Promise<{ types: ProductTypeOption[]; stores: StoreOption[] }> {
-  const [types, stores] = await Promise.all([
-    prisma.productType.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], select: { id: true, key: true, name: true } }),
-    listStores(),
-  ]);
-  return { types, stores: stores.map(({ id, name }) => ({ id, name })) };
+/** Product types for the type pickers (shared by every store). */
+export function productTypeOptions(): Promise<ProductTypeOption[]> {
+  return prisma.productType.findMany({ orderBy: [{ position: "asc" }, { name: "asc" }], select: { id: true, key: true, name: true } });
+}
+
+/** The other stores a product can be copied to. */
+export async function otherStores(storeId: string): Promise<StoreOption[]> {
+  return (await listStores()).filter((store) => store.id !== storeId).map(({ id, name }) => ({ id, name }));
 }

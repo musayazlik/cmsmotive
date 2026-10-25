@@ -1,3 +1,4 @@
+import { VISIBLE_STATUSES } from "./catalog-guard";
 import { formatAmount } from "./prices";
 import { prisma } from "./prisma";
 
@@ -36,9 +37,9 @@ export type PublicProduct = {
   /** Card kicker; falls back to the type name. */
   category: string | null;
   technologies: string[];
-  /** Indicative whole-unit price before real prices exist: 0 = free, null = not set yet. */
-  listPrice: number | null;
-  /** Lowest price of the store, enabled or indicative. */
+  /** Optional progress note, e.g. "In development". */
+  badge: string | null;
+  /** Lowest price, on sale or draft (draft prices are indicative). */
   fromPrice: { amountCents: number; currency: string; billingType: string; interval: string | null } | null;
   /** Root-relative page the card links to. */
   href: string;
@@ -59,28 +60,23 @@ export type PublicPost = {
 const coverSelect = { select: { url: true, alt: true, width: true, height: true } } as const;
 
 
-/** The products listed in a store, optionally of one type, in the store's sort order. */
+/** The store's visible products (preview and published), optionally of one type, in its sort order. */
 export async function listProducts(storeId: string, typeKey?: string): Promise<PublicProduct[]> {
-  const listings = await prisma.productStore.findMany({
-    where: { storeId, ...(typeKey ? { product: { type: { key: typeKey } } } : {}) },
+  const products = await prisma.product.findMany({
+    where: { storeId, status: { in: VISIBLE_STATUSES }, ...(typeKey ? { type: { key: typeKey } } : {}) },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     select: {
-      product: {
-        select: {
-          slug: true, name: true, summary: true, status: true, category: true, technologies: true, listPrice: true,
-          type: { select: { key: true, name: true } },
-          cover: coverSelect,
-          prices: {
-            where: { storeId },
-            orderBy: { amountCents: "asc" },
-            take: 1,
-            select: { amountCents: true, currency: true, billingType: true, interval: true },
-          },
-        },
+      slug: true, name: true, summary: true, status: true, badge: true, category: true, technologies: true,
+      type: { select: { key: true, name: true } },
+      cover: coverSelect,
+      prices: {
+        orderBy: { amountCents: "asc" },
+        take: 1,
+        select: { amountCents: true, currency: true, billingType: true, interval: true },
       },
     },
   });
-  return listings.map(({ product: { prices, ...product } }) => ({
+  return products.map(({ prices, ...product }) => ({
     ...product,
     fromPrice: prices[0] ?? null,
     href: `/products/${product.slug}`,
@@ -133,29 +129,26 @@ function coverImage(cover: Cover, className?: string) {
 /** Card label in the image corner, matching the launch wording. */
 function visualLabel(product: PublicProduct) {
   if (product.status === "published") return "Available now";
-  if (!product.fromPrice && product.listPrice === 0) return "Free starter concept";
-  if (!product.fromPrice && product.listPrice === null) return "Roadmap concept";
+  if (product.fromPrice?.amountCents === 0) return "Free starter concept";
+  if (!product.fromPrice) return "Roadmap concept";
   return "Featured concept";
 }
 
+/** Published = available; a preview shows its own badge (e.g. "In development"), else a concept note. */
 function statusBadge(product: PublicProduct): [string, string] {
   if (product.status === "published") return ["Available", "green"];
-  if (product.status === "in-development") return ["In development", ""];
-  if (product.status === "planning") return ["Planning", "indigo"];
-  if (!product.fromPrice && product.listPrice === 0) return ["Planned free", "green"];
+  if (product.badge) return [product.badge, ""];
+  if (product.fromPrice?.amountCents === 0) return ["Planned free", "green"];
   return ["Roadmap concept", "indigo"];
 }
 
-/** Lowest price as card text: a real price in its currency, else the indicative list price. */
+/** Lowest price as card text in its currency; previews call it indicative, no price is "TBD". */
 function cardPrice(product: PublicProduct): { label: string; text: string; value: number } {
   const from = product.fromPrice;
-  if (from) {
-    const per = from.billingType === "recurring" ? ` <small>/ ${from.interval === "month" ? "month" : "year"}</small>` : "";
-    return { label: product.status === "published" ? "Price" : "Preview price", text: `${escapeText(formatAmount(from.amountCents, from.currency))}${per}`, value: from.amountCents / 100 };
-  }
-  const { listPrice } = product;
-  if (listPrice) return { label: "Preview price", text: `€${listPrice} <small>/ year</small>`, value: listPrice };
-  return listPrice === 0 ? { label: "Planned price", text: "Free", value: 0 } : { label: "Roadmap price", text: "TBD", value: -1 };
+  if (!from) return { label: "Roadmap price", text: "TBD", value: -1 };
+  if (from.amountCents === 0) return { label: "Planned price", text: "Free", value: 0 };
+  const per = from.billingType === "recurring" ? ` <small>/ ${from.interval === "month" ? "month" : "year"}</small>` : "";
+  return { label: product.status === "published" ? "Price" : "Preview price", text: `${escapeText(formatAmount(from.amountCents, from.currency))}${per}`, value: from.amountCents / 100 };
 }
 
 /** Large card (the `themes` layout): cover, kicker, technologies and price. Also the /products grid. */
@@ -163,7 +156,7 @@ export function productCard(product: PublicProduct, withId: boolean) {
   const { href } = product;
   const price = cardPrice(product);
   const kicker = product.category ?? product.type.name;
-  // ["TYPO3 13", "TYPO3 14"] -> "13 14" for the /themes version filter.
+  // Version numbers in the technologies (["Next.js 15"] -> "15") feed the catalogue's version filter.
   const version = product.technologies.flatMap((item) => item.match(/\b\d{2,}\b/g) ?? []).join(" ");
   const badges: [string, string][] = [];
   if (product.technologies.length) badges.push([product.technologies.join(" / "), "orange"]);

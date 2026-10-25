@@ -25,7 +25,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       include: { product: productSelect },
     }),
     prisma.product.findMany({
-      where: { OR: [{ storeId }, { listings: { some: { storeId } } }] },
+      where: { storeId },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

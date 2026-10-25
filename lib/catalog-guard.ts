@@ -3,9 +3,16 @@ export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Every catalogue validator returns either a message for the user or parsed data. */
 export type ValidationResult<T> = { error: string } | { data: T };
 
-/** Lifecycle of a product; only `published` products can be sold live. */
-export const PRODUCT_STATUSES = ["concept", "planning", "in-development", "published"] as const;
+/**
+ * Lifecycle of a product: `draft` is hidden from the site, `preview` is shown
+ * but cannot be bought, `published` is on sale (once it is ready to sell, see
+ * lib/product-readiness.ts).
+ */
+export const PRODUCT_STATUSES = ["draft", "preview", "published"] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+/** Statuses the public site shows. */
+export const VISIBLE_STATUSES: ProductStatus[] = ["preview", "published"];
 
 export function isProductStatus(value: unknown): value is ProductStatus {
   return typeof value === "string" && (PRODUCT_STATUSES as readonly string[]).includes(value);
@@ -13,10 +20,7 @@ export function isProductStatus(value: unknown): value is ProductStatus {
 
 export const MAX_GALLERY = 12;
 
-/** Upper bound for the indicative catalogue price, in whole currency units. */
-export const MAX_LIST_PRICE = 100000;
-
-export const PRODUCT_LIMITS = { category: 80, technologies: 12, technology: 40 } as const;
+export const PRODUCT_LIMITS = { category: 80, technologies: 12, technology: 40, badge: 40 } as const;
 
 /** Reads the public sort `position` of a catalogue payload (empty = 0). */
 export function validatePosition(body: Record<string, unknown>): ValidationResult<number> {
@@ -81,7 +85,7 @@ export function validateDetail(body: Record<string, unknown>): ValidationResult<
     const record = (row ?? {}) as Record<string, unknown>;
     const entry = { area: trimmed(record.area), target: trimmed(record.target), status: trimmed(record.status) };
     if (!entry.area && !entry.target && !entry.status) continue;
-    if (!entry.area) return { error: "Every compatibility row needs an area, for example “TYPO3 CMS”." };
+    if (!entry.area) return { error: "Every compatibility row needs an area, for example “Platform”." };
     if (Object.values(entry).some((cell) => cell.length > DETAIL_LIMITS.compatibilityCell)) {
       return { error: `Compatibility cells can be at most ${DETAIL_LIMITS.compatibilityCell} characters.` };
     }
@@ -211,10 +215,8 @@ export function validateCore(body: Record<string, unknown>): ValidationResult<Co
     return { error: "Summary must be between 10 and 300 characters." };
   }
 
+  // Drafts may start without one; the ready-to-sell check asks for it before publishing.
   const description = text("description");
-  if (description.length < 10) {
-    return { error: "Description is required." };
-  }
 
   const coverId = typeof body.coverId === "string" && body.coverId ? body.coverId : null;
   const galleryIds = Array.isArray(body.galleryIds)
@@ -239,13 +241,15 @@ export async function assertAssetsExist(storeId: string, assetIds: (string | nul
   return null;
 }
 
-/** Everything a product payload carries besides its detail-page fields and compliance checklist. */
+/**
+ * Everything the General tab saves besides the detail-page fields. The status
+ * is not part of it: it changes on the Publish tab, after the ready-to-sell check.
+ */
 export type ProductFields = CoreFields & {
   typeId: string;
-  status: ProductStatus;
   category: string | null;
   technologies: string[];
-  listPrice: number | null;
+  badge: string | null;
   position: number;
 };
 
@@ -255,7 +259,6 @@ export function validateProduct(body: Record<string, unknown>): ValidationResult
 
   const typeId = trimmed(body.typeId);
   if (!typeId) return { error: "Choose the product type." };
-  if (!isProductStatus(body.status)) return { error: `Status must be one of: ${PRODUCT_STATUSES.join(", ")}.` };
 
   const category = trimmed(body.category);
   if (category.length > PRODUCT_LIMITS.category) return { error: `The category can be at most ${PRODUCT_LIMITS.category} characters.` };
@@ -267,21 +270,14 @@ export function validateProduct(body: Record<string, unknown>): ValidationResult
     return { error: `Each technology can be at most ${PRODUCT_LIMITS.technology} characters.` };
   }
 
-  let listPrice: number | null = null;
-  const raw = body.listPrice;
-  if (raw !== null && raw !== undefined && raw !== "") {
-    const value = typeof raw === "number" ? raw : Number(String(raw).trim());
-    if (!Number.isInteger(value) || value < 0 || value > MAX_LIST_PRICE) {
-      return { error: `The indicative price must be a whole number between 0 and ${MAX_LIST_PRICE}, or empty.` };
-    }
-    listPrice = value;
-  }
+  const badge = trimmed(body.badge);
+  if (badge.length > PRODUCT_LIMITS.badge) return { error: `The badge can be at most ${PRODUCT_LIMITS.badge} characters.` };
 
   const position = validatePosition(body);
   if ("error" in position) return position;
 
   return {
-    data: { ...core.data, typeId, status: body.status, category: category || null, technologies, listPrice, position: position.data },
+    data: { ...core.data, typeId, category: category || null, technologies, badge: badge || null, position: position.data },
   };
 }
 

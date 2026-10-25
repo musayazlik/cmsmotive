@@ -66,7 +66,7 @@ export async function listNotifications() {
       id: "products-unpublished",
       tone: "info",
       title: `${unpublishedProducts} product${unpublishedProducts === 1 ? "" : "s"} not published`,
-      detail: "Products in concept, planning or development are hidden from the catalogue.",
+      detail: "Drafts are hidden; previews are shown but cannot be bought until published.",
       href: "/panel/products",
       count: unpublishedProducts,
       actionable: false,

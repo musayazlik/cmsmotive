@@ -42,7 +42,7 @@ export function publicationMissing(data: ProductCompliance) {
   const missing = Object.entries(data)
     .filter(([, v]) => !v)
     .map(([key]) => key);
-  // Each product names its own licence (GPL for TYPO3 packages, a commercial
-  // licence for a CMS or starter kit); the code licence only has to be set.
+  // Each product names its own licence (open source or commercial); the code
+  // licence only has to be set.
   return missing;
 }

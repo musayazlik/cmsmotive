@@ -15,6 +15,8 @@ export const DEFAULT_LEGAL_SETTINGS = {
   transferDetails: "",
   supervisoryAuthority: "",
   membershipDetails: "",
+  /** Trademarks product names may not contain (comma separated), e.g. a platform's mark; checked before publishing. */
+  reservedNameTerms: "",
   termsVersion: LEGAL_VERSION,
   privacyVersion: LEGAL_VERSION,
   accountTermsReviewed: false,
@@ -22,6 +24,17 @@ export const DEFAULT_LEGAL_SETTINGS = {
   salesTermsReviewed: false,
 };
 export type LegalSettings = typeof DEFAULT_LEGAL_SETTINGS;
+
+/** The store's reserved trademarks as a list. */
+export function reservedNameTerms(settings: LegalSettings): string[] {
+  return settings.reservedNameTerms.split(",").map((term) => term.trim()).filter(Boolean);
+}
+
+/** The first reserved trademark a product name contains, matched as a whole word. */
+export function reservedTermIn(name: string, terms: string[]): string | null {
+  const escape = (term: string) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return terms.find((term) => new RegExp(`(^|[^\\p{L}\\p{N}])${escape(term)}($|[^\\p{L}\\p{N}])`, "iu").test(name)) ?? null;
+}
 
 export function legalReadiness(s: LegalSettings) {
   const missing: string[] = [];

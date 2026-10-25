@@ -5,6 +5,7 @@ import { sendNotificationEmail } from "@/lib/plunk";
 import { REVIEW_CAPTCHA_ACTION, REVIEW_LIMITS, publicAuthorName } from "@/lib/reviews";
 import { getEmailSettings, getReviewSettings } from "@/lib/settings";
 import { currentStoreId } from "@/lib/current-store";
+import { VISIBLE_STATUSES } from "@/lib/catalog-guard";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ function fail(code: string, error: string, status: number) {
 /** The reviewed product, listed in the store, as a ProductReview filter. */
 async function findProduct(storeId: string, slug: unknown) {
   if (typeof slug !== "string" || !slug) return null;
-  const product = await prisma.product.findFirst({ where: { slug, listings: { some: { storeId } } }, select: { id: true } });
+  const product = await prisma.product.findFirst({ where: { storeId, slug, status: { in: VISIBLE_STATUSES } }, select: { id: true } });
   return product ? { productId: product.id } : null;
 }
 

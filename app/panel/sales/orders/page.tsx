@@ -40,7 +40,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   // The filter offers exactly the products the store owns or lists.
   const [products, revenue, orderCount, newSubscriptions] = await Promise.all([
     prisma.product.findMany({
-      where: { OR: [{ storeId }, { listings: { some: { storeId } } }] },
+      where: { storeId },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

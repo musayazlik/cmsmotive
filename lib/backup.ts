@@ -16,7 +16,6 @@ export async function readBackup(tx: Prisma.TransactionClient) {
       storeSettings: await tx.storeSetting.findMany(),
       productTypes: await tx.productType.findMany(),
       products: await tx.product.findMany(),
-      productStores: await tx.productStore.findMany(),
       productGallery: await tx.productGallery.findMany(),
       changelog: await tx.changelogEntry.findMany(),
       media: await tx.mediaAsset.findMany(),
@@ -101,7 +100,6 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   await tx.productReview.deleteMany();
   await tx.changelogEntry.deleteMany();
   await tx.productGallery.deleteMany();
-  await tx.productStore.deleteMany();
   await tx.licenseKey.deleteMany();
   await tx.entitlement.deleteMany();
   await tx.transaction.deleteMany();
@@ -128,7 +126,6 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   await insert(owned(d.media).map((row) => ({ ...row, uploadedById: userId(row.uploadedById) })), (data) => tx.mediaAsset.createMany({ data }));
   await insert(d.productTypes, (data) => tx.productType.createMany({ data }));
   await insert(owned(d.products).map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility) })), (data) => tx.product.createMany({ data }));
-  await insert(d.productStores.map((row) => ({ ...row, storeId: storeId(row.storeId) })), (data) => tx.productStore.createMany({ data }));
   await insert(d.productGallery, (data) => tx.productGallery.createMany({ data }));
   await insert(d.changelog.map((row) => ({ ...row, changes: json(row.changes) })), (data) => tx.changelogEntry.createMany({ data }));
   await insert(owned(d.categories), (data) => tx.category.createMany({ data }));

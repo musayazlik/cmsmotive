@@ -52,10 +52,11 @@ export type PriceFields = {
   updatesMonths: number | null;
   seats: number;
   features: string[];
-  creemTestProductId: string | null;
-  creemLiveProductId: string | null;
+  /** On sale: the save creates or updates its Creem product. */
   enabled: boolean;
   position: number;
+  /** Optional: an existing Creem product (current payment mode) to link instead of creating one. */
+  creemProductId: string | null;
 };
 
 const CREEM_PRODUCT = /^prod_[A-Za-z0-9]+$/;
@@ -91,18 +92,15 @@ export function validatePrice(body: Record<string, unknown>): ValidationResult<P
     return { error: `Add at most ${PRICE_LIMITS.features} feature lines of up to ${PRICE_LIMITS.feature} characters.` };
   }
 
-  const creemTestProductId = text(body.creemTestProductId) || null;
-  const creemLiveProductId = text(body.creemLiveProductId) || null;
-  for (const id of [creemTestProductId, creemLiveProductId]) {
-    if (id && !CREEM_PRODUCT.test(id)) return { error: "Creem product IDs start with prod_." };
-  }
+  const creemProductId = text(body.creemProductId) || null;
+  if (creemProductId && !CREEM_PRODUCT.test(creemProductId)) return { error: "Creem product IDs start with prod_." };
   const position = integer(body.position) ?? 0;
   if (!Number.isInteger(position) || position < 0 || position > 9999) return { error: "Sort order must be a whole number between 0 and 9999." };
 
   return {
     data: {
       name, billingType, interval: interval as BillingInterval | null, amountCents, currency, taxMode, updatesMonths, seats, features,
-      creemTestProductId, creemLiveProductId, enabled: body.enabled === true, position,
+      enabled: body.enabled === true, position, creemProductId,
     },
   };
 }

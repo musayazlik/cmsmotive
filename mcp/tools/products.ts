@@ -1,8 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { MAX_GALLERY, MAX_LIST_PRICE, PRODUCT_STATUSES } from "@/lib/catalog-guard";
+import { MAX_GALLERY, PRODUCT_STATUSES } from "@/lib/catalog-guard";
 import { BILLING_INTERVALS, BILLING_TYPES, CURRENCIES, PRICE_LIMITS, TAX_MODES } from "@/lib/prices";
 import {
+  copyProduct,
   createProduct,
   deletePriceRecord,
   deleteProductRecord,
@@ -30,7 +31,7 @@ const complianceSchema = z
     serviceScope: z.string().max(2000).optional(),
     reviewed: z.boolean().optional(),
   })
-  .describe("Release checklist; publishing a product requires every field to be filled in.");
+  .describe("Package checklist (licence, notices, version, tested versions, support scope); publishing requires every field.");
 
 const detailFields = {
   tagline: z.string().max(80).optional(),
@@ -43,16 +44,15 @@ const detailFields = {
 };
 
 const productFields = {
-  status: z.enum(PRODUCT_STATUSES).optional(),
+  status: z.enum(PRODUCT_STATUSES).optional()
+    .describe("draft = hidden, preview = shown but not buyable, published = on sale (needs the ready-to-sell checklist, see products_get)."),
+  badge: z.string().max(40).optional().describe("Optional progress note on previews, e.g. \"In development\"."),
   typeId: z.string().optional().describe("ProductType id; typeKey is usually easier."),
   typeKey: z.string().optional().describe("Product type key, e.g. theme (see product_types_list)."),
   category: z.string().max(80).optional().describe("Card kicker such as an industry; empty = the type name."),
   technologies: z.array(z.string().max(40)).max(12).optional().describe("Stacks and versions it targets."),
-  listPrice: z.number().int().min(0).max(MAX_LIST_PRICE).nullable().optional()
-    .describe("Indicative whole-unit price before real prices exist: 0 = free, null = not set."),
   position: z.number().int().min(0).max(9999).optional().describe("Sort order in this store's catalogue."),
   compliance: complianceSchema.optional(),
-  storeIds: z.array(z.string()).optional().describe("Stores to list the product in; the owning store is always kept."),
 };
 
 export function registerProductTools(server: McpServer) {
@@ -93,7 +93,7 @@ export function registerProductTools(server: McpServer) {
     {
       title: "Get a product",
       description:
-        "Return one product by id or slug, including its detail fields, compliance checklist, gallery, prices, releases, changelog/review counts and pending review count.",
+        "Return one product by id or slug, including its detail fields, package checklist, gallery, prices, releases, counts and readyToSell (what is still missing before it can be published).",
       inputSchema: {
         id: z.string().optional(),
         slug: z.string().optional(),
@@ -108,12 +108,12 @@ export function registerProductTools(server: McpServer) {
     {
       title: "Create a product",
       description:
-        "Create a product owned and listed by this store. name, summary, description and a product type are required. The slug is generated from the name when omitted; new products start as concept.",
+        "Create a product in this store. A product type, name and summary are enough: it starts as a draft with a slug from the name. Other fields can be given now or later with products_update; then add prices, upload a package in the panel and publish.",
       inputSchema: {
         name: z.string().min(2).max(80),
         slug: z.string().optional(),
         summary: z.string().min(10).max(300),
-        description: z.string().min(10).describe("Tiptap HTML output."),
+        description: z.string().optional().describe("Tiptap HTML output."),
         ...productFields,
         ...detailFields,
         coverId: z.string().nullable().optional(),
@@ -129,13 +129,13 @@ export function registerProductTools(server: McpServer) {
     {
       title: "Update a product",
       description:
-        "Update any subset of a product's fields. Omitted fields keep their stored values. Pass null for listPrice or coverId to clear them; pass galleryIds to replace the gallery order and contents. Products this store only lists can be edited too, but the media library stays with the owning store.",
+        "Update any subset of a product's fields. Omitted fields keep their stored values. Pass null for coverId to clear it; pass galleryIds to replace the gallery. Setting status to published fails with the missing checklist items until the product is ready to sell.",
       inputSchema: {
         id: z.string(),
         name: z.string().min(2).max(80).optional(),
         slug: z.string().optional(),
         summary: z.string().min(10).max(300).optional(),
-        description: z.string().min(10).optional(),
+        description: z.string().optional(),
         ...productFields,
         ...detailFields,
         coverId: z.string().nullable().optional(),
@@ -155,7 +155,7 @@ export function registerProductTools(server: McpServer) {
     {
       title: "Delete a product",
       description:
-        "Permanently delete a product. Only the owning store can delete it, and products with orders or subscriptions are kept — set those back to concept instead. Gallery, changelog entries and reviews are removed by cascade; uploaded media stays in the library.",
+        "Permanently delete a product. Products with orders or subscriptions are kept — set those back to draft instead. Gallery, prices, changelog entries and reviews are removed by cascade; uploaded media stays in the library.",
       inputSchema: { id: z.string() },
       annotations: { destructiveHint: true, idempotentHint: true },
     },
@@ -167,7 +167,7 @@ export function registerProductTools(server: McpServer) {
     {
       title: "List the prices of a product",
       description:
-        "List this store's prices for one product, including their Creem product ids. Prices map 1:1 to Creem products: one amount, currency and billing period each.",
+        "List the prices of one product with their Creem product id for the current payment mode. Each price is one Creem product: one amount, currency and billing period.",
       inputSchema: { productId: z.string() },
       annotations: { readOnlyHint: true },
     },
@@ -179,7 +179,7 @@ export function registerProductTools(server: McpServer) {
     {
       title: "Create a price",
       description:
-        "Add a way to buy a product in this store. amountCents is the amount in cents. Enabling a price requires a Creem product id for the current payment mode whose amount, currency, billing type and period match exactly.",
+        "Add a way to buy a product. amountCents is the amount in cents. enabled = on sale: the Creem product is created (or updated) automatically for the current payment mode; off = a draft shown as an indicative price.",
       inputSchema: {
         productId: z.string(),
         name: z.string().min(1).max(PRICE_LIMITS.name).describe("Buy panel label, e.g. \"Single site\"."),
@@ -192,9 +192,8 @@ export function registerProductTools(server: McpServer) {
           .describe("One-time purchases: months of new releases included; null = lifetime. Ignored for subscriptions."),
         seats: z.number().int().min(1).max(PRICE_LIMITS.seats).default(1).describe("Installations covered."),
         features: z.array(z.string().max(PRICE_LIMITS.feature)).max(PRICE_LIMITS.features).optional().describe("Bullet lines shown with the price."),
-        creemTestProductId: z.string().optional().describe("Creem product id (prod_…) for test mode."),
-        creemLiveProductId: z.string().optional().describe("Creem product id (prod_…) for live mode."),
-        enabled: z.boolean().default(false).describe("Disabled prices are shown as indicative concept prices and cannot be bought."),
+        enabled: z.boolean().default(false).describe("On sale; creates or updates its Creem product."),
+        creemProductId: z.string().optional().describe("Only to link a Creem product (prod_…) that already exists, for the current payment mode."),
         position: z.number().int().min(0).max(9999).optional(),
       },
       annotations: { destructiveHint: false },
@@ -224,9 +223,8 @@ export function registerProductTools(server: McpServer) {
         updatesMonths: z.number().int().min(1).max(PRICE_LIMITS.updatesMonths).nullable().optional(),
         seats: z.number().int().min(1).max(PRICE_LIMITS.seats).optional(),
         features: z.array(z.string().max(PRICE_LIMITS.feature)).max(PRICE_LIMITS.features).optional(),
-        creemTestProductId: z.string().nullable().optional(),
-        creemLiveProductId: z.string().nullable().optional(),
         enabled: z.boolean().optional(),
+        creemProductId: z.string().optional(),
         position: z.number().int().min(0).max(9999).optional(),
       },
       annotations: { destructiveHint: false },
@@ -243,10 +241,22 @@ export function registerProductTools(server: McpServer) {
     {
       title: "Delete a price",
       description:
-        "Delete a price. Prices that have been sold cannot be deleted; disable them instead.",
+        "Delete a price. Prices that have been sold cannot be deleted; take them off sale instead.",
       inputSchema: { priceId: z.string() },
       annotations: { destructiveHint: true, idempotentHint: true },
     },
     async (args) => runTool(async () => deletePriceRecord(args.priceId)),
+  );
+
+  server.registerTool(
+    "products_copy",
+    {
+      title: "Copy a product to another store",
+      description:
+        "Create a draft copy of a product in another store (by store key): content, images, changelog and prices as drafts. Prices go on sale and the package is uploaded in that store.",
+      inputSchema: { id: z.string(), storeKey: z.string() },
+      annotations: { destructiveHint: false },
+    },
+    async (args) => runTool(async () => copyProduct(args.id, args.storeKey)),
   );
 }

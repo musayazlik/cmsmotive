@@ -24,8 +24,6 @@ model Store {
   domains       StoreDomain[]
   settings      StoreSetting[]
   products      Product[]
-  listings      ProductStore[]
-  prices        Price[]
   customers     Customer[]
   orders        Order[]
   subscriptions Subscription[]
@@ -62,17 +60,17 @@ model StoreMember {
 
 /// Operational summaries only; never store prompts, credentials or tool arguments.
 model AssistantActivity {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   storeId    String
-  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   source     String
   title      String
-  status     String   @default("running")
+  status     String    @default("running")
   detail     String
-  steps      Json     @default("[]")
+  steps      Json      @default("[]")
   expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   finishedAt DateTime?
 
   @@index([storeId, status, expiresAt])
@@ -93,25 +91,25 @@ model StoreDomain {
 }
 
 model User {
-  id              String       @id
-  name            String
-  email           String       @unique
-  emailVerified   Boolean      @default(false)
-  termsVersion    String?
-  privacyVersion  String?
-  termsAcceptedAt DateTime?
-  accountLocale   String       @default("en")
-  image           String?
+  id               String        @id
+  name             String
+  email            String        @unique
+  emailVerified    Boolean       @default(false)
+  termsVersion     String?
+  privacyVersion   String?
+  termsAcceptedAt  DateTime?
+  accountLocale    String        @default("en")
+  image            String?
   /// "admin" grants panel administration; "user" is the default account level.
   /// Additional levels (editor, reviewer) can be added without a schema change.
-  role            String       @default("user")
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  sessions        Session[]
-  accounts        Account[]
-  uploads         MediaAsset[]
-  posts           Post[]
-  customers       Customer[]
+  role             String        @default("user")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  uploads          MediaAsset[]
+  posts            Post[]
+  customers        Customer[]
   storeMemberships StoreMember[]
 
   @@map("user")
@@ -433,20 +431,22 @@ model Product {
   store         Store            @relation(fields: [storeId], references: [id])
   typeId        String
   type          ProductType      @relation(fields: [typeId], references: [id])
-  /// Public URL /products/<slug>; unique across stores because a product can be listed in several.
-  slug          String           @unique
+  /// Public URL /products/<slug> on its store's domain.
+  slug          String
   name          String
   summary       String
   /// Tiptap HTML output.
   description   String
-  /// concept | planning | in-development | published
-  status        String           @default("concept")
+  /// draft (hidden) | preview (shown, not buyable) | published (buyable)
+  status        String           @default("draft")
+  /// Optional progress note on cards and the detail page, e.g. "In development".
+  badge         String?
+  /// Order on the store's catalogue, ascending.
+  position      Int              @default(0)
   /// Card kicker such as an industry; empty = the type name.
   category      String?
   /// Stacks and versions it targets, e.g. ["TYPO3 13", "TYPO3 14"] or ["Next.js", "PostgreSQL"].
   technologies  String[]         @default([])
-  /// Indicative whole-unit price shown before real prices exist: 0 = free, null = not set.
-  listPrice     Int?
   compliance    Json             @default("{}")
   /// Detail page hero kicker; empty = category.
   tagline       String?
@@ -463,7 +463,6 @@ model Product {
   coverId       String?
   cover         MediaAsset?      @relation("ProductCover", fields: [coverId], references: [id], onDelete: SetNull)
   gallery       ProductGallery[]
-  listings      ProductStore[]
   prices        Price[]
   releases      ProductRelease[]
   changelog     ChangelogEntry[]
@@ -474,21 +473,9 @@ model Product {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  @@index([storeId, status])
+  @@unique([storeId, slug])
+  @@index([storeId, status, position])
   @@index([typeId])
-}
-
-/// A store a product is listed in, with its order on that store's catalogue.
-model ProductStore {
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
-
-  @@id([productId, storeId])
-  @@index([storeId, position])
 }
 
 model ProductGallery {
@@ -523,8 +510,6 @@ model Price {
   id                 String            @id @default(cuid())
   productId          String
   product            Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  storeId            String
-  store              Store             @relation(fields: [storeId], references: [id])
   /// Buy panel label, e.g. "Single site", "Agency".
   name               String
   /// onetime | recurring (Creem billing_type)
@@ -543,7 +528,7 @@ model Price {
   features           String[]          @default([])
   creemTestProductId String?           @unique
   creemLiveProductId String?           @unique
-  /// Disabled prices are shown as indicative concept prices and cannot be bought.
+  /// On sale: has a matching Creem product for the current payment mode. Off = shown as an indicative "from" price.
   enabled            Boolean           @default(false)
   position           Int               @default(0)
   checkouts          CheckoutAttempt[]
@@ -552,8 +537,7 @@ model Price {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  @@index([productId, storeId, position])
-  @@index([storeId])
+  @@index([productId, position])
 }
 
 /// A buyer as Creem knows them, per store and payment mode. Survives the

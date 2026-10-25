@@ -15,7 +15,7 @@ export async function PATCH(request: Request, context: Context) {
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return Response.json({ error: "Invalid request." }, { status: 400 });
-  const price = await prisma.price.findFirst({ where: { id, storeId }, select: { productId: true } });
+  const price = await prisma.price.findFirst({ where: { id, product: { storeId } }, select: { productId: true } });
   if (!price) return Response.json({ error: "Price not found." }, { status: 404 });
   return adminResponse(await savePrice(storeId, price.productId, id, body));
 }

@@ -25,7 +25,7 @@ export function creemRedirect(value: unknown): string {
     throw new Error("Unexpected billing redirect.");
   return url.href;
 }
-export async function creemRequest(path: string, body?: unknown) {
+export async function creemRequest(path: string, body?: unknown, headers?: Record<string, string>, method?: "POST" | "PATCH") {
   const key = process.env.CREEM_API_KEY;
   if (!key) throw new Error("Creem is not configured.");
   if (creemMode() === "test" && !key.startsWith("creem_test_"))
@@ -35,15 +35,20 @@ export async function creemRequest(path: string, body?: unknown) {
   const response = await fetch(
     `${creemMode() === "prod" ? "https://api.creem.io" : "https://test-api.creem.io"}${path}`,
     {
-      method: body === undefined ? "GET" : "POST",
-      headers: { "x-api-key": key, "Content-Type": "application/json" },
+      method: body === undefined ? "GET" : (method ?? "POST"),
+      headers: { "x-api-key": key, "Content-Type": "application/json", ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     },
   );
-  if (!response.ok)
-    throw new Error(`Creem request failed (${response.status}).`);
+  if (!response.ok) {
+    // Creem's error bodies carry a human-readable reason; surface it so the panel can show it.
+    const details = (await response.json().catch(() => null)) as { message?: unknown; error?: unknown } | null;
+    const reason =
+      typeof details?.message === "string" ? details.message : typeof details?.error === "string" ? details.error : null;
+    throw new Error(reason ? `Creem request failed (${response.status}): ${reason}` : `Creem request failed (${response.status}).`);
+  }
   return (await response.json()) as Record<string, unknown>;
 }
 const idOrObject = z.union([
@@ -162,39 +167,6 @@ export async function searchTransactions(filter: Record<string, string>, pages =
     const items = Array.isArray(result.items) ? result.items : [];
     for (const item of items) {
       const parsed = transactionSchema.safeParse(item);
-      if (parsed.success) found.push(parsed.data);
-    }
-    const pagination = result.pagination as { next_page?: number | null } | undefined;
-    if (!pagination?.next_page) break;
-  }
-  return found;
-}
-
-export const creemProductSchema = z
-  .object({
-    id: z.string().regex(/^prod_/),
-    name: z.string(),
-    description: z.string().nullish(),
-    price: z.number(),
-    currency: z.string(),
-    billing_type: z.string(),
-    billing_period: z.string().nullish(),
-    tax_mode: z.string().nullish(),
-    status: z.string().nullish(),
-    mode,
-  })
-  .passthrough();
-export type CreemProduct = z.infer<typeof creemProductSchema>;
-
-/** Products of the active Creem environment (GET /v1/products/search), first pages only. */
-export async function searchCreemProducts(pages = 2): Promise<CreemProduct[]> {
-  const found: CreemProduct[] = [];
-  for (let page = 1; page <= pages; page++) {
-    const query = new URLSearchParams({ page_number: String(page), page_size: "50" });
-    const result = await creemRequest(`/v1/products/search?${query}`);
-    const items = Array.isArray(result.items) ? result.items : [];
-    for (const item of items) {
-      const parsed = creemProductSchema.safeParse(item);
       if (parsed.success) found.push(parsed.data);
     }
     const pagination = result.pagination as { next_page?: number | null } | undefined;

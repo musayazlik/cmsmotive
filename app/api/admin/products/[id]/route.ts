@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 type Context = { params: Promise<{ id: string }> };
 
-/** PATCH /api/admin/products/:id — the whole product payload, as the form sends it. */
+/** PATCH /api/admin/products/:id — the General tab: content, media and card fields. */
 export async function PATCH(request: Request, context: Context) {
   const { failure } = await requireAdmin();
   if (failure) return failure;
@@ -15,7 +15,7 @@ export async function PATCH(request: Request, context: Context) {
   return adminResponse(await saveProduct((await panelStore()).id, (await context.params).id, body));
 }
 
-/** DELETE /api/admin/products/:id — only products the panel's store owns, and only without sales. */
+/** DELETE /api/admin/products/:id — only products without sales. */
 export async function DELETE(_request: Request, context: Context) {
   const { failure } = await requireAdmin();
   if (failure) return failure;

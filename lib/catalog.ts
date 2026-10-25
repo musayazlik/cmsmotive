@@ -143,7 +143,7 @@ function themeBadges(theme: PublicTheme): [string, string][] {
 
 function themeCard(theme: PublicTheme, withId: boolean) {
   const { href, price } = theme;
-  const displayPrice = price ? `€${price}` : price === 0 ? "Free" : "TBD";
+  const displayPrice = price ? `€${price} <small>/ year</small>` : price === 0 ? "Free" : "TBD";
   const priceLabel = price ? "Preview price" : price === 0 ? "Planned price" : "Roadmap price";
   // "TYPO3 13 / 14" -> "13 14" for the /themes version filter.
   const version = (theme.versionTarget.match(/\b\d{2,}\b/g) ?? []).join(" ");

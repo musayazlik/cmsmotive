@@ -41,7 +41,7 @@ const SITE_STRINGS = {
     'Please email hello@cmsmotive.de directly.': 'Bitte schreiben Sie direkt an hello@cmsmotive.de.',
     'Signing you up…': 'Sie werden angemeldet…',
     'The subscription could not be saved.': 'Das Abonnement konnte nicht gespeichert werden.',
-    'Welcome aboard. Your first issue is on its way.': 'Willkommen an Bord. Ihre erste Ausgabe ist unterwegs.',
+    'Check your email to confirm your subscription.': 'Willkommen an Bord. Ihre erste Ausgabe ist unterwegs.',
     'Please try again later.': 'Bitte versuchen Sie es später erneut.',
     'Invalid request.': 'Ungültige Anfrage.',
     'Please check the form fields.': 'Bitte prüfen Sie die Formularfelder.',
@@ -85,7 +85,7 @@ const SITE_STRINGS = {
     'Please email hello@cmsmotive.de directly.': 'Lütfen doğrudan hello@cmsmotive.de adresine yazın.',
     'Signing you up…': 'Kaydınız yapılıyor…',
     'The subscription could not be saved.': 'Abonelik kaydedilemedi.',
-    'Welcome aboard. Your first issue is on its way.': 'Aramıza hoş geldiniz. İlk sayınız yolda.',
+    'Check your email to confirm your subscription.': 'Aramıza hoş geldiniz. İlk sayınız yolda.',
     'Please try again later.': 'Lütfen daha sonra tekrar deneyin.',
     'Invalid request.': 'Geçersiz istek.',
     'Please check the form fields.': 'Lütfen form alanlarını kontrol edin.',
@@ -678,11 +678,11 @@ document.querySelectorAll('[data-newsletter-form]').forEach(form => {
       const response = await fetch('/api/newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: value('firstName'), lastName: value('lastName'), email: value('email') }),
+        body: JSON.stringify({ firstName: value('firstName'), lastName: value('lastName'), email: value('email'), consent: fields.get('consent') === 'on', consentVersion: form.dataset.consentVersion, locale: document.documentElement.lang.slice(0,2) }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(siteT(result.error || 'The subscription could not be saved.'));
-      if (status) status.textContent = siteT('Welcome aboard. Your first issue is on its way.');
+      if (status) status.textContent = siteT('Check your email to confirm your subscription.');
       form.reset();
     } catch (error) {
       if (status) { status.classList.add('is-error'); status.textContent = error.message || siteT('Please try again later.'); }
@@ -694,3 +694,26 @@ document.querySelectorAll('[data-newsletter-form]').forEach(form => {
 
 // One-time account notices also work on pages served as complete static HTML.
 import('/assets/js/account-feedback.js').then(({ initAccountFeedback }) => initAccountFeedback()).catch(() => {});
+
+// Native disclosure works without JavaScript; add outside/Escape closing and session sign-out.
+document.addEventListener('click', async (event) => {
+  document.querySelectorAll('.site-account-menu[open]').forEach((menu) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+  const button = event.target.closest?.('[data-site-sign-out]');
+  if (!button || button.disabled) return;
+  const label = button.textContent;
+  const error = button.closest('.site-account-menu').querySelector('[data-sign-out-error]');
+  button.disabled = true; button.textContent = button.dataset.pending; error.hidden = true;
+  try {
+    const response = await fetch('/api/auth/sign-out', {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
+    if (!response.ok) throw new Error('Sign out failed');
+    window.location.assign(button.dataset.home || '/');
+  } catch {
+    error.textContent = button.dataset.error; error.hidden = false; button.disabled = false; button.textContent = label;
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('.site-account-menu[open]').forEach((menu) => {menu.open = false; menu.querySelector('summary').focus();});
+});

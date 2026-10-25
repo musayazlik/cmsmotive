@@ -1,3 +1,5 @@
+import { validateCompliance } from "@/lib/product-compliance";
+import { publicationError } from "@/lib/publication";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { SLUG_PATTERN, isThemeStatus, THEME_INDUSTRIES, THEME_STATUSES, validateDetail, validateLicences, validateListing, type ThemeStatus } from "@/lib/catalog-guard";
@@ -123,6 +125,10 @@ export async function POST(request: Request) {
   if ("error" in listing) return Response.json({ error: listing.error }, { status: 400 });
   const { price, position } = listing.data;
 
+  const compliance = validateCompliance(body.compliance);
+  if ("error" in compliance) return Response.json({ error: compliance.error }, { status: 400 });
+  const releaseError = await publicationError(body.status, String(body.name ?? ""), compliance.data);
+  if (releaseError) return Response.json({ error: releaseError }, { status: 400 });
   const detail = validateDetail(body);
   if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
   const licences = validateLicences(body);
@@ -147,6 +153,7 @@ export async function POST(request: Request) {
       data: {
         name, slug, summary, description, industry, versionTarget, status, price, position,
         ...detail.data,
+          compliance: compliance.data,
         licences: licences.data,
         coverId: coverId ?? undefined,
         gallery: { create: galleryIds.map((assetId, position) => ({ assetId, position })) },

@@ -1,3 +1,7 @@
+import { readCompliance, type ProductCompliance } from "./product-compliance";
+import { creemMode, creemConfigured } from "./creem";
+import { getLegalSettings } from "./legal";
+import { legalReadiness } from "./legal-settings-shared";
 import { prisma } from "./prisma";
 import { readChanges } from "./changelog";
 import { readCompatibility, readLicences, type ChangeItem, type CompatibilityRow, type Licence } from "./catalog-guard";
@@ -24,6 +28,9 @@ export type ProductPageData = {
   versionTarget: string | null;
   price: number | null;
   licences: Licence[];
+  plans: {id:string;name:string;priceCents:number;installations:number}[];
+  checkout: { mode: "test" | "prod"; ready: boolean; termsVersion: string };
+  compliance: ProductCompliance;
   highlights: string[];
   compatibility: CompatibilityRow[];
   ctaLabel: string | null;
@@ -51,6 +58,7 @@ function toImage(asset: { url: string; alt: string | null; fileName: string; wid
 }
 
 function common(row: {
+  compliance: unknown;
   slug: string;
   name: string;
   summary: string;
@@ -69,6 +77,7 @@ function common(row: {
 }) {
   return {
     slug: row.slug,
+    compliance: readCompliance(row.compliance),
     name: row.name,
     summary: row.summary,
     description: row.description,
@@ -87,6 +96,10 @@ function common(row: {
 }
 
 export async function loadProductPage(kind: ProductKind, slug: string): Promise<ProductPageData | null> {
+  const legal = await getLegalSettings();
+  const mode = creemMode();
+  const checkout: ProductPageData["checkout"] = { mode, ready: creemConfigured() && (mode === "test" || (!legalReadiness(legal).length && legal.salesTermsReviewed)), termsVersion: legal.termsVersion };
+  const plans = await prisma.billingPlan.findMany({where:{kind,productSlug:slug,enabled:true,...(creemMode()==="prod"?{creemLiveProductId:{not:null}}:{creemTestProductId:{not:null}})},select:{id:true,name:true,priceCents:true,installations:true},orderBy:{priceCents:"asc"}});
   if (kind === "theme") {
     const theme = await prisma.theme.findUnique({
       where: { slug },
@@ -99,6 +112,8 @@ export async function loadProductPage(kind: ProductKind, slug: string): Promise<
     if (!theme) return null;
     return {
       kind,
+      plans,
+      checkout,
       ...common(theme),
       industry: theme.industry,
       versionTarget: theme.versionTarget,
@@ -115,5 +130,5 @@ export async function loadProductPage(kind: ProductKind, slug: string): Promise<
     },
   });
   if (!extension) return null;
-  return { kind, ...common(extension), industry: null, versionTarget: null, price: null, licences: [] };
+  return { kind, plans, checkout, ...common(extension), industry: null, versionTarget: null, price: null, licences: [] };
 }

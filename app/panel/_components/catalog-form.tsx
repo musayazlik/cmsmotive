@@ -1,4 +1,6 @@
 "use client";
+import ProductComplianceFields from "./product-compliance-fields";
+import { DEFAULT_COMPLIANCE } from "@/lib/product-compliance";
 
 import Link from "@/app/panel/_components/panel-navigation";
 import { useRouter } from "@/app/panel/_components/panel-navigation";
@@ -37,6 +39,7 @@ export default function CatalogForm({ variant, record }: Props) {
   const listHref = `/panel/${variant}s`;
   const endpoint = variant === "theme" ? "themeMedia" : "extensionMedia";
 
+  const [compliance, setCompliance] = useState(record?.compliance ?? DEFAULT_COMPLIANCE);
   const [name, setName] = useState(record?.name ?? "");
   const [slug, setSlug] = useState(record?.slug ?? "");
   // A new record's slug follows its name until edited; an existing slug is never rewritten.
@@ -73,6 +76,7 @@ export default function CatalogForm({ variant, record }: Props) {
 
     const payload: Record<string, unknown> = {
       name,
+      compliance,
       slug: resolvedSlug,
       summary,
       description,
@@ -378,6 +382,7 @@ export default function CatalogForm({ variant, record }: Props) {
               </div>
             ) : null}
 
+            <ProductComplianceFields value={compliance} onChange={setCompliance} />
             {variant === "theme" ? <LicenceEditor rows={licences} onChange={setLicences} /> : null}
           </div>
         </div>

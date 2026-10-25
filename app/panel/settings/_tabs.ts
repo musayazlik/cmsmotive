@@ -3,6 +3,7 @@
  * default. Add a section here, then render its panel in page.tsx.
  */
 export const SETTINGS_TABS = [
+  { id: "legal", label: "Legal", intro: "Seller identity, privacy information, document versions and the release checklist." },
   {
     id: "general",
     label: "General",

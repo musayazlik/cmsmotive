@@ -1,4 +1,6 @@
 import { ADMIN_ROLES } from "@/lib/admin-guard";
+import { getLegalSettings } from "@/lib/legal";
+import LegalSettingsForm from "./_components/legal-settings-form";
 import { requirePanelUser } from "@/lib/panel-auth";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import SecuritySettingsForm from "./_components/security-settings-form";
@@ -61,6 +63,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
 async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
   switch (tab) {
+    case "legal":
+      return <LegalSettingsForm settings={await getLegalSettings()} />;
     case "security":
       return <SecuritySettingsForm settings={await getAdminAccessSettings()} origin={await siteOrigin()} />;
     case "general":

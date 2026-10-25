@@ -1,10 +1,20 @@
 import Image from "next/image";
 import AuthForm, { type AuthQuery } from "./auth-form";
 import type { AuthContent, AuthPageName } from "./auth-content";
+import { localizePath, type Locale } from "@/lib/i18n/config";
+import { authText } from "@/lib/auth-copy";
+import { trademarkNote } from "@/lib/legal-copy";
+import GoogleSignIn from "./google-sign-in";
+import { copy } from "@/lib/legal-copy";
 
-const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap";
+const FONTS_CSS = "/assets/css/fonts.css";
 
 type AuthScreenProps = {
+  locale: Locale;
+  termsVersion: string;
+  signupReady: boolean;
+  googleReady: boolean;
+  localPreview: boolean;
   page: AuthPageName;
   content: AuthContent;
   /** `/auth`, or the private admin entry path the proxy rewrites from. */
@@ -16,13 +26,13 @@ type AuthScreenProps = {
 };
 
 /** Shared, full-viewport shell for every account flow. */
-export default function AuthScreen({ page, content, authRoot, authTarget, showSwitch, query }: AuthScreenProps) {
+export default function AuthScreen({ page, content, authRoot, authTarget, showSwitch, query, locale, termsVersion, signupReady, googleReady, localPreview }: AuthScreenProps) {
+  const t=(key:string)=>authText(locale,key);
+  const href=(path:string)=>localizePath(path,locale);
   return (
     <div className="auth-refined" data-auth-page={page}>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       <link rel="stylesheet" href={FONTS_CSS} precedence="default" />
-      <a className="auth-skip-link" href="#auth-title">Skip to content</a>
+      <a className="auth-skip-link" href="#auth-title">{t("Skip to content")}</a>
       <main className="auth-main">
         <aside className="auth-story" aria-label="About CMSMotive">
           <a className="auth-logo" href="/" aria-label="CMSMotive home">
@@ -47,31 +57,40 @@ export default function AuthScreen({ page, content, authRoot, authTarget, showSw
             </a>
             <a className="auth-back" href="/">
               <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m8 5-5 5 5 5M3 10h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              Back to site
+              {t("Back to site")}
             </a>
           </header>
+          <nav className="auth-languages" aria-label="Language">{(["de","en","tr"] as const).map(lang=>{
+            const params=new URLSearchParams({lang});
+            for(const [key,value]of Object.entries(query))if(value)params.set(key,value);
+            return <a key={lang} href={`${authRoot}/${page}?${params}`} aria-current={locale===lang?"page":undefined}>{lang.toUpperCase()}</a>;
+          })}</nav>
           <div className="auth-panel-inner">
             <div className="auth-panel-heading">
               <div className="auth-page-icon" aria-hidden="true"><PageIcon page={page} /></div>
               <h1 id="auth-title" tabIndex={-1}>{content.title}</h1>
               <p>{content.description}</p>
             </div>
-            <AuthForm page={page} content={content} authRoot={authRoot} authTarget={authTarget} query={query} />
+            <AuthForm page={page} content={content} authRoot={authRoot} authTarget={authTarget} query={query} locale={locale} termsVersion={termsVersion} signupReady={signupReady} />
+            {(page==="sign-in"||page==="sign-up")&&authRoot==="/auth"&&<GoogleSignIn locale={locale} enabled={googleReady && (page!=="sign-up"||signupReady)} termsVersion={termsVersion} callbackURL={authTarget} errorURL={`${authRoot}/sign-in?${new URLSearchParams({lang:locale,...(query.next?{next:query.next}:{})})}`} />}
+            {page==="sign-up"&&localPreview&&<p className="auth-field-hint">{copy(locale,"Local test registration. Legal information must be reviewed before public launch.","Lokale Testregistrierung. Die rechtlichen Angaben müssen vor dem öffentlichen Start geprüft werden.","Yerel test kaydı. Canlı yayından önce hukuki bilgiler tamamlanıp incelenmelidir.")}</p>}
             {showSwitch && (
               <p className="auth-switch">
                 {content.switchText}{" "}
-                <a href={`${authRoot}/${content.switchPage}`}>{content.switchLabel}</a>
+                <a href={`${authRoot}/${content.switchPage}?${new URLSearchParams({lang:locale,...(query.next?{next:query.next}:{})})}`}>{content.switchLabel}</a>
               </p>
             )}
           </div>
           <footer className="auth-footer">
             <span>© {new Date().getFullYear()} CMSMotive</span>
             <nav aria-label="Legal and support">
-              <a href="/privacy">Privacy</a>
-              <a href="/terms">Terms</a>
-              <a href="/contact">Help</a>
+              <a href={href("/imprint")}>{t("Imprint")}</a>
+              <a href={href("/privacy")}>{t("Privacy")}</a>
+              <a href={href("/terms")}>{t("Terms")}</a>
+              <a href={href("/contact")}>{t("Help")}</a>
             </nav>
           </footer>
+          <p className="auth-trademark">{trademarkNote(locale)}</p>
         </section>
       </main>
     </div>

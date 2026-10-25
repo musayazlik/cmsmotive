@@ -1,0 +1,17 @@
+ALTER TABLE "user" ADD COLUMN "termsVersion" TEXT, ADD COLUMN "privacyVersion" TEXT, ADD COLUMN "termsAcceptedAt" TIMESTAMP(3), ADD COLUMN "accountLocale" TEXT NOT NULL DEFAULT 'en';
+ALTER TABLE "Theme" ADD COLUMN "compliance" JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE "Extension" ADD COLUMN "compliance" JSONB NOT NULL DEFAULT '{}';
+DROP INDEX "NewsletterSubscriber_email_key";
+ALTER TABLE "NewsletterSubscriber" ADD COLUMN "locale" TEXT NOT NULL DEFAULT 'en', ADD COLUMN "consentVersion" TEXT, ADD COLUMN "confirmedAt" TIMESTAMP(3), ADD COLUMN "unsubscribedAt" TIMESTAMP(3), ADD COLUMN "confirmationTokenHash" TEXT, ADD COLUMN "confirmationExpiresAt" TIMESTAMP(3), ADD COLUMN "confirmationSentAt" TIMESTAMP(3), ADD COLUMN "unsubscribeTokenHash" TEXT;
+CREATE UNIQUE INDEX "NewsletterSubscriber_email_source_key" ON "NewsletterSubscriber"("email", "source");
+CREATE UNIQUE INDEX "NewsletterSubscriber_confirmationTokenHash_key" ON "NewsletterSubscriber"("confirmationTokenHash");
+CREATE UNIQUE INDEX "NewsletterSubscriber_unsubscribeTokenHash_key" ON "NewsletterSubscriber"("unsubscribeTokenHash");
+CREATE TABLE "BillingPlan" ("id" TEXT PRIMARY KEY, "kind" TEXT NOT NULL, "productSlug" TEXT NOT NULL, "name" TEXT NOT NULL, "priceCents" INTEGER NOT NULL, "currency" TEXT NOT NULL DEFAULT 'EUR', "installations" INTEGER NOT NULL DEFAULT 1, "creemTestProductId" TEXT UNIQUE, "creemLiveProductId" TEXT UNIQUE, "enabled" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE INDEX "BillingPlan_kind_productSlug_idx" ON "BillingPlan"("kind", "productSlug");
+CREATE TABLE "CheckoutAttempt" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "planId" TEXT NOT NULL, "creemProductId" TEXT NOT NULL, "mode" TEXT NOT NULL, "termsVersion" TEXT NOT NULL, "privacyVersion" TEXT NOT NULL, "acceptedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "CheckoutAttempt_userId_createdAt_idx" ON "CheckoutAttempt"("userId", "createdAt");
+CREATE TABLE "ProductSubscription" ("id" TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "planId" TEXT NOT NULL, "creemSubscriptionId" TEXT NOT NULL UNIQUE, "creemCustomerId" TEXT NOT NULL, "mode" TEXT NOT NULL, "status" TEXT NOT NULL, "currentPeriodStart" TIMESTAMP(3) NOT NULL, "currentPeriodEnd" TIMESTAMP(3) NOT NULL, "providerUpdatedAt" TIMESTAMP(3) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE INDEX "ProductSubscription_userId_mode_idx" ON "ProductSubscription"("userId", "mode");
+CREATE TABLE "ProductRelease" ("id" TEXT PRIMARY KEY, "kind" TEXT NOT NULL, "productSlug" TEXT NOT NULL, "version" TEXT NOT NULL, "fileKey" TEXT NOT NULL UNIQUE, "fileName" TEXT NOT NULL, "codeLicense" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE UNIQUE INDEX "ProductRelease_kind_productSlug_version_key" ON "ProductRelease"("kind", "productSlug", "version");
+CREATE TABLE "PaymentEvent" ("id" TEXT PRIMARY KEY, "type" TEXT NOT NULL, "mode" TEXT NOT NULL, "processedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);

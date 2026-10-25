@@ -21,11 +21,16 @@
     "test:admin-access": "tsx --test tests/admin-access.test.ts",
     "test:backup": "tsx --test tests/backup.test.ts",
     "test:backup:db": "tsx --test tests/backup.integration.test.ts",
+    "test:commerce": "tsx --test tests/billing-access.test.ts tests/purchase-flow.test.ts",
+    "test:commerce:db": "tsx --test tests/commerce.integration.test.ts tests/checkout.integration.test.ts",
+    "test:membership": "tsx --test tests/site-account-menu.test.ts",
+    "test:membership:db": "tsx --test tests/membership.integration.test.ts",
     "test:blog-comments": "tsx --test tests/blog-comments.test.ts",
     "test:blog-comments:db": "tsx --test tests/blog-comments.integration.test.ts",
     "test:comment-ai": "tsx --test tests/comment-ai.test.ts",
     "test:comment-ai:db": "tsx --test tests/comment-ai.integration.test.ts",
-    "i18n:check": "tsx scripts/i18n-legacy.ts"
+    "i18n:check": "tsx scripts/i18n-legacy.ts",
+    "creem:webhook": "creem listen --forward-to http://localhost:3000/api/webhooks"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

@@ -78,12 +78,14 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   links[0].userId = "source-admin";
   backup.data.settings.find((row) => row.key === "telegram.links")!.value = JSON.stringify(links);
   backup.data.comments.reverse();
+  await db.newsletterSubscriber.updateMany({ data: { unsubscribedAt: new Date("2026-10-24"), confirmedAt: new Date("2026-10-01") } });
   await db.post.update({ where: { id: post.id }, data: { content: "Changed" } });
   await db.$transaction((tx) => restoreBackup(tx, backup), { timeout: 30_000, isolationLevel: "Serializable" });
   const restored = await db.$transaction(readBackup);
   for (const [key, records] of Object.entries(raw.data)) {
     if (key !== "settings") assert.equal(restored.data[key as keyof typeof restored.data].length, records.length, key);
   }
+  assert.ok(restored.data.subscribers[0].unsubscribedAt, "A stale backup cannot erase a withdrawal");
   assert.equal(restored.data.posts[0].content, "<p>Saved content</p>");
   assert.equal(restored.data.posts[0].authorId, "destination-admin");
   assert.equal(restored.data.media[0].uploadedById, "destination-admin");
@@ -113,7 +115,8 @@ test("all CMS tables round-trip with relationships, empty sections replace data,
   for (const rows of Object.values(empty.data)) rows.length = 0;
   await db.$transaction((tx) => restoreBackup(tx, empty), { timeout: 30_000 });
   const cleared = await db.$transaction(readBackup);
-  assert.ok(Object.values(cleared.data).every((rows) => rows.length === 0));
+  assert.ok(Object.entries(cleared.data).every(([key, rows]) => key === "subscribers" || rows.length === 0));
+  assert.equal(cleared.data.subscribers.length, 1, "Content restoration must preserve subscription/withdrawal history");
   assert.equal(await db.user.count(), 1);
   assert.equal(await db.session.count(), 1);
 });

@@ -1,0 +1,103 @@
+.product-checkout {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+}
+.product-checkout .buy-price {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 4px;
+}
+.product-checkout .buy-price strong {
+  font-size: 2.4rem;
+  line-height: 1.1;
+  letter-spacing: -0.05em;
+}
+.product-checkout .buy-price small {
+  color: var(--ink-muted, #5e666d);
+  font-size: 0.78rem;
+}
+.product-checkout .control-caption {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.product-checkout select {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong, #dce1e0);
+  border-radius: 8px;
+  background: var(--surface, white);
+  color: var(--ink, #101418);
+  font: inherit;
+  font-size: 0.8rem;
+  margin: 0;
+}
+.product-checkout .purchase-consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.product-checkout input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  accent-color: var(--indigo, #4847ed);
+}
+.product-checkout a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.product-checkout p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.product-checkout .purchase-test-note {
+  padding: 12px;
+  border: 1px solid #e2bb78;
+  border-radius: 8px;
+  background: #fff8eb;
+  color: #674309;
+}
+.product-checkout .purchase-disclosure,
+.product-checkout .purchase-secure-note {
+  color: var(--ink-muted, #5e666d);
+}
+.product-checkout .purchase-error {
+  padding: 12px;
+  border: 1px solid #e1a3a3;
+  border-radius: 8px;
+  background: #fff3f3;
+  color: #8a2222;
+}
+.product-checkout button[type="submit"] {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  width: 100%;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
+  background: var(--indigo, #4847ed);
+  color: white;
+  cursor: pointer;
+  margin: 0;
+}
+.product-checkout button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.product-checkout :is(select, button, input):focus-visible {
+  outline: 3px solid var(--indigo, #4847ed);
+  outline-offset: 3px;
+}

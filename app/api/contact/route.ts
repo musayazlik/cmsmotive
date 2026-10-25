@@ -41,6 +41,6 @@ export async function POST(request: Request) {
   } catch (error) {
     // The row is already saved; the inbox shows it with a failed-mail badge.
     console.error("contact: notification email failed", error);
-    return Response.json({ error: "Your message was saved, but email delivery failed. Please email hello@cmsmotive.de directly." }, { status: 502 });
+    return Response.json({ error: "Your message was saved, but email delivery failed. Please email info@cmsmotive.de directly." }, { status: 502 });
   }
 }

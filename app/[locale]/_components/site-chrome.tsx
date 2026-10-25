@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import Script from "next/script";
 import { LOCALES, LOCALE_LABELS, localizePath, type Locale } from "@/lib/i18n/config";
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
-import { hasPanelSession } from "@/lib/public-session";
+import { getPublicAccount } from "@/lib/public-session";
+import { isAdminRole } from "@/lib/admin-guard";
+import {accountMenuHtml,type PublicAccount} from "@/lib/site-account-menu";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { getMaintenanceSettings } from "@/lib/settings";
 
@@ -16,7 +18,7 @@ import { getMaintenanceSettings } from "@/lib/settings";
  */
 
 /** Manrope and DM Mono, as linked from the static pages' head (build.py FONTS_CSS); site.css no longer imports them. */
-const FONTS_CSS = "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400..800&display=swap";
+const FONTS_CSS = "/assets/css/fonts.css";
 
 const NAV = [
   { href: "/themes", label: "Themes" },
@@ -68,19 +70,20 @@ export function TopBar({ locale, t, path, showAdmin, adminHref = "/panel" }: Chr
     <div className="topbar">
       <div className="container topbar-inner">
         <div className="topbar-start">
-          <a className="topbar-mail" href="mailto:hello@cmsmotive.de">
+          <a className="topbar-mail" href="mailto:info@cmsmotive.de">
             <span className="topbar-mail-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <rect x="3" y="5" width="18" height="14" rx="2.5" />
                 <path d="m4 7.5 8 6 8-6" />
               </svg>
             </span>
-            <span className="topbar-mail-address">hello@cmsmotive.de</span>
+            <span className="topbar-mail-address">info@cmsmotive.de</span>
             <span className="topbar-mail-short">{t("Email us")}</span>
           </a>
           <span className="topbar-note">{t("Replies within one business day")}</span>
         </div>
         <div className="topbar-end">
+          <a className="topbar-admin" href={`/account?lang=${locale}`}>{t("My account")}</a>
           {showAdmin ? (
             <a className="topbar-admin" href={adminHref} aria-label={t("Admin panel")}>
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -141,7 +144,7 @@ export function TopBar({ locale, t, path, showAdmin, adminHref = "/panel" }: Chr
   );
 }
 
-export function SiteHeader({ locale, t, current }: Omit<ChromeProps, "path"> & { current?: string }) {
+export function SiteHeader({ locale, t, current, account, adminHref }: Omit<ChromeProps, "path"> & { current?: string;account?:PublicAccount|null;adminHref?:string }) {
   const href = (path: string) => localizePath(path, locale);
   return (
     <header className="site-header">
@@ -157,10 +160,11 @@ export function SiteHeader({ locale, t, current }: Omit<ChromeProps, "path"> & {
           ))}
         </nav>
         <div className="header-actions">
+          {account ? <div dangerouslySetInnerHTML={{__html:accountMenuHtml(account,locale,adminHref)}} /> :
           <a className="btn btn-primary" href={href("/themes")}>
             <span className="btn-label">{t("Explore themes")}</span>
             <ArrowIcon />
-          </a>
+          </a>}
           <button className="menu-toggle" type="button" aria-label={t("Open menu")} aria-expanded="false" aria-controls="mobile-nav">
             <span></span>
             <span></span>
@@ -174,10 +178,10 @@ export function SiteHeader({ locale, t, current }: Omit<ChromeProps, "path"> & {
             {t(item.label)}
           </a>
         ))}
-        <a className="btn btn-primary" href={href("/themes")}>
+        {account ? <a href={`/account?lang=${locale}`}>{t("My account")}</a> : <a className="btn btn-primary" href={href("/themes")}>
           <span className="btn-label">{t("Explore themes")}</span>
           <ArrowIcon />
-        </a>
+        </a>}
       </nav>
     </header>
   );
@@ -274,15 +278,15 @@ export async function SiteFrame({
 }) {
   const t = getTranslator(locale);
   // Signed-in visitors get the admin-panel shortcut in the top bar.
-  const showAdmin = await hasPanelSession();
+  const account = await getPublicAccount();
+  const showAdmin = isAdminRole(account?.role);
   const adminHref = showAdmin ? (await getAdminAccessSettings()).panelPath : undefined;
   const showMaintenance = showAdmin && (await getMaintenanceSettings()).enabled;
   return (
     <>
       {/* React hoists these into <head>. */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       <link rel="stylesheet" href={FONTS_CSS} precedence="default" />
+      {account&&<link rel="stylesheet" href="/assets/css/site-account.css" precedence="default" />}
       <a className="skip-link" href="#main">
         {t("Skip to content")}
       </a>
@@ -292,7 +296,7 @@ export async function SiteFrame({
         </div>
       ) : null}
       <TopBar locale={locale} t={t} path={path} showAdmin={showAdmin} adminHref={adminHref} />
-      <SiteHeader locale={locale} t={t} current={current} />
+      <SiteHeader locale={locale} t={t} current={current} account={account} adminHref={adminHref} />
       <main id="main">{children}</main>
       <SiteFooter locale={locale} t={t} />
       <BackToTop t={t} />

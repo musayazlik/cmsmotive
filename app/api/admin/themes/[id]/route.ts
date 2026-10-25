@@ -1,3 +1,5 @@
+import { validateCompliance } from "@/lib/product-compliance";
+import { publicationError } from "@/lib/publication";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { assertAssetsExist, isThemeStatus, THEME_INDUSTRIES, validateCore, validateDetail, validateLicences, validateListing, VERSION_TARGETS } from "@/lib/catalog-guard";
@@ -45,6 +47,10 @@ export async function PATCH(request: Request, context: Context) {
   if ("error" in listing) return Response.json({ error: listing.error }, { status: 400 });
   const { price, position } = listing.data;
 
+  const compliance = validateCompliance(body.compliance);
+  if ("error" in compliance) return Response.json({ error: compliance.error }, { status: 400 });
+  const releaseError = await publicationError(body.status, String(body.name ?? ""), compliance.data);
+  if (releaseError) return Response.json({ error: releaseError }, { status: 400 });
   const detail = validateDetail(body);
   if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
   const licences = validateLicences(body);
@@ -61,6 +67,7 @@ export async function PATCH(request: Request, context: Context) {
         data: {
           name, slug, summary, description, industry, versionTarget, price, position,
           ...detail.data,
+          compliance: compliance.data,
           licences: licences.data,
           status: body.status as string,
           coverId,

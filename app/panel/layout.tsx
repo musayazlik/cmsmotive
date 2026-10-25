@@ -21,6 +21,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   ]);
   return (
     <PanelNavigationProvider basePath={accessSettings.panelPath}>
+      <link rel="stylesheet" href="/assets/css/fonts.css" precedence="default" />
       <UploadSettingsProvider value={uploadSettings}>
         <PanelShell user={user} unreadInquiries={unreadInquiries} pendingReviews={pendingReviews} pendingComments={pendingComments}>
           {children}

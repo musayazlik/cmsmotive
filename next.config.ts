@@ -15,7 +15,7 @@ const legacySlugs = readdirSync(path.join(process.cwd(), "static-site"))
 const statusDocuments = new Set(["404", "500", "loading"]);
 
 /** Static-site pages replaced by a React route (app/[locale]/blog). */
-const reactRoutes = new Set(["blog"]);
+const reactRoutes = new Set(["blog", "imprint", "privacy", "terms", "cookies"]);
 
 /**
  * Site languages (lib/i18n/config.ts): German at unprefixed URLs, English and
@@ -60,6 +60,7 @@ const nextConfig: NextConfig = {
       // route matches, which renders the regular 404 page.
       beforeFiles: [{ source: "/legacy/:path*", destination: "/__not-found" }],
       afterFiles: [
+        ...["imprint", "privacy", "terms", "cookies"].map((slug) => ({ source: `/${slug}`, destination: `/de/${slug}` })),
         // `/en/blog` matches app/[locale]/blog directly; the German journal needs its locale filled in.
         { source: "/blog", destination: "/de/blog" },
         { source: "/blog/:slug", destination: "/de/blog/:slug" },

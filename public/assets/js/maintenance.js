@@ -21,7 +21,7 @@
       const response = await fetch('/api/newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.value.trim(), source: 'maintenance' }),
+        body: JSON.stringify({ email: email.value.trim(), source: 'maintenance', consent: form.querySelector('[name=consent]').checked, consentVersion: form.querySelector('[name=consentVersion]').value, locale: document.documentElement.lang.slice(0,2) }),
       });
       const result = await response.json();
       if (!response.ok || !result.ok) {
@@ -31,7 +31,7 @@
       }
       subscribed = true;
       form.closest('.maintenance-signup').classList.add('is-subscribed');
-      status.textContent = form.dataset.success;
+      status.textContent = ({de:'Bitte bestätigen Sie die Anfrage per E-Mail.',tr:'Talebinizi e-postayla doğrulayın.',en:'Please confirm your request by email.'})[document.documentElement.lang.slice(0,2)] || 'Please confirm your request by email.';
       button.textContent = form.dataset.subscribed;
       email.readOnly = true;
     } catch {

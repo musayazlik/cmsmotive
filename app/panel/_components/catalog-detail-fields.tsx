@@ -125,18 +125,18 @@ export function LicenceEditor({ rows, onChange }: { rows: LicenceDraft[]; onChan
 
   return (
     <Repeater
-      title="Licences"
+      title="Proposed annual service plans"
       count={rows.length}
       max={max}
       empty="No licence options. The detail page shows the catalogue price on its own."
       onAdd={() => onChange([...rows, { name: "", price: "" }])}
       addLabel="Add licence"
-      hint="Visitors switch between these on the detail page; the price follows the choice. Whole euros."
+      hint="Concept display only. Real yearly checkout plans and Creem product IDs are managed under Subscriptions & packages. Installation counts refer to support coverage, not GPL code rights."
     >
       <div className="wrepeat wrepeat-licence" role="table" aria-label="Licence options">
         <div className="wrepeat-head" role="row">
           <span role="columnheader">Licence</span>
-          <span role="columnheader">Price €</span>
+          <span role="columnheader">Price € / year</span>
           <span aria-hidden="true" />
         </div>
         {rows.map((row, index) => (

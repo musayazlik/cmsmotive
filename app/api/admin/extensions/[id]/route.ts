@@ -1,3 +1,5 @@
+import { validateCompliance } from "@/lib/product-compliance";
+import { publicationError } from "@/lib/publication";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { assertAssetsExist, isExtensionStatus, validateCore, validateDetail, validatePosition } from "@/lib/catalog-guard";
@@ -35,6 +37,10 @@ export async function PATCH(request: Request, context: Context) {
   if ("error" in order) return Response.json({ error: order.error }, { status: 400 });
   const position = order.data;
 
+  const compliance = validateCompliance(body.compliance);
+  if ("error" in compliance) return Response.json({ error: compliance.error }, { status: 400 });
+  const releaseError = await publicationError(body.status, String(body.name ?? ""), compliance.data);
+  if (releaseError) return Response.json({ error: releaseError }, { status: 400 });
   const detail = validateDetail(body);
   if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
 
@@ -49,6 +55,7 @@ export async function PATCH(request: Request, context: Context) {
         data: {
           name, slug, summary, description, position,
           ...detail.data,
+          compliance: compliance.data,
           status: body.status as string,
           coverId,
           gallery: { create: galleryIds.map((assetId, position) => ({ assetId, position })) },

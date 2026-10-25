@@ -39,6 +39,8 @@ import { getMe, telegram } from "@/telegram/api";
 import { BOT_COMMANDS } from "@/telegram/modes";
 import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared";
 import type { ActionResult } from "@/app/panel/media/_lib";
+import { saveLegalSettings } from "@/lib/legal";
+import { validateLegalSettings } from "@/lib/legal-settings-shared";
 
 const FORBIDDEN = "You are not allowed to perform this action.";
 
@@ -92,6 +94,12 @@ async function saveGroup<T>(
 
 export async function saveSiteSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
   return saveGroup("site", input, validateSiteSettings, saveSiteSettings);
+}
+
+export async function saveLegalSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
+  const result = await saveGroup("legal", input, validateLegalSettings, saveLegalSettings);
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
 }
 
 export async function saveSeoSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {

@@ -2,6 +2,8 @@ import { createUploadthing, UploadThingError, type FileRouter } from "uploadthin
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdminRole } from "@/lib/admin-guard";
+import { z } from "zod";
+import { readCompliance } from "@/lib/product-compliance";
 
 const f = createUploadthing();
 
@@ -38,6 +40,22 @@ async function trackUpload(userId: string, file: { key: string; ufsUrl: string; 
 }
 
 export const uploadRouter = {
+  productPackage: f({ blob: { maxFileSize: "128MB", maxFileCount: 1, acl: "private" } })
+    .input(z.object({ kind:z.enum(["theme","extension"]), productSlug:z.string().regex(/^[a-z0-9-]+$/), version:z.string().regex(/^[a-zA-Z0-9.+-]{1,40}$/) }))
+    .middleware(async ({req,input,files})=>{
+      await requireAdminUpload(req);
+      if(files.some(file=>!file.name.toLowerCase().endsWith(".zip")))throw new UploadThingError("Product packages must be ZIP files.");
+      const product=input.kind==="theme"?await prisma.theme.findUnique({where:{slug:input.productSlug}}):await prisma.extension.findUnique({where:{slug:input.productSlug}});
+      const license=readCompliance(product?.compliance).codeLicense;
+      if(!product || !["GPL-2.0-or-later","GPL-3.0-or-later"].includes(license))throw new UploadThingError("Complete the product code-license checklist first.");
+      if(await prisma.productRelease.findUnique({where:{kind_productSlug_version:input}}))throw new UploadThingError("This release version already exists. Upload a new version instead.");
+      return {...input,license};
+    })
+    .onUploadComplete(async ({metadata,file})=>{
+      const release=await prisma.productRelease.create({data:{kind:metadata.kind,productSlug:metadata.productSlug,version:metadata.version,codeLicense:metadata.license,fileKey:file.key,fileName:file.name}});
+      // Private keys and URLs never enter MediaAsset or the public media library.
+      return {releaseId:release.id};
+    }),
   themeMedia: f({
     image: { maxFileSize: "8MB", maxFileCount: 12 },
   })

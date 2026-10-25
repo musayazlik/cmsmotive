@@ -8,8 +8,11 @@ import { loadProductPage, type ProductKind, type ProductPageData } from "@/lib/p
 import { absoluteUrl, breadcrumbSchema, pageMetadata, siteOrigin } from "@/lib/seo";
 import { JsonLd } from "../../_components/json-ld";
 import ProductDetail from "./product-detail";
+import { getLegalSettings } from "@/lib/legal";
+import { legalReadiness } from "@/lib/legal-settings-shared";
+import { creemConfigured } from "@/lib/creem";
 
-type Props = { params: Promise<{ locale: string; slug: string }> };
+type Props = { params: Promise<{ locale: string; slug: string }>; searchParams: Promise<{plan?:string}> };
 
 const KIND_LABEL: Record<ProductKind, string> = { theme: "TYPO3 theme", extension: "TYPO3 extension" };
 
@@ -30,10 +33,11 @@ async function productJsonLd(product: ProductPageData, locale: Locale) {
     _count: { _all: true },
   });
 
-  const prices = product.licences.length ? product.licences.map((licence) => licence.price) : product.price === null ? [] : [product.price];
+  const legal = await getLegalSettings();
+  const prices = product.plans.map(plan => plan.priceCents / 100);
   const offerBase = { priceCurrency: "EUR", availability: "https://schema.org/InStock", url };
   const offers =
-    product.status !== "published" || prices.length === 0
+    product.status !== "published" || prices.length === 0 || !creemConfigured() || legalReadiness(legal).length > 0 || !legal.salesTermsReviewed
       ? null
       : prices.length === 1
         ? { "@type": "Offer", price: prices[0], ...offerBase }
@@ -86,7 +90,7 @@ export function productRoute(kind: ProductKind) {
     });
   }
 
-  async function Page({ params }: Props) {
+  async function Page({ params, searchParams }: Props) {
     const { locale, slug } = await params;
     const product = await loadProductPage(kind, slug);
     if (!product) notFound();
@@ -95,7 +99,7 @@ export function productRoute(kind: ProductKind) {
     return (
       <>
         <JsonLd data={await productJsonLd(product, locale as Locale)} />
-        <ProductDetail product={product} locale={locale as Locale} />
+        <ProductDetail product={product} locale={locale as Locale} initialPlanId={(await searchParams).plan} />
       </>
     );
   }

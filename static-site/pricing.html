@@ -10,12 +10,7 @@
     />
     <title>Pricing and licensing — CMSMotive</title>
     <link rel="icon" type="image/png" href="assets/icons/favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400..800&display=swap"
-    />
+    <link rel="stylesheet" href="/assets/css/fonts.css" />
     <link rel="stylesheet" href="assets/css/site.css" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CMSMotive" />
@@ -38,16 +33,17 @@
     <div class="topbar">
       <div class="container topbar-inner">
         <div class="topbar-start">
-          <a class="topbar-mail" href="mailto:hello@cmsmotive.de"
+          <a class="topbar-mail" href="mailto:info@cmsmotive.de"
             ><span class="topbar-mail-icon" aria-hidden="true"
               ><svg viewBox="0 0 24 24">
                 <rect x="3" y="5" width="18" height="14" rx="2.5" />
                 <path d="m4 7.5 8 6 8-6" /></svg></span
-            ><span class="topbar-mail-address">hello@cmsmotive.de</span
+            ><span class="topbar-mail-address">info@cmsmotive.de</span
             ><span class="topbar-mail-short">Email us</span></a
           ><span class="topbar-note">Replies within one business day</span>
         </div>
         <div class="topbar-end">
+          <a class="topbar-admin" href="/account">My account</a>
           <ul class="topbar-social" aria-label="CMSMotive on social media">
             <li>
               <a
@@ -206,12 +202,12 @@
           <div class="crumbs">
             <a href="index.html">Home</a><span>/</span><span>Pricing</span>
           </div>
-          <span class="eyebrow">Licensing model</span>
+          <span class="eyebrow">Annual subscriptions</span>
           <h1>Clear room for<br /><em>every kind of team.</em></h1>
           <p>
-            Choose a licence scope that matches the work. These figures are
-            indicative concepts and will be confirmed with the final terms when
-            products launch.
+            Choose an annual support and updates plan. Each paid plan includes
+            12 months and renews automatically every year until cancelled.
+            Concept products are not available to purchase yet.
           </p>
         </div>
       </section>
@@ -220,18 +216,20 @@
           <div class="section-heading" data-reveal>
             <div>
               <span class="eyebrow">Nordform example</span>
-              <h2>One product. Three ways to use it.</h2>
+              <h2>One product. Three service plans.</h2>
             </div>
           </div>
           <div class="price-grid">
             <div class="price-card">
               <span class="badge">01 / Individual project</span>
               <h3>Single Site</h3>
-              <p>For one client site or one owned property.</p>
-              <div class="price">€269 <small>concept price</small></div>
+              <p>Updates and support for one installation.</p>
+              <div class="price">
+                €269 <small>/ year · concept price</small>
+              </div>
               <ul>
-                <li>One production site</li>
-                <li>Planned updates and documentation</li>
+                <li>Support for one installation</li>
+                <li>12 months of updates and support</li>
                 <li>Standard support route</li>
               </ul>
               <a class="btn btn-outline" href="contact.html"
@@ -248,11 +246,13 @@
               <span class="badge indigo">02 / Agency workflow</span>
               <h3>Agency</h3>
               <p>For teams applying the theme across client work.</p>
-              <div class="price">€419 <small>concept price</small></div>
+              <div class="price">
+                €419 <small>/ year · concept price</small>
+              </div>
               <ul>
-                <li>Proposed multi-project use</li>
-                <li>Team-oriented licence scope</li>
-                <li>Planned updates and documentation</li>
+                <li>Support scope for multiple projects</li>
+                <li>Team support and update delivery</li>
+                <li>12 months of updates and support</li>
               </ul>
               <a class="btn btn-primary" href="contact.html"
                 ><span class="btn-label">Discuss agency use</span
@@ -268,7 +268,9 @@
               <span class="badge">03 / Larger rollout</span>
               <h3>Enterprise</h3>
               <p>For broad organizational requirements.</p>
-              <div class="price">€659 <small>concept price</small></div>
+              <div class="price">
+                €659 <small>/ year · concept price</small>
+              </div>
               <ul>
                 <li>Proposed enterprise scope</li>
                 <li>Procurement conversation</li>
@@ -286,9 +288,10 @@
             </div>
           </div>
           <p class="notice pricing-notice">
-            No purchase or payment is processed by this static preview. Refund
-            policy, taxes, support commitments and licence terms must be
-            finalized before release.
+            Prices are annual. Released plans renew automatically until
+            cancelled. Installation counts describe support coverage, not
+            restrictions on GPL code rights. Concept products cannot be
+            purchased.
           </p>
         </div>
       </section>
@@ -426,7 +429,12 @@
               unsubscribe any time.
             </p>
           </div>
-          <form class="newsletter-form" data-newsletter-form novalidate>
+          <form
+            class="newsletter-form"
+            data-newsletter-form
+            data-consent-version="2026-10-24"
+            novalidate
+          >
             <div class="newsletter-fields">
               <input
                 name="firstName"
@@ -455,6 +463,13 @@
                 ><span class="btn-icon" aria-hidden="true">↗</span>
               </button>
             </div>
+            <label class="newsletter-consent"
+              ><input name="consent" type="checkbox" required />
+              <span
+                >I want to receive the CMSMotive newsletter. I can unsubscribe
+                at any time.</span
+              ></label
+            >
             <p
               class="newsletter-status"
               data-newsletter-status
@@ -509,9 +524,9 @@
         </div>
         <div class="footer-bottom">
           <p>
-            © 2026 CMSMotive. Independent product concept. TYPO3 is a registered
-            trademark of the TYPO3 Association; CMSMotive is not affiliated with
-            or endorsed by the TYPO3 Association.
+            © 2026 CMSMotive. Independent product concept. TYPO3 is a
+            registered trademark of the TYPO3 Association; CMSMotive is not
+            affiliated with or endorsed by the TYPO3 Association.
           </p>
           <p>Built for the long run. &nbsp;↗</p>
         </div>

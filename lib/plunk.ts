@@ -3,6 +3,7 @@ import { siteOrigin } from "@/lib/seo";
 import { contactRecipient, getEmailSettings } from "@/lib/settings";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { panelHref } from "@/lib/admin-access-shared";
+import { getLegalSettings } from "@/lib/legal";
 
 type Message = { to: string; subject: string; actionUrl: string; actionText: string };
 
@@ -57,10 +58,13 @@ export async function sendAccountEmail(message: Message) {
   const subject = escapeHtml(message.subject);
   const actionUrl = escapeHtml(message.actionUrl);
   const actionText = escapeHtml(message.actionText);
+  const legal=await getLegalSettings();
+  const origin=await siteOrigin();
+  const footer=`<p style="font-size:12px;color:#5e666d">${escapeHtml(legal.legalName)}<br>${escapeHtml(legal.address)}<br>${escapeHtml(legal.country)}<br><a href="mailto:${escapeHtml(legal.contactEmail)}">${escapeHtml(legal.contactEmail)}</a><br><a href="${escapeHtml(origin)}/imprint">Impressum</a> · <a href="${escapeHtml(origin)}/privacy">Privacy / Datenschutz / Gizlilik</a></p>`;
   await send({
     to: message.to,
     subject: message.subject,
-    body: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#101418"><h1 style="font-size:28px">${subject}</h1><p>Continue to your CMSMotive account with the button below.</p><p><a href="${actionUrl}" style="display:inline-block;background:#4353e8;color:#fff;padding:14px 20px;border-radius:8px;text-decoration:none">${actionText}</a></p><p style="font-size:12px;color:#5e666d">If you did not request this, you can ignore this email.</p></div>`,
+    body: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#101418"><h1 style="font-size:28px">${subject}</h1><p>Complete your CMSMotive request using the button below.</p><p><a href="${actionUrl}" style="display:inline-block;background:#4353e8;color:#fff;padding:14px 20px;border-radius:8px;text-decoration:none">${actionText}</a></p><p style="font-size:12px;color:#5e666d">If you did not request this, you can ignore this email.</p>${footer}</div>`,
   });
 }
 

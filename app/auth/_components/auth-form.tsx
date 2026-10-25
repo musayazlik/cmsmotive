@@ -3,9 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { AuthContent, AuthField, AuthPageName } from "./auth-content";
 import { queueAccountNotice, showAccountToast } from "@/public/assets/js/account-feedback.js";
+import { authText } from "@/lib/auth-copy";
+import { copy } from "@/lib/legal-copy";
+import { localizePath, type Locale } from "@/lib/i18n/config";
 
 /** Query parameters the account flows hand each other between pages. */
-export type AuthQuery = { email?: string; token?: string; error?: string; reset?: string };
+export type AuthQuery = { email?: string; token?: string; error?: string; reset?: string; next?: string };
 
 type Status = { message: string; isError: boolean } | null;
 
@@ -32,6 +35,7 @@ async function authPost(endpoint: string, body: Record<string, unknown>) {
 
 /** Mount-time status: reset pages without a token and finished resets explain themselves. */
 function initialStatus(page: AuthPageName, query: AuthQuery): Status {
+  if (page === "sign-in" && query.error) return {message:"Google sign-in could not be completed. Try again or use your email address.",isError:true};
   if (page === "sign-in" && query.reset === "success") {
     return { message: "Your password has been updated. You can sign in now.", isError: false };
   }
@@ -50,13 +54,20 @@ export default function AuthForm({
   authRoot,
   authTarget,
   query,
+  locale,
+  termsVersion,
+  signupReady,
 }: {
   page: AuthPageName;
   content: AuthContent;
   authRoot: string;
   authTarget: string;
   query: AuthQuery;
+  locale: Locale;
+  termsVersion: string;
+  signupReady: boolean;
 }) {
+  const t=(key:string)=>authText(locale,key);
   const [status, setStatus] = useState<Status>(() => initialStatus(page, query));
   const [pending, setPending] = useState(false);
   const [verifyEmail, setVerifyEmail] = useState<string | null>(query.email ?? null);
@@ -88,10 +99,13 @@ export default function AuthForm({
           name: String(fields.get("name") || "").trim(),
           email,
           password,
-          callbackURL: "/",
+          callbackURL: authTarget,
+          termsAccepted: fields.get("terms")==="on",
+          acceptedTermsVersion: termsVersion,
+          locale,
         });
         sessionStorage.setItem("cmsmotive:verification-email", email);
-        window.location.assign(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+        window.location.assign(`/auth/verify-email?lang=${locale}&email=${encodeURIComponent(email)}${query.next?`&next=${encodeURIComponent(query.next)}`:""}`);
         redirecting = true;
       } else if (page === "sign-in") {
         await authPost("sign-in/email", {
@@ -104,19 +118,19 @@ export default function AuthForm({
         if (!destination.ok) throw new Error("Your session could not be checked. Please try again.");
         const account = await destination.json();
         queueAccountNotice("signed-in");
-        window.location.assign(account.target || "/");
+        window.location.assign(query.next || account.target==="/account"?authTarget:account.target||authTarget);
         redirecting = true;
       } else if (page === "forgot-password") {
         await authPost("request-password-reset", {
           email: String(fields.get("email") || "").trim(),
-          redirectTo: `${window.location.origin}${authRoot}/reset-password`,
+          redirectTo: `${window.location.origin}${authRoot}/reset-password?lang=${locale}`,
         });
         setStatus({ message: "If an account exists for that address, a reset link is on its way.", isError: false });
       } else if (page === "reset-password") {
         const token = query.token;
         if (!token) throw new Error("Open the link in your reset email first.");
         await authPost("reset-password", { newPassword: password, token });
-        window.location.assign(`${authRoot}/sign-in?reset=success`);
+        window.location.assign(`${authRoot}/sign-in?reset=success&lang=${locale}`);
         redirecting = true;
       } else {
         const email = query.email || sessionStorage.getItem("cmsmotive:verification-email");
@@ -140,40 +154,42 @@ export default function AuthForm({
       {isVerify && (
         <>
           <div className="auth-verify-copy">
-            <h2>Check your inbox</h2>
+            <h2>{t(verifyEmail?"Check your inbox":"Verify your address")}</h2>
             <p>
               {verifyEmail
-                ? `We sent a verification link to ${verifyEmail}. Open it to activate your workspace.`
-                : "A verification link has been sent to your email address. Open it to activate your workspace."}
+                ? authText(locale,"If a verification message was requested, check {email}. You can request another message below.",{email:verifyEmail})
+                : t("Open the confirmation link in your email. If you need another message, return to sign in and enter your email.")}
             </p>
           </div>
         </>
       )}
       <form className={isVerify ? "auth-form auth-resend-form" : "auth-form"} onSubmit={handleSubmit} aria-busy={pending}>
         {content.fields.map((field) => (
-          <Field key={field.name} field={field} />
+          <Field key={field.name} field={field} locale={locale} />
         ))}
         {content.formHelp && <p className="auth-form-help">{content.formHelp}</p>}
         {page === "sign-in" && (
           <div className="auth-form-row">
             <label className="auth-check">
               <input type="checkbox" name="remember" />
-              <span>Remember me</span>
+              <span>{t("Remember me")}</span>
             </label>
-            <a href={`${authRoot}/forgot-password`}>Forgot password?</a>
+            <a href={`${authRoot}/forgot-password?lang=${locale}`}>{t("Forgot your password?")}</a>
           </div>
         )}
         {content.terms && (
           <label className="auth-check auth-terms">
             <input type="checkbox" name="terms" required />
             <span>
-              I agree to the <a href="/terms">Terms</a> and have read the <a href="/privacy">Privacy policy</a>.
+              {t("I accept the account terms.")} <a href={localizePath("/terms",locale)}>{t("Terms")}</a>
             </span>
           </label>
         )}
-        <button className="auth-submit" type="submit" disabled={pending}>
+        {content.terms && <p className="auth-form-help"><a href={localizePath("/privacy",locale)}>{t("Read how we process your data in the privacy policy.")}</a> · {termsVersion}</p>}
+        {page==="sign-up"&&!signupReady&&<p role="status">{copy(locale,"Registration is unavailable while provider information is being completed.","Die Registrierung ist bis zur Vervollständigung der Anbieterangaben nicht verfügbar.","Sağlayıcı bilgileri tamamlanana kadar kayıt açık değildir.")}</p>}
+        <button className="auth-submit" type="submit" disabled={pending || (page==="sign-up"&&!signupReady) || (isVerify&&!verifyEmail) || (page==="reset-password"&&!query.token)}>
           {pending && <svg className="auth-submit-spinner" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="32 12" /></svg>}
-          <span>{pending ? PENDING_LABELS[page] : content.submitLabel}</span>
+          <span>{pending ? t(PENDING_LABELS[page]) : content.submitLabel}</span>
         </button>
         <p
           className="auth-form-status"
@@ -182,14 +198,14 @@ export default function AuthForm({
           hidden={!status}
           data-error={status?.isError ?? false}
         >
-          {status?.message}
+          {status?t(status.message):null}
         </p>
       </form>
     </>
   );
 }
 
-function Field({ field }: { field: AuthField }) {
+function Field({ field, locale }: { field: AuthField; locale: Locale }) {
   const [visible, setVisible] = useState(false);
   const id = `auth-${field.name}`;
   const type = field.type === "password" && visible ? "text" : field.type;
@@ -213,7 +229,7 @@ function Field({ field }: { field: AuthField }) {
             type="button"
             className="auth-password-toggle"
             onClick={() => setVisible((value) => !value)}
-            aria-label={`${visible ? "Hide" : "Show"} password`}
+            aria-label={authText(locale,visible?"Hide password":"Show password")}
             aria-controls={id}
             aria-pressed={visible}
           >

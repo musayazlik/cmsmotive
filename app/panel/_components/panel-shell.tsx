@@ -39,6 +39,7 @@ const PANEL_NAV: NavItem[] = [
   { href: "/panel/media", index: "09", label: "Media" },
   { href: "/panel/settings", index: "10", label: "Settings" },
   { href: "/panel/backup", index: "11", label: "Export / Import" },
+  { href: "/panel/billing", index: "12", label: "Subscriptions & packages" },
 ];
 
 /** Sidebar badges: count, and the screen-reader wording for one / many. */

@@ -1,4 +1,6 @@
 import type { Locale } from "@/lib/i18n/config";
+import { LEGAL_VERSION } from "./legal-settings-shared";
+import { copy as localCopy } from "./legal-copy";
 import {
   DEFAULT_MAINTENANCE_MESSAGE,
   DEFAULT_MAINTENANCE_TITLE,
@@ -70,7 +72,7 @@ function escapeHtml(value: string) {
 }
 
 /** Standalone visitor page. Preview mode disables signup and automatic checks. */
-export function maintenancePage(settings: MaintenanceSettings, locale: Locale = "en", { preview = false } = {}) {
+export function maintenancePage(settings: MaintenanceSettings, locale: Locale = "en", { preview = false, privacyVersion = LEGAL_VERSION } = {}) {
   const copy = COPY[locale];
   const title = !settings.title || settings.title === DEFAULT_MAINTENANCE_TITLE ? copy.title : settings.title;
   const message = !settings.message || settings.message === DEFAULT_MAINTENANCE_MESSAGE ? copy.message : settings.message;
@@ -86,9 +88,7 @@ export function maintenancePage(settings: MaintenanceSettings, locale: Locale = 
     <meta name="description" content="${escapeHtml(message)}" />
     <title>${escapeHtml(title)} · CMSMotive</title>
     <link rel="icon" type="image/png" href="/assets/icons/favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&display=swap" />
+    <link rel="stylesheet" href="/assets/css/fonts.css" />
     <link rel="stylesheet" href="/assets/css/maintenance.css" />
     ${preview ? "" : '<script src="/assets/js/maintenance.js" defer></script>'}
   </head>
@@ -113,7 +113,9 @@ export function maintenancePage(settings: MaintenanceSettings, locale: Locale = 
               <input id="maintenance-email" name="email" type="email" placeholder="${copy.placeholder}" autocomplete="email" inputmode="email" maxlength="254" required aria-describedby="signup-note signup-status"${disabled} />
               <button type="submit"${disabled}>${copy.submit}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg></button>
             </div>
-            <p class="maintenance-note" id="signup-note">${copy.note}</p>
+            <input type="hidden" name="consentVersion" value="${escapeHtml(privacyVersion)}" />
+            <label class="maintenance-note"><input type="checkbox" name="consent" required /> ${localCopy(locale,"Notify me when CMSMotive reopens. This is separate from the newsletter.","Benachrichtigen Sie mich bei Wiedereröffnung. Dies ist getrennt vom Newsletter.","CMSMotive yeniden açıldığında haber almak istiyorum. Bu izin bültenden ayrıdır.")}</label>
+            <p class="maintenance-note" id="signup-note">${localCopy(locale,"Confirm the request using the email we send you.","Bestätigen Sie die Anfrage über die zugesandte E-Mail.","Gönderilen e-postadan talebinizi doğrulayın.")} <a href="${locale==="de"?"":`/${locale}`}/privacy">${localCopy(locale,"Privacy","Datenschutz","Gizlilik")}</a></p>
             <p class="maintenance-status" id="signup-status" data-maintenance-status role="status" aria-live="polite" aria-atomic="true"></p>
             ${preview ? "" : `<noscript><p class="maintenance-note">${copy.noscript}</p></noscript>`}
           </form>

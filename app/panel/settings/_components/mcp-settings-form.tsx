@@ -74,10 +74,9 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
   const serverName = normalizeMcpName(name);
   const nameError = serverName ? undefined : MCP_NAME_ERROR;
   const dirty =
-    serverName !== null &&
-    (serverName !== settings.name ||
-      httpEnabled !== settings.httpEnabled ||
-      actorUserId !== (settings.actorUserId ?? ""));
+    (serverName ?? name) !== settings.name ||
+    httpEnabled !== settings.httpEnabled ||
+    actorUserId !== (settings.actorUserId ?? "");
   const missingActor = Boolean(settings.actorUserId) && !admins.some((admin) => admin.id === settings.actorUserId);
   const fallbackAdmin = admins[0];
   const actorOptions = admins.map((admin) => ({
@@ -162,7 +161,7 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
             onChange={setName}
             maxLength={MCP_NAME_MAX_LENGTH}
             placeholder={DEFAULT_MCP_NAME}
-            note="The name MCP clients see and use as the key in their configs. The snippets below follow it; clients that are already connected keep the old name until their config is updated."
+            note="The name MCP clients see and use as the key in their configs (letters, numbers, dots, dashes and underscores). The snippets below follow it; clients that are already connected keep the old name until their config is updated."
             error={nameError}
           />
         </div>
@@ -211,7 +210,7 @@ export default function McpSettingsForm({ settings, admins, endpoint, projectDir
           <span className="wsettings-state" role="status">
             {saved && !dirty ? "Settings saved." : ""}
           </span>
-          <button type="button" className="wbtn wbtn-primary" onClick={save} disabled={saving || !dirty}>
+          <button type="button" className="wbtn wbtn-primary" onClick={save} disabled={saving || !dirty || Boolean(nameError)}>
             {saving ? "Saving…" : "Save settings"}
           </button>
         </div>

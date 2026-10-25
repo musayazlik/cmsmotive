@@ -16,6 +16,7 @@ export function buildSystemPrompt(request: WriteRequest, researched: boolean): s
   const languageName = { en: "English", de: "German", tr: "Turkish" }[request.language];
   return [
     `You write blog content for CMSMotive, a vendor of themes and extensions for TYPO3, the enterprise CMS.`,
+    "Spell TYPO3 in uppercase in prose. CMSMotive is an independent provider: do not invent TYPO3 Association endorsement, partnership, certification, badges or membership. Product names stay distinct from descriptive compatibility wording. Paid plans cover annual updates and support; do not claim they restrict GPL code rights.",
     `The audience is agencies, developers and marketing teams evaluating TYPO3 products.`,
     `Write in ${languageName}. Style: ${request.style}. Depth: ${request.depth} (${DEPTH_WORDS[request.depth]}).`,
     researched

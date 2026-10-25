@@ -1,3 +1,4 @@
+import { getLegalSettings } from "@/lib/legal";
 import { notFound } from "next/navigation";
 import { htmlResponse, injectAdminPanelLink, injectMaintenanceNotice, readLegacyPage } from "@/lib/legacy";
 import { trackPageView } from "@/lib/analytics";
@@ -7,7 +8,9 @@ import { injectCatalog } from "@/lib/catalog";
 import { addLegacySeo, siteOrigin } from "@/lib/seo";
 import { getMaintenanceSettings, getSeoSettings, getSiteSettings } from "@/lib/settings";
 import { injectTestimonials } from "@/lib/testimonials";
-import { hasPanelSession } from "@/lib/public-session";
+import { getPublicAccount } from "@/lib/public-session";
+import {isAdminRole} from "@/lib/admin-guard";
+import {injectAccountMenu} from "@/lib/site-account-menu";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { getTranslator } from "@/lib/i18n/translate";
 
@@ -30,8 +33,14 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     const pagePath = slug === "index" ? "/" : `/${slug}`;
     // Search tags and JSON-LD are read from the translated page, so they match its language.
     let localized = localizeLegacyHtml(base, locale, pagePath);
+    localized = localized.replace(/href="\/account"/g, `href="/account?lang=${locale}"`);
+    const legal = await getLegalSettings();
+    localized = localized.replace(/data-consent-version="[^"]*"/g, `data-consent-version="${legal.privacyVersion.replace(/[^a-zA-Z0-9.-]/g, "")}"`);
     // Inject after URL localization: private admin paths never get a public language prefix.
-    const showAdmin = await hasPanelSession();
+    const account=await getPublicAccount();
+    const showAdmin=isAdminRole(account?.role);
+    const adminHref=showAdmin?(await getAdminAccessSettings()).panelPath:undefined;
+    if(account)localized=injectAccountMenu(localized,account,locale,adminHref);
     if (showAdmin) {
       const t = getTranslator(locale);
       const [admin, maintenance] = await Promise.all([getAdminAccessSettings(), getMaintenanceSettings()]);
@@ -42,10 +51,10 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     }
     const [site, seo, origin] = await Promise.all([getSiteSettings(), getSeoSettings(), siteOrigin()]);
     const response = htmlResponse(addLegacySeo(localized, { origin, locale, pagePath, site, seo }));
-    if (showAdmin) {
+    if (account) {
       response.headers.set("Cache-Control", "private, no-store");
-      response.headers.set("Vary", "Cookie");
     }
+    response.headers.set("Vary", "Cookie");
     response.headers.set("Content-Language", locale);
     return response;
   } catch (error) {

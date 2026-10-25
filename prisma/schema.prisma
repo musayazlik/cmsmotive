@@ -12,6 +12,10 @@ model User {
   name          String
   email         String       @unique
   emailVerified Boolean      @default(false)
+  termsVersion String?
+  privacyVersion String?
+  termsAcceptedAt DateTime?
+  accountLocale String @default("en")
   image         String?
   /// "admin" grants panel administration; "user" is the default account level.
   /// Additional levels (editor, reviewer) can be added without a schema change.
@@ -152,6 +156,7 @@ model Theme {
   slug          String           @unique
   name          String
   summary       String
+  compliance Json @default("{}")
   /// Tiptap HTML output.
   description   String
   status        String           @default("concept")
@@ -206,6 +211,7 @@ model Extension {
   slug          String             @unique
   name          String
   summary       String
+  compliance Json @default("{}")
   /// Tiptap HTML output.
   description   String
   status        String             @default("concept")
@@ -375,12 +381,86 @@ model Setting {
 /// refreshes the stored name instead of creating a second row.
 model NewsletterSubscriber {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String
   firstName String
   lastName  String
   source    String   @default("footer")
+  locale String @default("en")
+  consentVersion String?
+  confirmedAt DateTime?
+  unsubscribedAt DateTime?
+  confirmationTokenHash String? @unique
+  confirmationExpiresAt DateTime?
+  confirmationSentAt DateTime?
+  unsubscribeTokenHash String? @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  @@unique([email, source])
+}
+
+/// Kept outside content backups: billing identity and access must never roll back with page content.
+model BillingPlan {
+  id String @id @default(cuid())
+  kind String
+  productSlug String
+  name String
+  priceCents Int
+  currency String @default("EUR")
+  installations Int @default(1)
+  creemTestProductId String? @unique
+  creemLiveProductId String? @unique
+  enabled Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([kind, productSlug])
+}
+
+model CheckoutAttempt {
+  id String @id @default(cuid())
+  userId String
+  planId String
+  creemProductId String
+  mode String
+  termsVersion String
+  privacyVersion String
+  acceptedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+model ProductSubscription {
+  id String @id @default(cuid())
+  userId String
+  planId String
+  creemSubscriptionId String @unique
+  creemCustomerId String
+  mode String
+  status String
+  currentPeriodStart DateTime
+  currentPeriodEnd DateTime
+  providerUpdatedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId, mode])
+}
+
+model ProductRelease {
+  id String @id @default(cuid())
+  kind String
+  productSlug String
+  version String
+  fileKey String @unique
+  fileName String
+  codeLicense String
+  createdAt DateTime @default(now())
+  @@unique([kind, productSlug, version])
+}
+
+model PaymentEvent {
+  id String @id
+  type String
+  mode String
+  processedAt DateTime @default(now())
 }
 
 /// Daily page-view counters for the public site, one row per slug per day.

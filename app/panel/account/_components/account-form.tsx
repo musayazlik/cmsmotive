@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import TextField from "@/app/panel/_components/ui/text-field";
+import { authText } from "@/lib/auth-copy";
+import type { Locale } from "@/lib/i18n/config";
 
 const MIN_LENGTH = 8;
 
-export default function AccountForm() {
+export default function AccountForm({ locale = "en" }: { locale?: Locale }) {
+  const t = (key: string) => authText(locale, key);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -60,7 +63,7 @@ export default function AccountForm() {
     <div className="wform">
       <TextField
         id="w-account-current"
-        label="Current password"
+        label={t("Current password")}
         type="password"
         value={currentPassword}
         onChange={setCurrentPassword}
@@ -70,8 +73,8 @@ export default function AccountForm() {
       />
       <TextField
         id="w-account-new"
-        label="New password"
-        hint={`min. ${MIN_LENGTH} characters`}
+        label={t("New password")}
+        hint={t("Use at least 8 characters.")}
         type="password"
         value={newPassword}
         onChange={setNewPassword}
@@ -81,7 +84,7 @@ export default function AccountForm() {
       />
       <TextField
         id="w-account-confirm"
-        label="Repeat new password"
+        label={t("Repeat new password")}
         type="password"
         value={confirmPassword}
         onChange={setConfirmPassword}
@@ -90,18 +93,18 @@ export default function AccountForm() {
         disabled={pending}
       />
       <p className="wfield-hint-block">
-        Changing the password signs out your other devices; this session stays active.
+        {t("Changing the password signs out your other devices; this session stays active.")}
       </p>
 
       {error ? (
         <p className="wdialog-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       ) : null}
 
       <div className="wsettings-foot">
         <span className="wsettings-state" role="status">
-          {saved ? "Password updated." : ""}
+          {saved ? t("Password updated.") : ""}
         </span>
         <button
           type="button"
@@ -109,7 +112,7 @@ export default function AccountForm() {
           onClick={changePassword}
           disabled={pending || !currentPassword || !newPassword || !confirmPassword}
         >
-          {pending ? "Updating…" : "Update password"}
+          {pending ? t("Updating…") : t("Update password")}
         </button>
       </div>
     </div>

@@ -38,7 +38,7 @@ export const AUTH_CONTENT: Record<AuthPageName, AuthContent> = {
     documentTitle: "Welcome back.",
     eyebrow: "Welcome back",
     title: "Welcome back.",
-    description: "Your next project is waiting. Sign in to reach your CMSMotive workspace.",
+    description: "Sign in to your CMSMotive account.",
     storyTitle: "Good work starts with a good foundation.",
     storyDescription: "A quieter place for the tools, themes and ideas behind your next TYPO3 build.",
     fields: [
@@ -54,7 +54,7 @@ export const AUTH_CONTENT: Record<AuthPageName, AuthContent> = {
     documentTitle: "Create your account.",
     eyebrow: "Start here",
     title: "Create your account.",
-    description: "Your themes, extensions and resources. Together in one CMSMotive workspace.",
+    description: "Manage your products and account in one place.",
     storyTitle: "Build with intention. Grow with clarity.",
     storyDescription: "The right foundations give every new idea more room to become something useful.",
     fields: [
@@ -102,7 +102,7 @@ export const AUTH_CONTENT: Record<AuthPageName, AuthContent> = {
     documentTitle: "Confirm your email.",
     eyebrow: "One more step",
     title: "Confirm your email.",
-    description: "A small step before your workspace is ready to use.",
+    description: "Confirm your address to activate your account.",
     storyTitle: "From idea to implementation.",
     storyDescription: "Everything works better when the path forward feels clear from the start.",
     fields: [],

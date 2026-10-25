@@ -8,7 +8,7 @@ const integer = z.number().int().min(-2147483648).max(2147483647);
 const date = z.iso.datetime({ offset: true }).pipe(z.coerce.date());
 const timestamps = { createdAt: date, updatedAt: date };
 const product = {
-  id, slug: id, name: text, summary: text, description: text, status: text,
+  id, compliance: z.json().default({}), slug: id, name: text, summary: text, description: text, status: text,
   position: integer, tagline: text.nullable(), intro: text.nullable(),
   highlights: z.array(text), compatibility: z.json(), ctaLabel: text.nullable(),
   ctaUrl: text.nullable(), demoUrl: text.nullable(), coverId: id.nullable(), ...timestamps,
@@ -55,7 +55,7 @@ export const backupSchema = z.strictObject({
       id, name: text, email: text, agency: text, typo3Version: text, license: text, message: text,
       emailSent: z.boolean(), readAt: date.nullable(), archivedAt: date.nullable(), createdAt: date,
     })),
-    subscribers: rows(z.strictObject({ id, email: text, firstName: text, lastName: text, source: text, ...timestamps })),
+    subscribers: rows(z.strictObject({ id, email: text, firstName: text, lastName: text, source: text, locale: text.default("en"), consentVersion: text.nullable().default(null), confirmedAt: date.nullable().default(null), unsubscribedAt: date.nullable().default(null), confirmationTokenHash: text.nullable().default(null), confirmationExpiresAt: date.nullable().default(null), confirmationSentAt: date.nullable().default(null), unsubscribeTokenHash: text.nullable().default(null), ...timestamps })),
     pageViews: rows(z.strictObject({ id, date, slug: text, views: integer, updatedAt: date })),
     settings: rows(z.strictObject({ key: id, value: text, updatedAt: date })),
   }),
@@ -109,7 +109,7 @@ export function parseBackup(input: unknown): Backup {
   unique(d.settings, (row) => row.key, "setting key");
   unique(d.reviews, (row) => row.requestKey, "review request key");
   unique(d.comments, (row) => row.requestKey, "comment request key");
-  unique(d.subscribers, (row) => row.email, "subscriber email");
+  unique(d.subscribers, (row) => `${row.email.toLowerCase()}:${row.source}`, "subscriber email/purpose");
   unique(d.postTags, (row) => JSON.stringify([row.postId, row.tagId]), "post tag link");
   unique(d.themeGallery, (row) => JSON.stringify([row.themeId, row.assetId]), "theme gallery link");
   unique(d.extensionGallery, (row) => JSON.stringify([row.extensionId, row.assetId]), "extension gallery link");

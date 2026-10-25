@@ -10,6 +10,6 @@ export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ error: "Unauthorized." }, { status: 401, headers: responseHeaders });
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
-  const target = isAdminRole(user?.role) ? (await getAdminAccessSettings()).panelPath : "/";
+  const target = isAdminRole(user?.role) ? (await getAdminAccessSettings()).panelPath : "/account";
   return Response.json({ target }, { headers: responseHeaders });
 }

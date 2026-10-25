@@ -1,3 +1,4 @@
+import { readCompliance, type ProductCompliance } from "@/lib/product-compliance";
 import { prisma } from "@/lib/prisma";
 import { readCompatibility, readLicences, type CompatibilityRow, type Licence } from "@/lib/catalog-guard";
 
@@ -25,6 +26,7 @@ export type CatalogRecord = {
   highlights: string[];
   compatibility: CompatibilityRow[];
   licences: Licence[];
+  compliance: ProductCompliance;
   ctaLabel: string;
   ctaUrl: string;
   demoUrl: string;
@@ -48,6 +50,7 @@ function toImage(asset: { id: string; url: string; fileName: string }): Uploaded
 }
 
 function toRecord(row: {
+  compliance: unknown;
   id: string;
   slug: string;
   name: string;
@@ -70,6 +73,7 @@ function toRecord(row: {
 }) {
   return {
     id: row.id,
+    compliance: readCompliance(row.compliance),
     slug: row.slug,
     name: row.name,
     summary: row.summary,

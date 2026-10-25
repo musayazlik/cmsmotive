@@ -1,0 +1,57 @@
+.legal-content {
+  max-width: 860px;
+}
+.legal-section {
+  margin-block: 36px;
+}
+.legal-section h2 {
+  font-size: 1.5rem;
+  line-height: 1.3;
+  margin-bottom: 16px;
+}
+.legal-paragraph {
+  white-space: pre-line;
+  line-height: 1.8;
+  margin-bottom: 14px;
+}
+.legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-block: 24px;
+}
+.legal-nav a {
+  padding: 10px 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.legal-nav a[aria-current] {
+  font-weight: 750;
+}
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 24px;
+}
+.account-card {
+  border: 1px solid var(--border, #dfe3e5);
+  padding: 28px;
+  border-radius: 16px;
+}
+.account-card h2 {
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+}
+.account-card p {
+  margin-bottom: 14px;
+}
+.account-card a {
+  text-decoration: underline;
+}
+.account-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+}

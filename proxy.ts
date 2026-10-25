@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { LOCALE_HEADER, splitLocale } from "@/lib/i18n/config";
+import { isLocale } from "@/lib/i18n/config";
+import { getLegalSettings } from "@/lib/legal";
 import { maintenancePage } from "@/lib/maintenance-page";
 import { DEFAULT_MAINTENANCE_SETTINGS, type MaintenanceSettings } from "@/lib/maintenance-settings-shared";
 import { hasPanelSessionFor } from "@/lib/public-session";
@@ -51,7 +53,7 @@ export async function proxy(request: NextRequest) {
     const destination = request.nextUrl.clone();
     destination.pathname = authRoute ?? `/panel${suffix}`;
     headers.set(ADMIN_CONTEXT_HEADER, panelPath);
-    headers.set(LOCALE_HEADER, "en");
+    headers.set(LOCALE_HEADER, isLocale(request.nextUrl.searchParams.get("lang")) ? request.nextUrl.searchParams.get("lang")! : "de");
     const response = privateResponse(NextResponse.rewrite(destination, { request: { headers } }));
     if (authRoute && (request.method === "GET" || request.method === "HEAD")) {
       response.cookies.set(ADMIN_ENTRY_COOKIE, issueAdminEntry(panelPath), {
@@ -64,8 +66,9 @@ export async function proxy(request: NextRequest) {
   if (/^\/(admin|administrator|wp-admin)(\/|$)/.test(pathname) || pathname === "/wp-login.php") {
     return privateResponse(new NextResponse("Not found.", { status: 404 }));
   }
-  if (isPanel || pathname === "/auth" || pathname.startsWith("/auth/")) {
-    headers.set(LOCALE_HEADER, "en");
+  if (isPanel || pathname === "/account" || pathname.startsWith("/account/") || pathname.startsWith("/newsletter/") || pathname === "/auth" || pathname.startsWith("/auth/")) {
+    const lang=request.nextUrl.searchParams.get("lang");
+    headers.set(LOCALE_HEADER, isPanel ? "en" : isLocale(lang)?lang:"de");
     return privateResponse(NextResponse.next({ request: { headers } }));
   }
   const maintenance = await maintenanceResponse(request);
@@ -78,6 +81,8 @@ export async function proxy(request: NextRequest) {
 /** Public visitors, including regular members, see maintenance; administrators may review the live site. */
 async function maintenanceResponse(request: NextRequest): Promise<Response | null> {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
+  // Legal information stays reachable while collecting reopening notifications.
+  if (/^\/(imprint|privacy|terms|cookies)$/.test(splitLocale(request.nextUrl.pathname).path)) return null;
 
   let settings: MaintenanceSettings;
   try {
@@ -100,7 +105,7 @@ async function maintenanceResponse(request: NextRequest): Promise<Response | nul
   if (request.headers.get("RSC") === "1" || request.headers.get("x-nextjs-data")) {
     return NextResponse.json({ maintenance: true }, { status: 503, headers });
   }
-  return new Response(maintenancePage(settings, splitLocale(request.nextUrl.pathname).locale), {
+  return new Response(maintenancePage(settings, splitLocale(request.nextUrl.pathname).locale, { privacyVersion: (await getLegalSettings()).privacyVersion }), {
     status: 503,
     headers: { ...headers, "Content-Type": "text/html; charset=utf-8" },
   });

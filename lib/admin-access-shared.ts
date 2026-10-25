@@ -3,6 +3,7 @@ export type AdminAccessSettings = { panelPath: string };
 
 export const DEFAULT_ADMIN_ACCESS_SETTINGS: AdminAccessSettings = { panelPath: "/panel" };
 const RESERVED_PATHS = new Set([
+  "account", "newsletter",
   "api", "auth", "assets", "legacy", "en", "de", "tr", "blog", "theme", "extension",
   "themes", "extensions", "docs", "pricing", "contact", "about", "privacy", "terms",
   "imprint", "status", "robots", "sitemap", "maintenance", "index", "cookies", "loading",

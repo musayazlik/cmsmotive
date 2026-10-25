@@ -23,7 +23,7 @@ export type SiteSettings = {
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteName: "CMSMotive",
   twitterHandle: "@cmsmotive",
-  contactEmail: "hello@cmsmotive.de",
+  contactEmail: "info@cmsmotive.de",
   socialProfiles: [
     "https://www.linkedin.com/company/cmsmotive",
     "https://github.com/cmsmotive",

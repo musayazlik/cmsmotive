@@ -94,15 +94,15 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   await tx.tag.deleteMany();
   await tx.mediaAsset.deleteMany();
   await tx.contactInquiry.deleteMany();
-  await tx.newsletterSubscriber.deleteMany();
+  // Consent and withdrawals are not replaceable content. Never delete them during a restore.
   await tx.pageViewDaily.deleteMany();
   await tx.setting.deleteMany();
 
   await insert(d.media.map((row) => ({ ...row, uploadedById: userId(row.uploadedById) })), (data) => tx.mediaAsset.createMany({ data }));
   await insert(d.categories, (data) => tx.category.createMany({ data }));
   await insert(d.tags, (data) => tx.tag.createMany({ data }));
-  await insert(d.themes.map((row) => ({ ...row, compatibility: json(row.compatibility), licences: json(row.licences) })), (data) => tx.theme.createMany({ data }));
-  await insert(d.extensions.map((row) => ({ ...row, compatibility: json(row.compatibility) })), (data) => tx.extension.createMany({ data }));
+  await insert(d.themes.map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility), licences: json(row.licences) })), (data) => tx.theme.createMany({ data }));
+  await insert(d.extensions.map((row) => ({ ...row, compliance: json(row.compliance), compatibility: json(row.compatibility) })), (data) => tx.extension.createMany({ data }));
   await insert(d.themeGallery, (data) => tx.themeGallery.createMany({ data }));
   await insert(d.extensionGallery, (data) => tx.extensionGallery.createMany({ data }));
   await insert(d.changelog.map((row) => ({ ...row, changes: json(row.changes) })), (data) => tx.changelogEntry.createMany({ data }));
@@ -118,7 +118,13 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   }
   await insert(d.reviews, (data) => tx.productReview.createMany({ data }));
   await insert(d.inquiries, (data) => tx.contactInquiry.createMany({ data }));
-  await insert(d.subscribers, (data) => tx.newsletterSubscriber.createMany({ data }));
+  for (const row of d.subscribers) {
+    await tx.newsletterSubscriber.upsert({
+      where: { email_source: { email: row.email.toLowerCase(), source: row.source } },
+      update: {},
+      create: { ...row, email: row.email.toLowerCase(), confirmedAt: null, confirmationTokenHash: null, confirmationExpiresAt: null, unsubscribeTokenHash: null },
+    });
+  }
   await insert(d.pageViews, (data) => tx.pageViewDaily.createMany({ data }));
   await insert(settings, (data) => tx.setting.createMany({ data }));
 }

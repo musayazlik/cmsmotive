@@ -1,3 +1,5 @@
+import { publicationError } from "@/lib/publication";
+import { readCompliance } from "@/lib/product-compliance";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 import {
@@ -120,6 +122,8 @@ export async function createTheme(input: ThemeCreateInput) {
   if ("error" in core) throw new ToolError(core.error);
   const listing = validateListing(body);
   if ("error" in listing) throw new ToolError(listing.error);
+  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance({}));
+  if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
   const licences = validateLicences(body);
@@ -201,6 +205,8 @@ export async function updateTheme(id: string, input: CatalogInput) {
   if ("error" in core) throw new ToolError(core.error);
   const listing = validateListing(body);
   if ("error" in listing) throw new ToolError(listing.error);
+  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance(current.compliance));
+  if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
   const licences = validateLicences(body);
@@ -271,6 +277,8 @@ export async function createExtension(input: ExtensionCreateInput) {
   if ("error" in core) throw new ToolError(core.error);
   const position = validatePosition(body);
   if ("error" in position) throw new ToolError(position.error);
+  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance({}));
+  if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
 
@@ -336,6 +344,8 @@ export async function updateExtension(id: string, input: CatalogInput) {
   if ("error" in core) throw new ToolError(core.error);
   const position = validatePosition(body);
   if ("error" in position) throw new ToolError(position.error);
+  const releaseError = await publicationError(status, String(body.name ?? ""), readCompliance(current.compliance));
+  if (releaseError) throw new ToolError(releaseError);
   const detail = validateDetail(body);
   if ("error" in detail) throw new ToolError(detail.error);
 

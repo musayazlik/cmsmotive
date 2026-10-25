@@ -1,3 +1,5 @@
+import { validateCompliance } from "@/lib/product-compliance";
+import { publicationError } from "@/lib/publication";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { SLUG_PATTERN, isExtensionStatus, EXTENSION_STATUSES, validateDetail, validatePosition, type ExtensionStatus } from "@/lib/catalog-guard";
@@ -111,6 +113,10 @@ export async function POST(request: Request) {
   if ("error" in order) return Response.json({ error: order.error }, { status: 400 });
   const position = order.data;
 
+  const compliance = validateCompliance(body.compliance);
+  if ("error" in compliance) return Response.json({ error: compliance.error }, { status: 400 });
+  const releaseError = await publicationError(body.status, String(body.name ?? ""), compliance.data);
+  if (releaseError) return Response.json({ error: releaseError }, { status: 400 });
   const detail = validateDetail(body);
   if ("error" in detail) return Response.json({ error: detail.error }, { status: 400 });
 
@@ -133,6 +139,7 @@ export async function POST(request: Request) {
       data: {
         name, slug, summary, description, status, position,
         ...detail.data,
+          compliance: compliance.data,
         coverId: coverId ?? undefined,
         gallery: { create: galleryIds.map((assetId, position) => ({ assetId, position })) },
       },

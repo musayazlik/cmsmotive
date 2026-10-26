@@ -15,6 +15,15 @@ export const requireCustomer = cache(async () => {
       emailVerified: true,
       accountLocale: true,
       role: true,
+      image: true,
+      // Profile the customer edits in their account.
+      bio: true,
+      phone: true,
+      company: true,
+      street: true,
+      postalCode: true,
+      city: true,
+      country: true,
     },
   });
   if (!user) redirect("/auth/sign-in");

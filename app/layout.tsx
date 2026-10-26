@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { FONT_PRELOADS } from "@/lib/fonts";
 import { LOCALE_HEADER, isLocale } from "@/lib/i18n/config";
 import { siteOrigin } from "@/lib/seo";
 import AccountFeedback from "./_components/account-feedback";
@@ -27,5 +28,13 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = (await headers()).get(LOCALE_HEADER);
-  return <html lang={isLocale(locale) ? locale : "en"} className="js"><body>{children}<AccountFeedback /></body></html>;
+  return (
+    <html lang={isLocale(locale) ? locale : "en"} className="js">
+      <head>
+        {/* Every area renders in Manrope/DM Mono: fetch them with the HTML, not after its stylesheet. */}
+        {FONT_PRELOADS.map((href) => <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="anonymous" />)}
+      </head>
+      <body>{children}<AccountFeedback /></body>
+    </html>
+  );
 }

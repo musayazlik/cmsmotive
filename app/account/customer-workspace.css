@@ -592,6 +592,75 @@ button.customer-text-link {
 .customer-workspace .customer-profile-form .wsettings-foot {
   margin-top: 4px;
 }
+
+/* Profile editing: photo, name, bio, address. */
+.customer-avatar-editor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 24px 24px 4px;
+}
+.customer-profile-avatar.customer-profile-avatar-lg {
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
+  font-size: 34px;
+  overflow: hidden;
+}
+.customer-profile-avatar img,
+.customer-person-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.customer-avatar-editor-tools {
+  min-width: 0;
+  flex: 1;
+}
+.customer-avatar-editor-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.customer-avatar-editor-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.customer-avatar-editor .wdialog-error {
+  margin-top: 6px;
+}
+.customer-person-avatar {
+  display: grid;
+  place-items: center;
+}
+.customer-profile-mail {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.customer-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+/* The ui kit's adjacent-sibling margin (19px) is for stacked fields; these
+   two-column rows align by grid gap instead, or the right column sags. */
+.customer-profile-grid > .wfield + .wfield {
+  margin-top: 0;
+}
+@media (max-width: 480px) {
+  .customer-avatar-editor {
+    padding: 20px 20px 0;
+  }
+  .customer-profile-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
 .customer-workspace .customer-checkout {
   padding: 28px;
 }
@@ -621,6 +690,10 @@ button.customer-text-link {
 .customer-workspace .customer-legal p {
   max-width: 76ch;
   margin: 0;
+}
+.customer-workspace .customer-legal .customer-legal-brand {
+  font-weight: 700;
+  color: var(--indigo);
 }
 .customer-legal nav {
   display: flex;

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { copy, trademarkNote } from "@/lib/legal-copy";
+import { copy } from "@/lib/legal-copy";
 import { localizePath, type Locale } from "@/lib/i18n/config";
 import LanguageSwitcher from "@/app/_components/language-switcher";
 import { useSignOut } from "@/app/_components/use-sign-out";
@@ -16,11 +16,14 @@ export default function CustomerShell({
   user,
   locale: l,
   notifications,
+  year,
   children,
 }: {
-  user: { name: string; email: string };
+  user: { name: string; email: string; image?: string | null };
   locale: Locale;
   notifications: { unread: number; items: BellItem[] };
+  /** Rendered on the server so hydration always matches. */
+  year: number;
   children: ReactNode;
 }) {
   const path = usePathname();
@@ -193,7 +196,9 @@ export default function CustomerShell({
             aria-label={`${accountLabel}: ${user.name}`}
             onClick={closeMobile}
           >
-            <span>{initial}</span>
+            <span className="customer-person-avatar" data-photo={Boolean(user.image)}>
+              {user.image ? <img src={user.image} alt="" width={28} height={28} referrerPolicy="no-referrer" /> : initial}
+            </span>
             <div>
               <strong>{user.name}</strong>
               <small>{user.email}</small>
@@ -294,7 +299,13 @@ export default function CustomerShell({
           {children}
         </div>
         <footer className="customer-legal">
-          <p>{trademarkNote(l)}</p>
+          <p>
+            © {year}{" "}
+            <a className="customer-legal-brand" href={localizePath("/", l)}>
+              CMSMotive
+            </a>
+            {copy(l, ". All rights reserved.", ". Alle Rechte vorbehalten.", ". Tüm hakları saklıdır.")}
+          </p>
           <nav aria-label={copy(l, "Legal", "Rechtliches", "Yasal bilgiler")}>
             <a href={localizePath("/imprint", l)}>
               {copy(l, "Imprint", "Impressum", "Yasal bilgiler")}

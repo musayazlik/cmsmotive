@@ -33,6 +33,12 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./static-site/**/*.html", "./i18n/**/*.json"],
   },
+  async headers() {
+    return [
+      // Font file names carry a content hash (scripts/fonts/build-fonts.py), so they never change in place.
+      { source: "/assets/fonts/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+    ];
+  },
   async redirects() {
     return [
       // German is the unprefixed default, so `/de/...` is never a public URL.

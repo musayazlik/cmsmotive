@@ -104,9 +104,18 @@ model User {
   /// "admin" grants panel administration; "user" is the default account level.
   /// Additional levels (editor, reviewer) can be added without a schema change.
   role                   String                  @default("user")
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  sessions               Session[]
+  /// Short "about" text the customer edits in their account profile.
+  bio                     String?
+  /// Contact details and postal address maintained in the account profile.
+  phone                   String?
+  company                 String?
+  street                  String?
+  postalCode              String?
+  city                    String?
+  country                 String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  sessions                Session[]
   accounts               Account[]
   uploads                MediaAsset[]
   posts                  Post[]

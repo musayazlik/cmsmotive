@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n/config";
+import { withFontPreloads } from "./fonts";
 import { LEGAL_VERSION } from "./legal-settings-shared";
 import { copy as localCopy } from "./legal-copy";
 import {
@@ -78,7 +79,7 @@ export function maintenancePage(settings: MaintenanceSettings, locale: Locale = 
   const message = !settings.message || settings.message === DEFAULT_MAINTENANCE_MESSAGE ? copy.message : settings.message;
   const disabled = preview ? " disabled" : "";
 
-  return `<!doctype html>
+  return withFontPreloads(`<!doctype html>
 <html lang="${locale}">
   <head>
     <meta charset="utf-8" />
@@ -138,5 +139,5 @@ export function maintenancePage(settings: MaintenanceSettings, locale: Locale = 
       <span>© ${new Date().getFullYear()} CMSMotive</span>
     </footer>
   </body>
-</html>`;
+</html>`);
 }

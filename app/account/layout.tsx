@@ -19,6 +19,7 @@ export default async function AccountLayout({
   const user = await requireCustomer();
   const lang = (await headers()).get(LOCALE_HEADER);
   const locale = isLocale(lang) ? lang : "de";
+  const year = new Date().getFullYear();
   const storeId = await currentStoreId();
   const [unread, latest] = await Promise.all([unreadNotificationCount(user.id, storeId), loadNotifications(user.id, storeId, 6)]);
   return (
@@ -29,9 +30,10 @@ export default async function AccountLayout({
         precedence="default"
       />
       <CustomerShell
-        user={{ name: user.name, email: user.email }}
+        user={{ name: user.name, email: user.email, image: user.image }}
         locale={locale}
         notifications={{ unread, items: presentNotifications(latest, locale) }}
+        year={year}
       >
         {children}
       </CustomerShell>

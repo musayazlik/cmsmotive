@@ -7,6 +7,7 @@ import { announceRelease } from "@/lib/notifications";
 import { readCompliance } from "@/lib/product-compliance";
 import { panelStoreFromRequest } from "@/lib/panel-store";
 import { getUploadSettings } from "@/lib/settings";
+import { utapi } from "@/lib/utapi";
 
 const f = createUploadthing();
 
@@ -50,6 +51,21 @@ async function trackUpload({ userId, storeId }: { userId: string; storeId: strin
     select: { id: true },
   });
   return { assetId: asset.id, url: file.ufsUrl };
+}
+
+/**
+ * UploadThing file key behind an avatar URL (`https://<host>/f/<key>`); Google
+ * profile URLs and anything else returns null so only our own uploads are deleted.
+ */
+function avatarFileKey(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || !parsed.pathname.startsWith("/f/")) return null;
+    const key = decodeURIComponent(parsed.pathname.slice(3));
+    return /^[A-Za-z0-9._/-]+$/.test(key) && key.length <= 512 ? key : null;
+  } catch {
+    return null;
+  }
 }
 
 export const uploadRouter = {
@@ -110,6 +126,42 @@ export const uploadRouter = {
   })
     .middleware(({ req, files }) => requireMediaUpload(req, files))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
+
+  // Customer profile avatar: any signed-in user, one small image, no store scope.
+  // The upload itself sets user.image, so no second request is needed.
+  avatar: f({
+    image: { maxFileSize: "4MB", maxFileCount: 1 },
+  })
+    .middleware(async ({ req, files }) => {
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (!session) throw new UploadThingError("Unauthorized");
+      if (files.some((file) => !file.type.startsWith("image/"))) {
+        throw new UploadThingError("Avatars must be image files.");
+      }
+      return { userId: session.user.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      const current = await prisma.user.findUnique({
+        where: { id: metadata.userId },
+        select: { image: true },
+      });
+      const updated = await prisma.user.update({
+        where: { id: metadata.userId },
+        data: { image: file.ufsUrl },
+        select: { image: true },
+      });
+      const previous = current?.image;
+      if (previous && previous !== updated.image) {
+        const key = avatarFileKey(previous);
+        if (key) {
+          // Best effort: the previous avatar is no longer referenced anywhere.
+          await utapi.deleteFiles(key).catch((error) =>
+            console.error("avatar cleanup failed", error instanceof Error ? error.message : error),
+          );
+        }
+      }
+      return { url: updated.image ?? file.ufsUrl };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof uploadRouter;

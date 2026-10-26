@@ -11,7 +11,7 @@ type Props = {
   hint?: string;
   note?: string;
   error?: string;
-  type?: "text" | "email" | "password" | "search" | "url";
+  type?: "text" | "email" | "password" | "search" | "url" | "tel";
   placeholder?: string;
   name?: string;
   autoComplete?: string;

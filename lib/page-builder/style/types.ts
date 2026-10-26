@@ -1,28 +1,37 @@
 import { z } from "zod";
 
 /**
- * Structured style values for every block (plan 5.3). Values are never raw
- * CSS: the editor writes typed objects, the zod schemas below accept only
- * whitelisted units and color formats, and lib/page-builder/style/css.ts
- * serializes them into the scoped stylesheet. Phase 0 ships the typography
- * and spacing groups; background, border and size groups follow in Phase 1
- * by extending these records (migrate() fills the defaults).
+ * Structured style values for every block (plan 5.3, Faz 1).
+ * Values are never raw CSS: the editor writes typed objects, the zod schemas
+ * below accept only whitelisted units, bounds and color formats, and
+ * lib/page-builder/style/css.ts serializes them into the scoped stylesheet.
+ * Groups: typography, spacing, background, border, size.
  */
 
 // ---------------------------------------------------------------------------
 // Primitives
 // ---------------------------------------------------------------------------
 
-/** Units and bounds per property — the panel offers only these. */
 export const LENGTH_UNITS = ["px", "rem"] as const;
 export const SIZE_UNITS = ["px", "rem"] as const;
 export const TRACKING_UNITS = ["px", "em"] as const;
+export const DIMENSION_UNITS = ["px", "rem", "%", "vw", "vh"] as const;
+export const BORDER_STYLES = ["none", "solid", "dashed", "dotted"] as const;
+export const BG_SIZE_CHOICES = ["cover", "contain", "auto"] as const;
+export const BG_POSITION_CHOICES = ["center", "top", "bottom", "left", "right"] as const;
+export const BG_REPEAT_CHOICES = ["no-repeat", "repeat"] as const;
 
 export type LengthUnit = (typeof LENGTH_UNITS)[number];
 export type SizeUnit = (typeof SIZE_UNITS)[number];
 export type TrackingUnit = (typeof TRACKING_UNITS)[number];
+export type DimensionUnit = (typeof DIMENSION_UNITS)[number];
+export type BorderStyleChoice = (typeof BORDER_STYLES)[number];
+export type BgSizeChoice = (typeof BG_SIZE_CHOICES)[number];
+export type BgPositionChoice = (typeof BG_POSITION_CHOICES)[number];
+export type BgRepeatChoice = (typeof BG_REPEAT_CHOICES)[number];
 
 export type CssLength = { value: number; unit: LengthUnit };
+export type DimensionLength = { value: number; unit: DimensionUnit };
 
 export type FontFamilyChoice = "sans" | "mono";
 
@@ -39,11 +48,16 @@ export type TextAlignChoice = "left" | "center" | "right" | "justify";
 // ---------------------------------------------------------------------------
 
 export const LENGTH_BOUNDS = { min: -80, max: 360 } as const;
+export const BORDER_WIDTH_BOUNDS = { min: 0, max: 32 } as const;
+export const RADIUS_BOUNDS = { min: 0, max: 9999 } as const;
+export const DIMENSION_BOUNDS = { min: 0, max: 3840 } as const;
 export const FONT_SIZE_BOUNDS = { min: 6, max: 200 } as const;
 export const FONT_WEIGHT_STEPS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
 export const LINE_HEIGHT_BOUNDS = { min: 0.8, max: 2.4 } as const;
 export const TRACKING_BOUNDS = { min: -0.12, max: 0.4 } as const;
 export const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+/** Whitelist for image URLs: https:// or relative /api/media/... paths only (no data/javascript) */
+export const SAFE_IMAGE_URL_PATTERN = /^(?:https:\/\/[a-z0-9_.-]+(?::[0-9]+)?(?:\/.*)?|\/(?:assets|api\/media)\/[a-z0-9_./-]+)$/i;
 
 // ---------------------------------------------------------------------------
 // Group records
@@ -70,6 +84,30 @@ export type SpacingValues = {
   paddingLeft?: CssLength;
 };
 
+export type BackgroundValues = {
+  color?: ColorChoice;
+  image?: string;
+  size?: BgSizeChoice;
+  position?: BgPositionChoice;
+  repeat?: BgRepeatChoice;
+};
+
+export type BorderValues = {
+  width?: CssLength;
+  style?: BorderStyleChoice;
+  color?: ColorChoice;
+  radius?: CssLength;
+};
+
+export type SizeValues = {
+  width?: DimensionLength;
+  maxWidth?: DimensionLength;
+  minWidth?: DimensionLength;
+  height?: DimensionLength;
+  maxHeight?: DimensionLength;
+  minHeight?: DimensionLength;
+};
+
 /**
  * Desktop holds the primary value; tablet and mobile hold optional
  * overrides. css.ts emits each device into its own media query, so the
@@ -80,16 +118,33 @@ export type Responsive<T> = { base: T; tablet?: Partial<T>; mobile?: Partial<T> 
 export type BlockStyle = {
   typography?: Responsive<TypographyValues>;
   spacing?: Responsive<SpacingValues>;
+  background?: Responsive<BackgroundValues>;
+  border?: Responsive<BorderValues>;
+  size?: Responsive<SizeValues>;
 };
 
 // ---------------------------------------------------------------------------
-// Zod schemas — every numeric field carries its own bounds, so the editor
-// panel and save validation share the exact same rules.
+// Zod schemas
 // ---------------------------------------------------------------------------
 
 const lengthSchema = z.strictObject({
   value: z.number().min(LENGTH_BOUNDS.min).max(LENGTH_BOUNDS.max),
   unit: z.enum(LENGTH_UNITS),
+});
+
+const borderWidthSchema = z.strictObject({
+  value: z.number().min(BORDER_WIDTH_BOUNDS.min).max(BORDER_WIDTH_BOUNDS.max),
+  unit: z.enum(LENGTH_UNITS),
+});
+
+const radiusSchema = z.strictObject({
+  value: z.number().min(RADIUS_BOUNDS.min).max(RADIUS_BOUNDS.max),
+  unit: z.enum(LENGTH_UNITS),
+});
+
+const dimensionSchema = z.strictObject({
+  value: z.number().min(DIMENSION_BOUNDS.min).max(DIMENSION_BOUNDS.max),
+  unit: z.enum(DIMENSION_UNITS),
 });
 
 const sizeSchema = z.strictObject({
@@ -128,6 +183,30 @@ const spacingSchema = z.strictObject({
   paddingLeft: lengthSchema.optional(),
 });
 
+const backgroundSchema = z.strictObject({
+  color: colorChoiceSchema.optional(),
+  image: z.string().regex(SAFE_IMAGE_URL_PATTERN).optional(),
+  size: z.enum(BG_SIZE_CHOICES).optional(),
+  position: z.enum(BG_POSITION_CHOICES).optional(),
+  repeat: z.enum(BG_REPEAT_CHOICES).optional(),
+});
+
+const borderSchema = z.strictObject({
+  width: borderWidthSchema.optional(),
+  style: z.enum(BORDER_STYLES).optional(),
+  color: colorChoiceSchema.optional(),
+  radius: radiusSchema.optional(),
+});
+
+const sizeGroupSchema = z.strictObject({
+  width: dimensionSchema.optional(),
+  maxWidth: dimensionSchema.optional(),
+  minWidth: dimensionSchema.optional(),
+  height: dimensionSchema.optional(),
+  maxHeight: dimensionSchema.optional(),
+  minHeight: dimensionSchema.optional(),
+});
+
 export const blockStyleSchema = z.strictObject({
   typography: z
     .strictObject({
@@ -143,6 +222,27 @@ export const blockStyleSchema = z.strictObject({
       mobile: spacingSchema.partial().optional(),
     })
     .optional(),
+  background: z
+    .strictObject({
+      base: backgroundSchema,
+      tablet: backgroundSchema.partial().optional(),
+      mobile: backgroundSchema.partial().optional(),
+    })
+    .optional(),
+  border: z
+    .strictObject({
+      base: borderSchema,
+      tablet: borderSchema.partial().optional(),
+      mobile: borderSchema.partial().optional(),
+    })
+    .optional(),
+  size: z
+    .strictObject({
+      base: sizeGroupSchema,
+      tablet: sizeGroupSchema.partial().optional(),
+      mobile: sizeGroupSchema.partial().optional(),
+    })
+    .optional(),
 });
 
 function isFontWeightStep(value: number): boolean {
@@ -153,13 +253,11 @@ function isFontWeightStep(value: number): boolean {
 // Catalogs (fonts and theme colors come from our own assets — plan 5.5)
 // ---------------------------------------------------------------------------
 
-/** Values rendered into the scoped CSS; the picker lists only these. */
 export const FONT_FAMILIES: ReadonlyArray<{ key: FontFamilyChoice; label: string; css: string }> = [
   { key: "sans", label: "Manrope (sans)", css: "Manrope, 'Segoe UI', sans-serif" },
   { key: "mono", label: "DM Mono (mono)", css: "'DM Mono', monospace" },
 ];
 
-/** Tokens defined in public/assets/css/site.css :root, offered as quick picks. */
 export const COLOR_TOKENS: ReadonlyArray<{ token: string; label: string }> = [
   { token: "indigo", label: "Indigo" },
   { token: "ink", label: "Ink" },
@@ -171,4 +269,5 @@ export const COLOR_TOKENS: ReadonlyArray<{ token: string; label: string }> = [
   { token: "dark", label: "Dark" },
   { token: "success", label: "Success" },
   { token: "warn", label: "Warn" },
+  { token: "line", label: "Border line" },
 ];

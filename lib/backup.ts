@@ -29,6 +29,11 @@ export async function readBackup(tx: Prisma.TransactionClient) {
       subscribers: await tx.newsletterSubscriber.findMany(),
       pageViews: await tx.pageViewDaily.findMany(),
       settings: await tx.setting.findMany({ where: { key: { startsWith: "security." } } }),
+      pages: await tx.page.findMany(),
+      pageLocales: await tx.pageLocale.findMany(),
+      pageRevisions: await tx.pageRevision.findMany(),
+      pageRedirects: await tx.pageRedirect.findMany(),
+      pageSnippets: await tx.pageSnippet.findMany(),
     },
   };
 }
@@ -117,6 +122,11 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   await tx.mediaAsset.deleteMany();
   await tx.contactInquiry.deleteMany();
   await tx.pageViewDaily.deleteMany();
+  await tx.pageRevision.deleteMany();
+  await tx.pageRedirect.deleteMany();
+  await tx.pageLocale.deleteMany();
+  await tx.pageSnippet.deleteMany();
+  await tx.page.deleteMany();
   await tx.setting.deleteMany({ where: { key: { startsWith: "security." } } });
   await tx.storeSetting.deleteMany({ where: { storeId: { in: [...storeIds.values()] } } });
   // Domains are replaced only for the stores the backup carries; other stores keep theirs.
@@ -152,6 +162,15 @@ export async function restoreBackup(tx: Prisma.TransactionClient, backup: Backup
   await insert(owned(d.pageViews), (data) => tx.pageViewDaily.createMany({ data }));
   await insert(d.settings, (data) => tx.setting.createMany({ data }));
   await insert(storeSettings, (data) => tx.storeSetting.createMany({ data }));
+  await insert(owned(d.pages), (data) => tx.page.createMany({ data }));
+  await insert(d.pageLocales.map((row) => ({
+    ...row,
+    draft: json(row.draft),
+    published: row.published === null ? Prisma.JsonNull : json(row.published),
+  })), (data) => tx.pageLocale.createMany({ data }));
+  await insert(d.pageRevisions.map((row) => ({ ...row, data: json(row.data) })), (data) => tx.pageRevision.createMany({ data }));
+  await insert(owned(d.pageRedirects), (data) => tx.pageRedirect.createMany({ data }));
+  await insert(owned(d.pageSnippets).map((row) => ({ ...row, data: json(row.data) })), (data) => tx.pageSnippet.createMany({ data }));
 }
 
 export async function importBackup(backup: Backup) {

@@ -2,14 +2,23 @@ import { walkBlocks, type BlockData, type PageBuilderData } from "../data";
 import { ID_PATTERN } from "../ids";
 import { GRID_VARIANTS, GRID_GAP_VALUES, type GridVariant, type GridGap } from "../blocks/grid/schema";
 import {
+  BORDER_STYLES,
+  BG_POSITION_CHOICES,
+  BG_REPEAT_CHOICES,
+  BG_SIZE_CHOICES,
+  DIMENSION_UNITS,
   FONT_FAMILIES,
   HEX_COLOR_PATTERN,
   LENGTH_UNITS,
+  SAFE_IMAGE_URL_PATTERN,
   SIZE_UNITS,
   TRACKING_UNITS,
+  type BackgroundValues,
   type BlockStyle,
+  type BorderValues,
   type ColorChoice,
   type Responsive,
+  type SizeValues,
   type SpacingValues,
   type TypographyValues,
 } from "./types";
@@ -104,6 +113,61 @@ function spacingDeclarations(values: Partial<SpacingValues> | undefined): string
   return declarations;
 }
 
+function backgroundDeclarations(values: Partial<BackgroundValues> | undefined): string[] {
+  if (!values) return [];
+  const declarations: string[] = [];
+  const color = values.color && colorCss(values.color);
+  if (color) declarations.push(`background-color:${color}`);
+  if (values.image && SAFE_IMAGE_URL_PATTERN.test(values.image)) {
+    declarations.push(`background-image:url("${values.image}")`);
+  }
+  if (values.size && (BG_SIZE_CHOICES as readonly string[]).includes(values.size)) {
+    declarations.push(`background-size:${values.size}`);
+  }
+  if (values.position && (BG_POSITION_CHOICES as readonly string[]).includes(values.position)) {
+    declarations.push(`background-position:${values.position}`);
+  }
+  if (values.repeat && (BG_REPEAT_CHOICES as readonly string[]).includes(values.repeat)) {
+    declarations.push(`background-repeat:${values.repeat}`);
+  }
+  return declarations;
+}
+
+function borderDeclarations(values: Partial<BorderValues> | undefined): string[] {
+  if (!values) return [];
+  const declarations: string[] = [];
+  if (values.width && (LENGTH_UNITS as readonly string[]).includes(values.width.unit)) {
+    declarations.push(`border-width:${formatValue(values.width.value)}${values.width.unit}`);
+  }
+  if (values.style && (BORDER_STYLES as readonly string[]).includes(values.style)) {
+    declarations.push(`border-style:${values.style}`);
+  }
+  const color = values.color && colorCss(values.color);
+  if (color) declarations.push(`border-color:${color}`);
+  if (values.radius && (LENGTH_UNITS as readonly string[]).includes(values.radius.unit)) {
+    declarations.push(`border-radius:${formatValue(values.radius.value)}${values.radius.unit}`);
+  }
+  return declarations;
+}
+
+function sizeDeclarations(values: Partial<SizeValues> | undefined): string[] {
+  if (!values) return [];
+  const declarations: string[] = [];
+  const entries = [
+    ["width", values.width],
+    ["max-width", values.maxWidth],
+    ["min-width", values.minWidth],
+    ["height", values.height],
+    ["max-height", values.maxHeight],
+    ["min-height", values.minHeight],
+  ] as const;
+  for (const [prop, dim] of entries) {
+    if (!dim || !(DIMENSION_UNITS as readonly string[]).includes(dim.unit)) continue;
+    declarations.push(`${prop}:${formatValue(dim.value)}${dim.unit}`);
+  }
+  return declarations;
+}
+
 const GRID_TEMPLATES: Record<GridVariant, string> = {
   "2": "repeat(2, minmax(0, 1fr))",
   "3": "repeat(3, minmax(0, 1fr))",
@@ -132,6 +196,9 @@ function blockDeclarations(block: BlockData): { base: string[]; tablet: string[]
   if (!style) return { base, tablet, mobile };
   pushResponsive(base, tablet, mobile, typographyDeclarations, style.typography);
   pushResponsive(base, tablet, mobile, spacingDeclarations, style.spacing);
+  pushResponsive(base, tablet, mobile, backgroundDeclarations, style.background);
+  pushResponsive(base, tablet, mobile, borderDeclarations, style.border);
+  pushResponsive(base, tablet, mobile, sizeDeclarations, style.size);
   return { base, tablet, mobile };
 }
 

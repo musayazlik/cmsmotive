@@ -1,5 +1,6 @@
 import type { Content, Data } from "@puckeditor/core";
 import { slotFieldsOf } from "./slots";
+import { createBlockId } from "./ids";
 
 /**
  * Shared helpers over the Puck document. Type-only imports keep the editor
@@ -54,4 +55,13 @@ export function collectBlockIds(data: Pick<Data, "content">): string[] {
     if (typeof id === "string") ids.push(id);
   });
   return ids;
+}
+
+/** Deep clone of the document with fresh, unique block ids across the whole tree. */
+export function regenerateBlockIds(data: PageBuilderData): PageBuilderData {
+  const cloned = JSON.parse(JSON.stringify(data)) as PageBuilderData;
+  walkBlocks(cloned, (block) => {
+    block.props = { ...(block.props ?? {}), id: createBlockId() };
+  });
+  return cloned;
 }

@@ -8,7 +8,7 @@ const now = "2026-10-22T10:00:00.000Z";
 function empty(): z.input<typeof backupSchema> {
   return {
     format: BACKUP_FORMAT, version: BACKUP_VERSION, createdAt: now, users: [],
-    data: { stores: [], storeDomains: [], storeSettings: [], productTypes: [], products: [], productGallery: [], changelog: [], media: [], posts: [], categories: [], tags: [], postTags: [], comments: [], reviews: [], inquiries: [], subscribers: [], pageViews: [], settings: [] },
+    data: { stores: [], storeDomains: [], storeSettings: [], productTypes: [], products: [], productGallery: [], changelog: [], media: [], posts: [], categories: [], tags: [], postTags: [], comments: [], reviews: [], inquiries: [], subscribers: [], pageViews: [], settings: [], pages: [], pageLocales: [], pageRevisions: [], pageRedirects: [], pageSnippets: [] },
   };
 }
 const store = { id: "store", key: "main", name: "Main store", defaultLocale: "en", locales: ["en"], isDefault: true, createdAt: now, updatedAt: now };

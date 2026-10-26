@@ -3,12 +3,15 @@ export type AdminAccessSettings = { panelPath: string };
 
 export const DEFAULT_ADMIN_ACCESS_SETTINGS: AdminAccessSettings = { panelPath: "/panel" };
 const RESERVED_PATHS = new Set([
-  "account", "newsletter",
+  "account", "newsletter", "products", "pb-preview", "pb", "pb-edit",
   "api", "auth", "assets", "legacy", "en", "de", "tr", "blog", "theme", "extension",
   "themes", "extensions", "docs", "pricing", "contact", "about", "privacy", "terms",
   "imprint", "status", "robots", "sitemap", "maintenance", "index", "cookies", "loading",
   "blog-accessibility", "blog-composer", "blog-typography", "demo-nordform", "headless",
 ]);
+
+/** Public path segments no page slug may take (page builder slug rules, plan 5.8). */
+export const PUBLIC_PATH_SEGMENTS = RESERVED_PATHS;
 
 export function validateAdminAccessSettings(input: Record<string, unknown>): { data: AdminAccessSettings } | { error: string } {
   const raw = typeof input.panelPath === "string" ? input.panelPath.trim().toLowerCase() : "";

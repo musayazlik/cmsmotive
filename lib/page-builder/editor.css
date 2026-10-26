@@ -1,17 +1,227 @@
 @import "@puckeditor/core/no-external.css";
 
 /*
- * Prototype editor shell (plan 5.6, dev-only route /pb-edit). Puck's own chrome
- * stays untouched — Puck keeps its fonts, colors and layout. The rules below
- * style only the status line and the shared style-panel controls that the
- * blocks' custom field renders inside Puck's fields column.
+ * Editor shell styles (plan 5.6). Puck's own chrome stays untouched — Puck
+ * keeps its fonts, colors and layout. The rules below style the page-editor
+ * toolbar (save, publish, preview, revisions, conflict banner), the status
+ * line and the shared style-panel controls that the blocks' custom field
+ * renders inside Puck's fields column.
  */
 
-.prototype-editor {
+/* Toolbar above the canvas: the editor renders bare (no panel shell), so it
+ * carries its own way back and its publish/preview controls. */
+.pb-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e2e6e4;
+  font: 600 12px/1.4 "Manrope", "Segoe UI", sans-serif;
+}
+
+.pb-editor-toolbar-spacer {
+  flex: 1;
+}
+
+.pb-editor-address {
+  font: 700 12px/1 "DM Mono", monospace;
+  color: #39444a;
+  background: #f7f8f5;
+  border: 1px solid #e2e6e4;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.pb-editor-button {
+  border: 1px solid #dce1e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #101418;
+  font: inherit;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.pb-editor-button:hover {
+  border-color: #b9c2ff;
+  color: #3444c9;
+}
+
+.pb-editor-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pb-editor-button[data-variant="primary"] {
+  background: #4353e8;
+  border-color: #4353e8;
+  color: #fff;
+}
+
+.pb-editor-button[data-variant="primary"]:hover {
+  background: #3444c9;
+}
+
+.pb-editor-revisions {
   position: relative;
 }
 
-.prototype-editor-status {
+.pb-editor-seo {
+  position: absolute;
+  right: 12px;
+  top: 52px;
+  z-index: 60;
+  width: min(420px, calc(100vw - 24px));
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e2e6e4;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(16, 20, 24, 0.12);
+  display: grid;
+  gap: 10px;
+}
+
+.pb-editor-seo-row {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.pb-editor-seo-row input[type="text"],
+.pb-editor-seo-row textarea {
+  font: inherit;
+  padding: 7px 10px;
+  border: 1px solid #d6dbd9;
+  border-radius: 8px;
+  color: #10161a;
+}
+
+.pb-editor-seo-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pb-editor-seo-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pb-editor-seo-feedback {
+  font-size: 12px;
+  color: #16a34a;
+}
+
+
+.pb-editor-revisions summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.pb-editor-revisions summary::-webkit-details-marker {
+  display: none;
+}
+
+.pb-editor-revisions-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  width: 280px;
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e2e6e4;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 20, 24, 0.12);
+}
+
+.pb-editor-revisions-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font: 500 12px/1.4 "Manrope", sans-serif;
+  color: #39444a;
+}
+
+.pb-editor-revisions-list li:hover {
+  background: #f7f8f5;
+}
+
+.pb-editor-revisions-list .pb-editor-revision-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-editor-revisions-list .pb-editor-revision-date {
+  font: 400 11px/1.4 "DM Mono", monospace;
+  color: #758085;
+  flex: none;
+}
+
+/* Conflict banner: another tab saved this draft meanwhile. */
+.pb-editor-conflict {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  z-index: 30;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff2df;
+  border: 1px solid #f0c9a2;
+  color: #7a4a10;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font: 600 12px/1.4 "Manrope", sans-serif;
+  box-shadow: 0 12px 32px rgba(16, 20, 24, 0.12);
+}
+
+/* Publish result: blockers stop the publish, warnings are advisory. */
+.pb-editor-publish-result {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  z-index: 30;
+  transform: translateX(-50%);
+  max-width: min(560px, 90vw);
+  background: #fff;
+  border: 1px solid #e2e6e4;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font: 500 12px/1.5 "Manrope", sans-serif;
+  color: #39444a;
+  box-shadow: 0 12px 32px rgba(16, 20, 24, 0.12);
+}
+
+.pb-editor-publish-result[data-outcome="blocked"] {
+  border-color: #f3c5bf;
+  background: #fff5f4;
+  color: #b3372a;
+}
+
+.pb-editor-publish-result ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+
+.pb-editor {
+  position: relative;
+}
+
+.pb-editor-status {
   position: absolute;
   top: 8px;
   left: 50%;
@@ -28,18 +238,18 @@
   transition: opacity 0.15s ease;
 }
 
-.prototype-editor-status[data-state="saving"],
-.prototype-editor-status[data-state="saved"] {
+.pb-editor-status[data-state="saving"],
+.pb-editor-status[data-state="saved"] {
   opacity: 1;
 }
 
-.prototype-editor-status[data-state="error"] {
+.pb-editor-status[data-state="error"] {
   opacity: 1;
   color: #b3372a;
   border-color: #f3c5bf;
 }
 
-.prototype-editor-status .prototype-editor-error {
+.pb-editor-status .pb-editor-error {
   white-space: nowrap;
   max-width: 60vw;
   overflow: hidden;
@@ -49,7 +259,7 @@
 }
 
 /* The host page behind the editor canvas keeps its own plain background. */
-body:has(.prototype-editor) {
+body:has(.pb-editor) {
   background: #f4f5f3;
 }
 

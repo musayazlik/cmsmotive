@@ -4,23 +4,37 @@ import { Fragment, useMemo, useState } from "react";
 import { createUsePuck } from "@puckeditor/core";
 import { BREAKPOINT_WIDTHS, BREAKPOINTS, EDITOR_VIEWPORTS, type DeviceKey } from "./css";
 import {
+  BG_POSITION_CHOICES,
+  BG_REPEAT_CHOICES,
+  BG_SIZE_CHOICES,
+  BORDER_STYLES,
+  BORDER_WIDTH_BOUNDS,
   COLOR_TOKENS,
+  DIMENSION_BOUNDS,
+  DIMENSION_UNITS,
   FONT_FAMILIES,
   FONT_SIZE_BOUNDS,
   FONT_WEIGHT_STEPS,
   LENGTH_BOUNDS,
-  LINE_HEIGHT_BOUNDS,
-  SIZE_UNITS,
   LENGTH_UNITS,
+  LINE_HEIGHT_BOUNDS,
+  RADIUS_BOUNDS,
+  SIZE_UNITS,
   TRACKING_BOUNDS,
   TRACKING_UNITS,
+  type BackgroundValues,
   type BlockStyle,
+  type BorderStyleChoice,
+  type BorderValues,
   type ColorChoice,
   type CssLength,
+  type DimensionLength,
+  type DimensionUnit,
   type FontFamilyChoice,
   type LengthUnit,
   type LetterSpacing,
   type Responsive,
+  type SizeValues,
   type SpacingValues,
   type TextAlignChoice,
   type TrackingUnit,
@@ -189,6 +203,162 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
               isSet={isSet}
             />
           </>
+          );
+        }}
+      />
+
+      <StyleGroup
+        title="Background"
+        device={device}
+        group={value?.background}
+        onGroup={(next) => commit({ ...value, background: next })}
+        render={(api) => {
+          const { get, set, clear, isSet } = api;
+          return (
+            <>
+              <Row label="Color" isSet={isSet("color")} onClear={() => clear("color")}>
+                <ColorEditor
+                  a11yLabel="Background color"
+                  value={get("color")}
+                  onCommit={(next) => (next ? set({ color: next }) : clear("color"))}
+                />
+              </Row>
+              <Row label="Image URL" isSet={isSet("image")} onClear={() => clear("image")}>
+                <input
+                  type="text"
+                  className="pbstyle-input"
+                  aria-label="Background image URL"
+                  placeholder="https://... or /assets/..."
+                  value={get("image") ?? ""}
+                  onChange={(event) => {
+                    const next = event.currentTarget.value.trim();
+                    if (next) set({ image: next });
+                    else clear("image");
+                  }}
+                />
+              </Row>
+              <SelectRow
+                label="Size"
+                value={get("size")}
+                options={[["", "Default"], ...BG_SIZE_CHOICES.map((s) => [s, s] as const)]}
+                onSelect={(next) => (next ? set({ size: next as any }) : clear("size"))}
+                isSet={isSet("size")}
+                onClear={() => clear("size")}
+              />
+              <SelectRow
+                label="Position"
+                value={get("position")}
+                options={[["", "Default"], ...BG_POSITION_CHOICES.map((p) => [p, p] as const)]}
+                onSelect={(next) => (next ? set({ position: next as any }) : clear("position"))}
+                isSet={isSet("position")}
+                onClear={() => clear("position")}
+              />
+              <SelectRow
+                label="Repeat"
+                value={get("repeat")}
+                options={[["", "Default"], ...BG_REPEAT_CHOICES.map((r) => [r, r] as const)]}
+                onSelect={(next) => (next ? set({ repeat: next as any }) : clear("repeat"))}
+                isSet={isSet("repeat")}
+                onClear={() => clear("repeat")}
+              />
+            </>
+          );
+        }}
+      />
+
+      <StyleGroup
+        title="Border"
+        device={device}
+        group={value?.border}
+        onGroup={(next) => commit({ ...value, border: next })}
+        render={(api) => {
+          const { get, set, clear, isSet } = api;
+          return (
+            <>
+              <Row label="Width" isSet={isSet("width")} onClear={() => clear("width")}>
+                <LengthEditor
+                  a11yLabel="Border width"
+                  value={get("width")}
+                  units={[...LENGTH_UNITS]}
+                  bounds={BORDER_WIDTH_BOUNDS}
+                  onCommit={(next) => (next ? set({ width: next }) : clear("width"))}
+                />
+              </Row>
+              <SelectRow
+                label="Style"
+                value={get("style")}
+                options={[["", "None"], ...BORDER_STYLES.map((s) => [s, s] as const)]}
+                onSelect={(next) => (next ? set({ style: next as BorderStyleChoice }) : clear("style"))}
+                isSet={isSet("style")}
+                onClear={() => clear("style")}
+              />
+              <Row label="Color" isSet={isSet("color")} onClear={() => clear("color")}>
+                <ColorEditor
+                  a11yLabel="Border color"
+                  value={get("color")}
+                  onCommit={(next) => (next ? set({ color: next }) : clear("color"))}
+                />
+              </Row>
+              <Row label="Radius" isSet={isSet("radius")} onClear={() => clear("radius")}>
+                <LengthEditor
+                  a11yLabel="Border radius"
+                  value={get("radius")}
+                  units={[...LENGTH_UNITS]}
+                  bounds={RADIUS_BOUNDS}
+                  onCommit={(next) => (next ? set({ radius: next }) : clear("radius"))}
+                />
+              </Row>
+            </>
+          );
+        }}
+      />
+
+      <StyleGroup
+        title="Size"
+        device={device}
+        group={value?.size}
+        onGroup={(next) => commit({ ...value, size: next })}
+        render={(api) => {
+          const { get, set, clear, isSet } = api;
+          return (
+            <>
+              <Row label="Width" isSet={isSet("width")} onClear={() => clear("width")}>
+                <LengthEditor
+                  a11yLabel="Width"
+                  value={get("width")}
+                  units={[...DIMENSION_UNITS]}
+                  bounds={DIMENSION_BOUNDS}
+                  onCommit={(next) => (next ? set({ width: next as DimensionLength }) : clear("width"))}
+                />
+              </Row>
+              <Row label="Max width" isSet={isSet("maxWidth")} onClear={() => clear("maxWidth")}>
+                <LengthEditor
+                  a11yLabel="Max width"
+                  value={get("maxWidth")}
+                  units={[...DIMENSION_UNITS]}
+                  bounds={DIMENSION_BOUNDS}
+                  onCommit={(next) => (next ? set({ maxWidth: next as DimensionLength }) : clear("maxWidth"))}
+                />
+              </Row>
+              <Row label="Min height" isSet={isSet("minHeight")} onClear={() => clear("minHeight")}>
+                <LengthEditor
+                  a11yLabel="Min height"
+                  value={get("minHeight")}
+                  units={[...DIMENSION_UNITS]}
+                  bounds={DIMENSION_BOUNDS}
+                  onCommit={(next) => (next ? set({ minHeight: next as DimensionLength }) : clear("minHeight"))}
+                />
+              </Row>
+              <Row label="Height" isSet={isSet("height")} onClear={() => clear("height")}>
+                <LengthEditor
+                  a11yLabel="Height"
+                  value={get("height")}
+                  units={[...DIMENSION_UNITS]}
+                  bounds={DIMENSION_BOUNDS}
+                  onCommit={(next) => (next ? set({ height: next as DimensionLength }) : clear("height"))}
+                />
+              </Row>
+            </>
           );
         }}
       />
@@ -448,7 +618,7 @@ function UnitPicker({
   );
 }
 
-function LengthEditor({
+function LengthEditor<U extends string = LengthUnit>({
   a11yLabel,
   value,
   units,
@@ -456,12 +626,12 @@ function LengthEditor({
   onCommit,
 }: {
   a11yLabel: string;
-  value: LengthEditorValue | undefined;
-  units: readonly LengthUnit[];
+  value: { value: number; unit: U } | undefined;
+  units: readonly U[];
   bounds: { min: number; max: number };
-  onCommit: (value: LengthEditorValue | undefined) => void;
+  onCommit: (value: { value: number; unit: U } | undefined) => void;
 }) {
-  const [lastUnit, setLastUnit] = useState<LengthUnit>(value?.unit ?? "px");
+  const [lastUnit, setLastUnit] = useState<U>(value?.unit ?? units[0]);
   const unit = value?.unit ?? lastUnit;
   return (
     <span className="pbstyle-unit-wrap">
@@ -478,8 +648,8 @@ function LengthEditor({
         units={units}
         value={unit}
         onPick={(next) => {
-          setLastUnit(next as LengthUnit);
-          if (value) onCommit({ ...value, unit: next as LengthUnit });
+          setLastUnit(next as U);
+          if (value) onCommit({ ...value, unit: next as U });
         }}
       />
     </span>

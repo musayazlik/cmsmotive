@@ -195,14 +195,21 @@ test("the public route imports no editor or client module", () => {
     );
 
   const seen = new Set<string>();
-  const queue = [path.join(root, "app/pb/page.tsx")];
+  const queue = [path.join(root, "app/[locale]/(pages)/[[...slug]]/page.tsx")];
   const packages = new Map<string, string>();
   while (queue.length) {
     const file = queue.pop()!;
     if (seen.has(file)) continue;
     seen.add(file);
     const source = readFileSync(file, "utf8");
-    assert.doesNotMatch(source.trimStart(), /^["']use client["']/, `${path.relative(root, file)} is a client module`);
+    // Builder modules must stay server-side; the site chrome's own client
+    // islands (language switcher etc.) already ship on every public page and
+    // carry no editor code. `interactive/` is the allowed island directory.
+    const inBuilder = file.includes(path.join("page-builder"));
+    const isInteractiveIsland = file.includes(path.join("page-builder", "interactive"));
+    if (inBuilder && !isInteractiveIsland) {
+      assert.doesNotMatch(source.trimStart(), /^["']use client["']/, `${path.relative(root, file)} is a client module`);
+    }
     for (const { names, specifier } of valueImports(source)) {
       const local = resolve(file, specifier);
       if (local) queue.push(local);

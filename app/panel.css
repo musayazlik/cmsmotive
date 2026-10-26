@@ -412,6 +412,11 @@
 .wdot{display:inline-block;flex:none;width:9px;height:9px;border-radius:50%}
 .wclamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted)}
 .wbadge+.wbadge{margin-left:5px}
+.workspace-chip-row{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.workspace-locale-chip{display:inline-flex;align-items:center;gap:4px}
+.workspace-locale-copy{max-width:150px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;font:500 11px/1.4 inherit;color:#3d4a52}
+.workspace-locale-link{color:inherit;font-weight:700;text-decoration:none}
+.workspace-locale-link:hover{text-decoration:underline}
 
 /* media library */
 .wmedia-thumb{width:48px;height:48px;border-radius:9px;font-size:15px}

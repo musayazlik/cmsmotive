@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slug";
+import { sanitizeRichText } from "@/lib/page-builder/sanitize";
 import {
   estimateReadingTime,
   isPostStatus,
@@ -127,16 +128,17 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
     const finalSlug = await uniqueSlug(storeId, "post", slug, input.id);
     // Nested deleteMany is only valid on update — a fresh create has
     // nothing to replace, so the tag writes are shaped per branch.
+    const sanitizedContent = sanitizeRichText(input.content);
     const data = {
       title,
       slug: finalSlug,
       excerpt,
-      content: input.content,
+      content: sanitizedContent,
       coverId: coverId ?? null,
       status: input.status,
       scheduledAt,
       featured: input.featured,
-      readingTime: estimateReadingTime(input.content),
+      readingTime: estimateReadingTime(sanitizedContent),
       categoryId: categoryId ?? null,
     };
     const tagLinks = tagIds.map((tagId) => ({ tagId }));

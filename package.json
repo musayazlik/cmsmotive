@@ -39,7 +39,7 @@
     "test:blog-comments:db": "tsx --test tests/blog-comments.integration.test.ts",
     "test:comment-ai": "tsx --test tests/comment-ai.test.ts",
     "test:comment-ai:db": "tsx --test tests/comment-ai.integration.test.ts",
-    "test:page-builder": "tsx --test tests/page-builder-style.test.ts tests/page-builder-document.test.ts",
+    "test:page-builder": "tsx --test tests/page-builder-style.test.ts tests/page-builder-document.test.ts tests/page-builder-proxy.test.ts tests/page-builder-blocks.test.ts",
     "i18n:check": "tsx scripts/i18n-legacy.ts",
     "creem:webhook": "node scripts/creem-webhook.mjs"
   },

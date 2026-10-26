@@ -62,6 +62,21 @@ export const backupSchema = z.strictObject({
     subscribers: rows(z.strictObject({ id, ...owned, email: text, firstName: text, lastName: text, source: text, locale: text.default("en"), consentVersion: text.nullable().default(null), confirmedAt: date.nullable().default(null), unsubscribedAt: date.nullable().default(null), confirmationTokenHash: text.nullable().default(null), confirmationExpiresAt: date.nullable().default(null), confirmationSentAt: date.nullable().default(null), unsubscribeTokenHash: text.nullable().default(null), ...timestamps })),
     pageViews: rows(z.strictObject({ id, ...owned, date, slug: text, views: integer, updatedAt: date })),
     settings: rows(z.strictObject({ key: id, value: text, updatedAt: date })),
+    pages: rows(z.strictObject({
+      id, ...owned, slug: text, kind: text, ...timestamps,
+    })),
+    pageLocales: rows(z.strictObject({
+      id, pageId: id, locale: text, title: text, seoTitle: text.nullable(), seoDescription: text.nullable(),
+      ogImageId: id.nullable(), noindex: z.boolean(), status: text,
+      draft: z.json(), published: z.json().nullable(), publishedCss: text.nullable(),
+      usedFonts: z.array(text), schemaVersion: integer, version: integer,
+      publishedAt: date.nullable(), publishAt: date.nullable(), updatedById: id.nullable(),
+    })),
+    pageRevisions: rows(z.strictObject({
+      id, pageLocaleId: id, data: z.json(), authorId: id.nullable(), note: text.nullable(), createdAt: date,
+    })),
+    pageRedirects: rows(z.strictObject({ id, ...owned, fromSlug: text, pageId: id, createdAt: date })),
+    pageSnippets: rows(z.strictObject({ id, ...owned, name: text, kind: text, category: text.nullable(), data: z.json(), createdAt: date })),
   }),
 });
 
@@ -109,7 +124,7 @@ export function parseBackup(input: unknown): Backup {
     }
   }
   // Slugs, media keys, subscribers and counters are unique within their store.
-  for (const name of ["products", "posts", "categories", "tags"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
+  for (const name of ["products", "posts", "categories", "tags", "pages"] as const) unique<{ storeId: string; slug: string }>(d[name], (row) => `${row.storeId}:${row.slug}`, `${name} slug`);
   unique(d.productTypes, (row) => row.key, "product type key");
   unique(d.media, (row) => `${row.storeId}:${row.key}`, "media key");
   unique(d.settings, (row) => row.key, "setting key");
@@ -123,17 +138,30 @@ export function parseBackup(input: unknown): Backup {
   unique(d.postTags, (row) => JSON.stringify([row.postId, row.tagId]), "post tag link");
   unique(d.productGallery, (row) => JSON.stringify([row.productId, row.assetId]), "product gallery link");
   unique(d.pageViews, (row) => JSON.stringify([row.storeId, row.date.toISOString().slice(0, 10), row.slug]), "page view date and slug");
+  unique(d.pageLocales, (row) => JSON.stringify([row.pageId, row.locale]), "page locale");
+  unique(d.pageRedirects, (row) => JSON.stringify([row.storeId, row.fromSlug]), "page redirect slug");
 
   const ids = (records: { id: string }[]) => new Set(records.map((row) => row.id));
   const productTypes = ids(d.productTypes), products = ids(d.products), media = ids(d.media);
   const posts = ids(d.posts), categories = ids(d.categories), tags = ids(d.tags);
+  const pages = ids(d.pages), pageLocales = ids(d.pageLocales);
   const reference = (set: Set<string>, value: string | null, label: string) => {
     if (value !== null && !set.has(value)) fail(`Missing ${label} reference in backup.`);
   };
   const stores = ids(d.stores);
-  for (const name of ["products", "media", "posts", "categories", "tags", "reviews", "inquiries", "subscribers", "pageViews", "storeDomains", "storeSettings"] as const) {
+  for (const name of ["products", "media", "posts", "categories", "tags", "reviews", "inquiries", "subscribers", "pageViews", "storeDomains", "storeSettings", "pages", "pageRedirects", "pageSnippets"] as const) {
     for (const row of d[name] as { storeId: string }[]) reference(stores, row.storeId, "store");
   }
+  for (const page of d.pageLocales) {
+    reference(pages, page.pageId, "page");
+    reference(media, page.ogImageId, "page OG image");
+    reference(identities, page.updatedById, "page editor");
+  }
+  for (const row of d.pageRevisions) {
+    reference(pageLocales, row.pageLocaleId, "page revision language");
+    reference(identities, row.authorId, "page revision author");
+  }
+  for (const row of d.pageRedirects) reference(pages, row.pageId, "page redirect target");
   for (const product of d.products) {
     reference(productTypes, product.typeId, "product type");
     reference(media, product.coverId, "cover image");

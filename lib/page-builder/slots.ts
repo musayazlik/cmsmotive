@@ -10,8 +10,17 @@
 export const SLOT_FIELDS = {
   ContainerBlock: ["children"],
   GridBlock: ["col1", "col2", "col3", "col4"],
+  SectionBlock: ["children"],
+  StackBlock: ["children"],
+  SpacerBlock: [],
+  DividerBlock: [],
   HeadingBlock: [],
   TextBlock: [],
+  ButtonBlock: [],
+  ImageBlock: [],
+  VideoBlock: [],
+  IconBlock: [],
+  ListBlock: [],
 } as const satisfies Record<string, readonly string[]>;
 
 export type PageBuilderBlockType = keyof typeof SLOT_FIELDS;

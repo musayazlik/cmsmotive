@@ -1,5 +1,19 @@
 import { StyleField } from "./style/fields";
-import { containerBaseFields, gridBaseFields, headingBaseFields, textBaseFields } from "./fields.server";
+import {
+  buttonBaseFields,
+  containerBaseFields,
+  dividerBaseFields,
+  gridBaseFields,
+  headingBaseFields,
+  iconBaseFields,
+  imageBaseFields,
+  listBaseFields,
+  sectionBaseFields,
+  spacerBaseFields,
+  stackBaseFields,
+  textBaseFields,
+  videoBaseFields,
+} from "./fields.server";
 import type { BlockStyle } from "./style/types";
 
 /**
@@ -27,6 +41,24 @@ export const containerFields = { ...containerBaseFields, style: styleField } as 
 
 export const gridFields = { ...gridBaseFields, style: styleField } as const;
 
+export const sectionFields = { ...sectionBaseFields, style: styleField } as const;
+
+export const stackFields = { ...stackBaseFields, style: styleField } as const;
+
+export const spacerFields = { ...spacerBaseFields, style: styleField } as const;
+
+export const dividerFields = { ...dividerBaseFields, style: styleField } as const;
+
 export const headingFields = { ...headingBaseFields, style: styleField } as const;
 
 export const textFields = { ...textBaseFields, style: styleField } as const;
+
+export const buttonFields = { ...buttonBaseFields, style: styleField } as const;
+
+export const imageFields = { ...imageBaseFields, style: styleField } as const;
+
+export const videoFields = { ...videoBaseFields, style: styleField } as const;
+
+export const iconFields = { ...iconBaseFields, style: styleField } as const;
+
+export const listFields = { ...listBaseFields, style: styleField } as const;

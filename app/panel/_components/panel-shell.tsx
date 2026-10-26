@@ -53,6 +53,7 @@ const PANEL_NAV: NavItem[] = [
     icon: "blog",
     label: "Content",
     children: [
+      { href: "/panel/pages", label: "Pages" },
       { href: "/panel/blog", label: "Posts" },
       { href: "/panel/blog/categories", label: "Categories" },
       { href: "/panel/blog/tags", label: "Tags" },
@@ -109,6 +110,9 @@ export default function PanelShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  // Bare mode (plan 5.6): the fullscreen editor page fills the window, the
+  // shell stays behind — but the route remains under /panel and its guard.
+  const bare = /\/pages\/[^/]+\/edit$/.test(pathname);
   const firstName = user.name.trim().split(/\s+/)[0] || "there";
   const section = sectionFor(pathname);
   const crumb =
@@ -159,6 +163,8 @@ export default function PanelShell({
     });
     return () => cancelAnimationFrame(frame);
   }, [pathname]);
+
+  if (bare) return <>{children}</>;
 
   return (
     <div

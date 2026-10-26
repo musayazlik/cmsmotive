@@ -1,0 +1,435 @@
+@import "@puckeditor/core/no-external.css";
+
+/*
+ * Prototype editor shell (plan 5.6, dev-only route /pb-edit). Puck's own chrome
+ * stays untouched — Puck keeps its fonts, colors and layout. The rules below
+ * style only the status line and the shared style-panel controls that the
+ * blocks' custom field renders inside Puck's fields column.
+ */
+
+.prototype-editor {
+  position: relative;
+}
+
+.prototype-editor-status {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 20;
+  transform: translateX(-50%);
+  font: 600 12px/1.4 "DM Mono", monospace;
+  color: var(--pbstatus, #4353e8);
+  background: #fff;
+  border: 1px solid #d8dcff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.prototype-editor-status[data-state="saving"],
+.prototype-editor-status[data-state="saved"] {
+  opacity: 1;
+}
+
+.prototype-editor-status[data-state="error"] {
+  opacity: 1;
+  color: #b3372a;
+  border-color: #f3c5bf;
+}
+
+.prototype-editor-status .prototype-editor-error {
+  white-space: nowrap;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: bottom;
+}
+
+/* The host page behind the editor canvas keeps its own plain background. */
+body:has(.prototype-editor) {
+  background: #f4f5f3;
+}
+
+/* --------------------------------------------------------------------------
+ * Style custom field ("pbstyle-*") — rendered inside Puck's fields column on
+ * the host document, so its styles live here, not in the iframe.
+ * Language: repo panel UI (indigo accent, DM Mono labels, hairline borders).
+ * ------------------------------------------------------------------------ */
+
+.pbstyle {
+  display: grid;
+  gap: 10px;
+  font: 400 12px/1.45 "Manrope", "Segoe UI", sans-serif;
+  color: #39444a;
+}
+
+.pbstyle button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pbstyle button:focus-visible,
+.pbstyle select:focus-visible,
+.pbstyle input:focus-visible {
+  outline: 2px solid #4353e8;
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* Device tabs -------------------------------------------------------------- */
+
+.pbstyle-devices {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #dce1e0;
+  border-radius: 8px;
+  background: #f7f8f5;
+}
+
+.pbstyle-device {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 5px 6px;
+  font-weight: 600;
+  font-size: 11px;
+  color: #55616a;
+}
+
+.pbstyle-device:hover {
+  color: #101418;
+  background: #fff;
+}
+
+.pbstyle-device.is-active {
+  background: #4353e8;
+  color: #fff;
+}
+
+.pbstyle-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #758085;
+}
+
+/* Groups ------------------------------------------------------------------- */
+
+.pbstyle-group {
+  border: 1px solid #e2e6e4;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.pbstyle-group summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  font-size: 12px;
+  color: #101418;
+}
+
+.pbstyle-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.pbstyle-group summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid #929d9f;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform 0.12s ease;
+}
+
+.pbstyle-group[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.pbstyle-group-body {
+  display: grid;
+  gap: 2px;
+  padding: 4px 10px 10px;
+  border-top: 1px solid #eef1ee;
+}
+
+.pbstyle-group-body:empty {
+  display: none;
+}
+
+.pbstyle-group-device {
+  margin-left: auto;
+  font: 700 10px/1 "DM Mono", monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4353e8;
+  background: #eaedff;
+  border-radius: 999px;
+  padding: 3px 7px;
+}
+
+.pbstyle-group-count {
+  font: 700 10px/1 "DM Mono", monospace;
+  color: #22300a;
+  background: #c6f36a;
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+
+/* Rows --------------------------------------------------------------------- */
+
+.pbstyle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  min-height: 26px;
+}
+
+.pbstyle-row-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: #55616a;
+}
+
+.pbstyle-row[data-set="false"] .pbstyle-row-label {
+  font-weight: 500;
+  color: #758085;
+}
+
+.pbstyle-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pbstyle-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #929d9f;
+}
+
+.pbstyle-clear:hover {
+  color: #b3372a;
+  background: #fff2df;
+}
+
+/* Inputs ------------------------------------------------------------------- */
+
+.pbstyle-input,
+.pbstyle-select,
+.pbstyle-unit {
+  border: 1px solid #dce1e0;
+  border-radius: 5px;
+  background: #fff;
+  color: #101418;
+  font: 600 12px/1.2 "Manrope", sans-serif;
+  padding: 4px 6px;
+  min-width: 0;
+}
+
+.pbstyle-input {
+  width: 52px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.pbstyle-input::-webkit-outer-spin-button,
+.pbstyle-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pbstyle-select {
+  max-width: 118px;
+  min-width: 76px;
+}
+
+.pbstyle-unit {
+  width: 46px;
+  font-size: 11px;
+  font-family: "DM Mono", monospace;
+  padding: 4px 2px;
+  border-left: 0;
+  border-radius: 0 5px 5px 0;
+}
+
+.pbstyle-unit-wrap {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.pbstyle-unit-wrap .pbstyle-input {
+  border-radius: 5px 0 0 5px;
+}
+
+/* Linked-edge toggle ------------------------------------------------------- */
+
+.pbstyle-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 22px;
+  border: 1px solid #dce1e0;
+  border-radius: 5px;
+  background: #fff;
+  color: #758085;
+}
+
+.pbstyle-link.is-active {
+  color: #4353e8;
+  border-color: #d8dcff;
+  background: #eaedff;
+}
+
+/* Unlinked edges grid ------------------------------------------------------ */
+
+.pbstyle-edges {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 4px 6px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.pbstyle-edges-title {
+  grid-row: 1;
+  font-weight: 600;
+  font-size: 11px;
+  color: #55616a;
+}
+
+.pbstyle-edges-grid {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 4px;
+  align-items: center;
+}
+
+.pbstyle-edge-label {
+  font: 700 10px/1 "DM Mono", monospace;
+  color: #929d9f;
+}
+
+/* Colors ------------------------------------------------------------------- */
+
+.pbstyle-color {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.pbstyle-color-swatch {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid #dce1e0;
+  overflow: hidden;
+  flex: none;
+}
+
+.pbstyle-color-swatch input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.pbstyle-swatch-preview {
+  display: none;
+}
+
+.pbstyle-color-hex {
+  width: 72px;
+}
+
+.pbstyle-tokens {
+  display: flex;
+  gap: 3px;
+}
+
+.pbstyle-token {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(16, 20, 24, 0.18);
+  padding: 0;
+  font-size: 0;
+  flex: none;
+}
+
+.pbstyle-token[aria-pressed="true"] {
+  outline: 2px solid #4353e8;
+  outline-offset: 1px;
+}
+
+/* Token swatches mirror public/assets/css/site.css variables. */
+.pbstyle-token[data-token="indigo"] { background: #4353e8; }
+.pbstyle-token[data-token="ink"] { background: #101418; }
+.pbstyle-token[data-token="ink-muted"] { background: #55616a; }
+.pbstyle-token[data-token="muted"] { background: #5e666d; }
+.pbstyle-token[data-token="canvas"] { background: #f7f8f5; }
+.pbstyle-token[data-token="surface"] { background: #fff; }
+.pbstyle-token[data-token="lime"] { background: #c6f36a; }
+.pbstyle-token[data-token="dark"] { background: #12171b; }
+.pbstyle-token[data-token="success"] { background: #365a11; }
+.pbstyle-token[data-token="warn"] { background: #995200; }
+
+/* Alignment ---------------------------------------------------------------- */
+
+.pbstyle-align {
+  display: flex;
+  gap: 2px;
+}
+
+.pbstyle-align-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #758085;
+}
+
+.pbstyle-align-btn:hover {
+  color: #101418;
+  background: #f0f2ee;
+}
+
+.pbstyle-align-btn.is-active {
+  color: #3444c9;
+  background: #eaedff;
+  border-color: #d8dcff;
+}
+

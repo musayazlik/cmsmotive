@@ -1,0 +1,72 @@
+/*
+ * Page-builder block visuals (static layer).
+ *
+ * Loaded by the public render page and by the editor iframe (via /pb-edit),
+ * always after site.css/fonts.css so the site's design tokens and typography
+ * are in place. Layout deltas (dimensions, gaps, colors) are NOT hard-coded
+ * here: the compiler in lib/page-builder/style/css.ts emits them as scoped
+ * media-layered rules (`[data-pb="<id>"]`), which stay the top layer of the
+ * cascade (plan 5.4). These classes carry only shape behavior every variant
+ * shares, plus fallback stacking for grids when no scoped rule exists yet.
+ */
+
+/* --- Container --------------------------------------------------------- */
+
+.pb-container {
+  margin-inline: auto;
+  width: 100%;
+}
+
+/* Width comes from the variant rule (or a scoped override); never from here. */
+
+/* --- Grid -------------------------------------------------------------- */
+
+.pb-grid {
+  display: grid;
+  align-items: start;
+}
+
+/*
+ * `<Render>` wraps every slot in a bare div; an empty one serializes exactly
+ * as `<div></div>`, so dropping it keeps variant column counts honest and
+ * avoids stray grid rows. The editor's dropzones are never treated as empty
+ * here: Puck marks them with [data-puck-dropzone], an attribute that only
+ * exists in the editing tree (regression found in Faz 0 — without `:not`,
+ * empty slots had zero size in the editor and could not receive a drop).
+ */
+.pb-grid > :empty:not([data-puck-dropzone]) {
+  display: none;
+}
+
+/*
+ * Fallback stacking at the site's own breakpoints (site.css: 900px / 620px).
+ * Tablet folds 4 columns to 2; mobile stacks every variant to one column.
+ * Scoped element styles (media queries) may override.
+ */
+@media (max-width: 900px) {
+  [data-pb][data-pb].pb-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  [data-pb][data-pb].pb-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Content blocks ---------------------------------------------------- */
+
+.pb-heading,
+.pb-text {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.pb-text > :first-child {
+  margin-top: 0;
+}
+
+.pb-text > :last-child {
+  margin-bottom: 0;
+}

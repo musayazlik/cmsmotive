@@ -5,9 +5,25 @@ import { rewriteLegacyHtml } from "./legacy-document";
 
 const sourceRoot = path.join(process.cwd(), "static-site");
 
+/**
+ * The reveal animation (`.js [data-reveal]`) must hold elements hidden from the
+ * first paint. site.js adds `js` to <html> only after parsing (deferred), so
+ * without this hero and other reveal blocks flash visible, then hide and fade
+ * in — the split-second rewrite below puts the class in the head immediately.
+ */
+const REVEAL_GATE = "<script>document.documentElement.classList.add('js')</script>";
+
+function withRevealGate(html: string): string {
+  return html.replace(
+    // `(\s[^>]*)?` stops the tag at whitespace, so <header> never matches.
+    /(<head(?:\s[^>]*)?>)/i,
+    (_match, head: string) => `${head}${REVEAL_GATE}`,
+  );
+}
+
 export async function readLegacyPage(sourcePath: string) {
   const html = await readFile(path.join(sourceRoot, sourcePath), "utf8");
-  return withFontPreloads(rewriteLegacyHtml(html, sourcePath));
+  return withRevealGate(withFontPreloads(rewriteLegacyHtml(html, sourcePath)));
 }
 
 export function htmlResponse(html: string) {

@@ -31,6 +31,7 @@ Known panel navigation:
 Overview: /panel
 Products: /panel/products; product types: /panel/products/types; changelog: /panel/changelog; customer reviews: /panel/reviews.
 Sales: orders /panel/sales/orders, subscriptions /panel/sales/subscriptions, customers /panel/sales/customers, invoices /panel/sales/invoices.
+Support requests from customers: /panel/support (reply, close, reopen).
 Content: blog posts /panel/blog, categories /panel/blog/categories, tags /panel/blog/tags, comments /panel/blog/comments, media /panel/media.
 Inbox: /panel/inbox. Workspace users: /panel/users. Your account: /panel/account. Export / Import: /panel/backup.
 Settings: /panel/settings. AI text and image defaults are set in Settings → AI. Blog writing has a Generate with AI dialog. The store switcher selects which store the panel edits.

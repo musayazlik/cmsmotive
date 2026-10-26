@@ -258,7 +258,13 @@ export async function syncSubscription(event: EventRef, subscriptionId: string):
   const attempt = local ? null : await findAttempt(s.metadata);
   if (!local && !attempt) return ignored;
   if (attempt && (attempt.creemProductId !== objectId(s.product) || attempt.mode !== s.mode)) return rejected(400, "Product mismatch");
-  const price = local?.price ?? attempt!.price;
+  // A plan change (upgrade) moves the subscription to another Creem product of the same product.
+  const current = local
+    ? await prisma.price.findFirst({
+        where: { productId: local.productId, ...(s.mode === "prod" ? { creemLiveProductId: objectId(s.product) } : { creemTestProductId: objectId(s.product) }) },
+      })
+    : null;
+  const price = current ?? local?.price ?? attempt!.price;
   const storeId = local?.storeId ?? attempt!.storeId;
 
   const renewal = event.type === "subscription.paid";
@@ -279,9 +285,20 @@ export async function syncSubscription(event: EventRef, subscriptionId: string):
       await createNotifications(tx, [{
         storeId, userId: local.customer.userId, type, dedupeKey: `${type}:${row.id}:${row.currentPeriodEnd.getTime()}`,
         data: {
-          product: local.product.name, plan: local.price.name, date: row.currentPeriodEnd.toISOString(),
-          ...(type === "subscription.renewed" ? { amountCents: local.price.amountCents, currency: local.price.currency } : {}),
+          product: local.product.name, plan: price.name, date: row.currentPeriodEnd.toISOString(),
+          ...(type === "subscription.renewed" ? { amountCents: price.amountCents, currency: price.currency } : {}),
         },
+      }]);
+    }
+    if (local && row.priceId !== local.priceId) {
+      // Our own keys follow the plan's installations; Creem's keys are sized by Creem.
+      await tx.licenseKey.updateMany({ where: { entitlement: { subscriptionId: row.id }, creemLicenseId: null }, data: { activationLimit: price.seats } });
+    }
+    if (local && row.priceId !== local.priceId && local.customer.userId) {
+      await createNotifications(tx, [{
+        storeId, userId: local.customer.userId, type: "subscription.plan_changed",
+        dedupeKey: `subscription.plan_changed:${row.id}:${row.priceId}:${row.providerUpdatedAt.getTime()}`,
+        data: { product: local.product.name, plan: price.name },
       }]);
     }
     await upsertTransactions(tx, transactions, { storeId, customerId, subscriptionId: row.id });

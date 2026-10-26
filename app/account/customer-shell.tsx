@@ -12,6 +12,13 @@ import { useWorkspaceNavigation } from "@/app/panel/_components/use-workspace-na
 import { AccountIcon } from "./account-ui";
 import NotificationBell, { type BellItem } from "./notification-bell";
 
+/** Account pages that belong to a menu section other than their own path prefix. */
+const SECTION_OF: Record<string, string> = {
+  "/account/security": "/account/profile",
+  "/account/privacy": "/account/profile",
+  "/account/licenses": "/account/products",
+};
+
 export default function CustomerShell({
   user,
   locale: l,
@@ -69,12 +76,22 @@ export default function CustomerShell({
       label: copy(l, "Notifications", "Benachrichtigungen", "Bildirimler"),
     },
     {
+      href: "/account/support",
+      icon: "support",
+      label: copy(l, "Support", "Support", "Destek"),
+    },
+    {
       href: "/account/profile",
       icon: "profile",
       label: copy(l, "My account", "Mein Konto", "Hesabım"),
     },
   ] as const;
-  const current = links.find((link) => link.href === path);
+  // Pages below a section (a support request, plan change, security tab) keep their section highlighted.
+  const section =
+    links.find((link) => link.href === path)?.href ??
+    Object.entries(SECTION_OF).find(([prefix]) => path.startsWith(prefix))?.[1] ??
+    links.find((link) => link.href !== "/account" && path.startsWith(`${link.href}/`))?.href;
+  const current = links.find((link) => link.href === section);
   const accountLabel = copy(l, "My account", "Mein Konto", "Hesabım");
   const closeLabel = copy(
     l,
@@ -174,8 +191,8 @@ export default function CustomerShell({
               {links.map(({ href, label, icon }) => (
                 <Link
                   key={href}
-                  className={path === href ? "active" : undefined}
-                  aria-current={path === href ? "page" : undefined}
+                  className={section === href ? "active" : undefined}
+                  aria-current={path === href ? "page" : section === href ? "location" : undefined}
                   aria-label={label}
                   title={collapsed ? label : undefined}
                   href={`${href}?lang=${l}`}

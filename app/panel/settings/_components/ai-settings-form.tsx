@@ -36,6 +36,21 @@ const options = <T extends string>(values: readonly T[], labels: Record<T, strin
   values.map((value) => ({ value, label: labels[value] }));
 
 type Catalogue = { text: AiModelInfo[]; image: AiModelInfo[] };
+type KeyUsage = {
+  usage: number;
+  usage_daily: number;
+  usage_weekly: number;
+  usage_monthly: number;
+  limit_remaining: number | null;
+  limit: number | null;
+  free_model_daily_requests: { used: number; limit: number; remaining: number };
+};
+
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 });
+
+function credit(value: number | null) {
+  return value === null ? "Unlimited" : usd.format(value);
+}
 
 /** Model default with an "automatic" escape hatch, since the catalogue changes over time. */
 function ModelDefault({
@@ -82,6 +97,8 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
   const { values, set } = form;
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [catalogueError, setCatalogueError] = useState("");
+  const [usage, setUsage] = useState<KeyUsage | null>(null);
+  const [usageError, setUsageError] = useState("");
 
   // Perplexity models search by themselves; any other model researches through its native web search.
   const perplexity = (catalogue?.text ?? []).filter(
@@ -111,6 +128,28 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
         setCatalogue({ text: payload.text, image: payload.image });
       } catch {
         if (!cancelled) setCatalogueError("Could not reach the server.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [configured]);
+
+  useEffect(() => {
+    if (!configured) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/admin/ai/usage");
+        const payload = await response.json();
+        if (cancelled) return;
+        if (!response.ok) {
+          setUsageError(payload.error ?? "Usage data could not be loaded.");
+          return;
+        }
+        setUsage(payload);
+      } catch {
+        if (!cancelled) setUsageError("Could not reach the server.");
       }
     })();
     return () => {
@@ -160,6 +199,30 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
         <p className="wfield-hint-block" style={{ marginTop: 0 }}>
           Answers the floating assistant in the corner of every panel page. Picked separately from the blog&apos;s
           text model — short questions are usually best served by a fast, inexpensive model.
+        </p>
+      </div>
+
+      <div className="wsettings-section">
+        <p className="wsection-label">Credits &amp; usage</p>
+        {usage ? (
+          <EnvFacts
+            facts={[
+              { label: "Remaining", value: credit(usage.limit_remaining), ok: usage.limit_remaining === null || usage.limit_remaining > 0 },
+              { label: "Used all time", value: credit(usage.usage) },
+              { label: "Used today", value: credit(usage.usage_daily) },
+              { label: "Used this week", value: credit(usage.usage_weekly) },
+              { label: "Used this month", value: credit(usage.usage_monthly) },
+              { label: "Free requests today", value: `${usage.free_model_daily_requests.remaining.toLocaleString()} remaining of ${usage.free_model_daily_requests.limit.toLocaleString()}` },
+            ]}
+          />
+        ) : (
+          <p className="wfield-hint-block" role={usageError ? "alert" : undefined}>
+            {usageError || "Loading credit usage…"}
+          </p>
+        )}
+        <p className="wfield-hint-block" style={{ marginBottom: 0 }}>
+          OpenRouter exposes key counters here. It does not provide a list endpoint for historical model-by-model activity;
+          detailed records require a generation ID from an individual completion.
         </p>
       </div>
 

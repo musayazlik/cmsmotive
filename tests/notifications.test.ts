@@ -43,10 +43,11 @@ test("a release title carries the version when there is one", () => {
   assert.equal(renderNotification("release.published", { product: "Aurelia" }, "en").title, "Aurelia is available");
 });
 
-test("only a failed payment bypasses the email opt-out", () => {
+test("only failed payments and support replies bypass the email opt-out", () => {
   assert.equal(notificationCategory("subscription.payment_failed"), "critical");
+  assert.equal(notificationCategory("support.replied"), "critical");
   assert.equal(notificationCategory("release.published"), "releases");
-  for (const type of NOTIFICATION_TYPES.filter((type) => !["subscription.payment_failed", "release.published"].includes(type)))
+  for (const type of NOTIFICATION_TYPES.filter((type) => !["subscription.payment_failed", "support.replied", "release.published"].includes(type)))
     assert.equal(notificationCategory(type), "billing", type);
 });
 

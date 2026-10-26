@@ -186,6 +186,14 @@ export default function ProductTable({
                                 "Ömür boyu güncelleme",
                               )}
                       </small>
+                      {product.renewPriceId && (
+                        <a className="customer-renew-link" href={`/account/checkout?price=${encodeURIComponent(product.renewPriceId)}&lang=${l}`}>
+                          {product.subscriptionStatus
+                            ? copy(l, "Restart subscription", "Abonnement neu starten", "Aboneliği yeniden başlat")
+                            : copy(l, "Renew updates", "Updates verlängern", "Güncellemeleri yenile")}
+                          <AccountIcon name="arrow" />
+                        </a>
+                      )}
                     </td>
                     <td
                       data-label={copy(
@@ -360,6 +368,12 @@ export default function ProductTable({
                                             ? ` · ${format(license.expiresAt)}`
                                             : ""}
                                         </span>
+                                        {license.manageable && (
+                                          <a className="customer-renew-link" href={`/account/licenses/${license.id}?lang=${l}`}>
+                                            {copy(l, "Manage installations", "Installationen verwalten", "Kurulumları yönet")}
+                                            <AccountIcon name="arrow" />
+                                          </a>
+                                        )}
                                       </div>
                                     ))
                                   ) : (

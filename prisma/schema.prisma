@@ -11,37 +11,38 @@ datasource db {
 /// store owning its host (StoreDomain); stores come from the seed and the
 /// panel, never from code. See lib/stores.ts.
 model Store {
-  id            String                 @id @default(cuid())
+  id             String                 @id @default(cuid())
   /// Stable handle for seeds and panel URLs.
-  key           String                 @unique
-  name          String
+  key            String                 @unique
+  name           String
   /// Served at unprefixed URLs; the other locales carry a prefix.
-  defaultLocale String                 @default("en")
+  defaultLocale  String                 @default("en")
   /// Every published locale, including defaultLocale.
-  locales       String[]               @default(["en"])
+  locales        String[]               @default(["en"])
   /// Serves hosts no domain matches (localhost, the server IP). Keep exactly one.
-  isDefault     Boolean                @default(false)
-  domains       StoreDomain[]
-  settings      StoreSetting[]
-  products      Product[]
-  customers     Customer[]
-  orders        Order[]
-  subscriptions Subscription[]
-  entitlements  Entitlement[]
-  transactions  Transaction[]
-  posts         Post[]
-  categories    Category[]
-  tags          Tag[]
-  inquiries     ContactInquiry[]
-  reviews       ProductReview[]
-  media         MediaAsset[]
-  subscribers   NewsletterSubscriber[]
-  pageViews     PageViewDaily[]
-  activities    AssistantActivity[]
-  members       StoreMember[]
-  notifications Notification[]
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  isDefault      Boolean                @default(false)
+  domains        StoreDomain[]
+  settings       StoreSetting[]
+  products       Product[]
+  customers      Customer[]
+  orders         Order[]
+  subscriptions  Subscription[]
+  entitlements   Entitlement[]
+  transactions   Transaction[]
+  posts          Post[]
+  categories     Category[]
+  tags           Tag[]
+  inquiries      ContactInquiry[]
+  reviews        ProductReview[]
+  media          MediaAsset[]
+  subscribers    NewsletterSubscriber[]
+  pageViews      PageViewDaily[]
+  activities     AssistantActivity[]
+  members        StoreMember[]
+  notifications  Notification[]
+  supportTickets SupportTicket[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 }
 
 /// A shared account's access to one store.
@@ -105,17 +106,17 @@ model User {
   /// Additional levels (editor, reviewer) can be added without a schema change.
   role                   String                  @default("user")
   /// Short "about" text the customer edits in their account profile.
-  bio                     String?
+  bio                    String?
   /// Contact details and postal address maintained in the account profile.
-  phone                   String?
-  company                 String?
-  street                  String?
-  postalCode              String?
-  city                    String?
-  country                 String?
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
-  sessions                Session[]
+  phone                  String?
+  company                String?
+  street                 String?
+  postalCode             String?
+  city                   String?
+  country                String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  sessions               Session[]
   accounts               Account[]
   uploads                MediaAsset[]
   posts                  Post[]
@@ -123,6 +124,8 @@ model User {
   storeMemberships       StoreMember[]
   notifications          Notification[]
   notificationPreference NotificationPreference?
+  supportTickets         SupportTicket[]
+  supportMessages        SupportMessage[]
 
   @@map("user")
 }
@@ -483,6 +486,7 @@ model Product {
   releases         ProductRelease[]
   changelog        ChangelogEntry[]
   reviews          ProductReview[]
+  supportTickets   SupportTicket[]
   orders           Order[]
   subscriptions    Subscription[]
   entitlements     Entitlement[]
@@ -808,4 +812,40 @@ model NotificationPreference {
   emailReleases Boolean  @default(true)
   emailBilling  Boolean  @default(true)
   updatedAt     DateTime @updatedAt
+}
+
+/// A customer's support request in one store, optionally about a product they own. Status:
+/// open (waiting for the team), answered (waiting for the customer), closed.
+model SupportTicket {
+  id            String           @id @default(cuid())
+  storeId       String
+  store         Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  subject       String
+  status        String           @default("open")
+  lastMessageAt DateTime         @default(now())
+  messages      SupportMessage[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([storeId, status, lastMessageAt])
+  @@index([userId, storeId, lastMessageAt])
+}
+
+/// One message in a support thread, from the customer or from the store's team.
+model SupportMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  /// Who wrote it; null once that account is deleted.
+  authorId  String?
+  author    User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  fromStaff Boolean       @default(false)
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
 }

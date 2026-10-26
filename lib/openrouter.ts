@@ -28,6 +28,28 @@ export type OpenRouterModel = {
   tools: boolean;
 };
 
+export type OpenRouterKeyUsage = {
+  label: string;
+  limit: number | null;
+  limit_reset: string | null;
+  include_byok_in_limit: boolean;
+  usage: number;
+  usage_daily: number;
+  usage_weekly: number;
+  usage_monthly: number;
+  byok_usage: number;
+  byok_usage_daily: number;
+  byok_usage_weekly: number;
+  byok_usage_monthly: number;
+  limit_remaining: number | null;
+  is_free_tier: boolean;
+  free_model_daily_requests: {
+    used: number;
+    limit: number;
+    remaining: number;
+  };
+};
+
 function requireKey(): string {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured.");
@@ -99,6 +121,22 @@ export async function listTextAndImageModels(): Promise<{ text: OpenRouterModel[
 
   modelCache = { at: Date.now(), text, image };
   return modelCache;
+}
+
+/** Credit limit and usage counters for the configured API key. */
+export async function getOpenRouterKeyUsage(): Promise<OpenRouterKeyUsage> {
+  const response = await fetch(`${OPENROUTER_BASE}/key`, {
+    headers: headers(requireKey()),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new OpenRouterStatusError(response.status, detail.slice(0, 300));
+  }
+
+  const payload = (await response.json()) as { data?: OpenRouterKeyUsage };
+  if (!payload.data) throw new Error("OpenRouter returned no key usage data.");
+  return payload.data;
 }
 
 /** A web-search source the model actually grounded on (deduplicated by URL). */

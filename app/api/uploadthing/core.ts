@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getStoreRole, isStoreAdmin } from "@/lib/store-access";
 import { z } from "zod";
 import { announceRelease } from "@/lib/notifications";
+import { avatarFileKey } from "@/lib/avatar-file";
 import { readCompliance } from "@/lib/product-compliance";
 import { panelStoreFromRequest } from "@/lib/panel-store";
 import { getUploadSettings } from "@/lib/settings";
@@ -51,21 +52,6 @@ async function trackUpload({ userId, storeId }: { userId: string; storeId: strin
     select: { id: true },
   });
   return { assetId: asset.id, url: file.ufsUrl };
-}
-
-/**
- * UploadThing file key behind an avatar URL (`https://<host>/f/<key>`); Google
- * profile URLs and anything else returns null so only our own uploads are deleted.
- */
-function avatarFileKey(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" || !parsed.pathname.startsWith("/f/")) return null;
-    const key = decodeURIComponent(parsed.pathname.slice(3));
-    return /^[A-Za-z0-9._/-]+$/.test(key) && key.length <= 512 ? key : null;
-  } catch {
-    return null;
-  }
 }
 
 export const uploadRouter = {

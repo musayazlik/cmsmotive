@@ -1,8 +1,7 @@
 import { requireCustomer } from "@/lib/customer-auth";
 import { copy } from "@/lib/legal-copy";
 import { getRequestLocale } from "@/lib/i18n/request";
-import AccountForm from "@/app/panel/account/_components/account-form";
-import { AccountHeading, AccountIcon } from "../account-ui";
+import { AccountHeading, AccountIcon, AccountTabs } from "../account-ui";
 import AddressForm from "./_components/address-form";
 import AvatarEditor from "./_components/avatar-editor";
 import ProfileDetailsForm from "./_components/profile-details-form";
@@ -20,6 +19,7 @@ export default async function ProfilePage() {
           "Profil fotoğrafınız, bilgileriniz, adresiniz ve hesap güvenliğiniz bir arada.",
         )}
       />
+      <AccountTabs current="profile" locale={l} />
       <div className="customer-columns">
         <div className="customer-stack">
           <section className="customer-card" aria-labelledby="identity-title">
@@ -122,22 +122,6 @@ export default async function ProfilePage() {
               />
             </div>
           </section>
-          <section className="customer-card" aria-labelledby="security-title">
-            <header className="customer-card-head">
-              <h2 id="security-title">
-                {copy(
-                  l,
-                  "Change password",
-                  "Passwort ändern",
-                  "Şifre değiştir",
-                )}
-              </h2>
-              <AccountIcon name="shield" className="customer-heading-icon" />
-            </header>
-            <div className="customer-profile-form">
-              <AccountForm locale={l} />
-            </div>
-          </section>
         </div>
         <aside className="customer-card customer-aside">
           <AccountIcon name="shield" />
@@ -152,14 +136,14 @@ export default async function ProfilePage() {
           <p>
             {copy(
               l,
-              "For personal-data access, correction, export or account deletion, contact us by email.",
-              "Für Auskunft, Berichtigung, Datenexport oder Kontolöschung kontaktieren Sie uns per E-Mail.",
-              "Kişisel verilerinize erişim, düzeltme, dışa aktarım veya hesap silme talepleriniz için e-postayla iletişime geçin.",
+              "Download a copy of your data or delete your account under Data & privacy. Password, email address and devices are under Sign-in & security.",
+              "Unter „Daten & Datenschutz“ laden Sie eine Kopie Ihrer Daten herunter oder löschen Ihr Konto. Passwort, E-Mail-Adresse und Geräte finden Sie unter „Anmeldung & Sicherheit“.",
+              "Verilerinizin bir kopyasını indirmek veya hesabınızı silmek için “Veri ve gizlilik”, şifre, e-posta ve cihazlar için “Giriş ve güvenlik” bölümünü kullanın.",
             )}
           </p>
-          <a className="customer-text-link" href="mailto:info@cmsmotive.de">
-            info@cmsmotive.de
-            <AccountIcon name="external" />
+          <a className="customer-text-link" href={`/account/privacy?lang=${l}`}>
+            {copy(l, "Data & privacy", "Daten & Datenschutz", "Veri ve gizlilik")}
+            <AccountIcon name="arrow" />
           </a>
         </aside>
       </div>

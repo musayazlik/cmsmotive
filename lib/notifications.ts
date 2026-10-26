@@ -32,6 +32,8 @@ export type NewNotification = {
   type: NotificationType;
   data: NotificationData;
   dedupeKey: string;
+  /** Overrides the type's default account path, e.g. one support request. */
+  href?: string;
 };
 
 const DAY = 86_400_000;
@@ -54,7 +56,7 @@ export async function createNotifications(db: Db, items: NewNotification[]): Pro
       userId: item.userId,
       type: item.type,
       data: item.data as Prisma.InputJsonObject,
-      href: notificationHref(item.type),
+      href: item.href ?? notificationHref(item.type),
       dedupeKey: item.dedupeKey,
     })),
     skipDuplicates: true,
@@ -187,7 +189,9 @@ export async function queueReminders(now = new Date()): Promise<number> {
 /* ------------------------------------------------------------------ email */
 
 const actionLabel = (type: NotificationType, l: Locale) =>
-  notificationHref(type) === "/account/downloads"
+  type === "support.replied"
+    ? copy(l, "Read the reply", "Antwort lesen", "Yanıtı oku")
+    : notificationHref(type) === "/account/downloads"
     ? copy(l, "Go to my files", "Zu meinen Dateien", "Dosyalarıma git")
     : notificationHref(type) === "/account/products"
       ? copy(l, "View my products", "Meine Produkte ansehen", "Ürünlerimi gör")

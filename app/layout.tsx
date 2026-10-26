@@ -25,15 +25,19 @@ export async function generateMetadata(): Promise<Metadata> {
  * and public pages ship their own site.css, so the workspace stylesheet
  * never leaks into public routes. Public pages get their language from
  * proxy.ts; the account area stays English.
+ *
+ * No explicit <head> element: the preload <link>s are rendered bare and
+ * React hoists them into the head — so scripts or extensions that stamp
+ * attributes onto <head> can no longer cause hydration mismatch noise.
+ * (generate-metadata docs: plain <link> tags render fine; only
+ * `<head>` as a hydrated element makes its attributes match strictly.)
  */
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = (await headers()).get(LOCALE_HEADER);
   return (
     <html lang={isLocale(locale) ? locale : "en"} className="js">
-      <head>
-        {/* Every area renders in Manrope/DM Mono: fetch them with the HTML, not after its stylesheet. */}
-        {FONT_PRELOADS.map((href) => <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="anonymous" />)}
-      </head>
+      {/* Every area renders in Manrope/DM Mono: fetch them with the HTML, not after its stylesheet. */}
+      {FONT_PRELOADS.map((href) => <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="anonymous" />)}
       <body>{children}<AccountFeedback /></body>
     </html>
   );

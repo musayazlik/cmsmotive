@@ -1,4 +1,7 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
+import type { Locale } from "@/lib/i18n/config";
+import { copy } from "@/lib/legal-copy";
 
 const paths = {
   dashboard: "M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z",
@@ -19,6 +22,10 @@ const paths = {
   signOut: "M9 3H3v18h6m0-9h12m-5-5 5 5-5 5",
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9Zm4.3 13a1.9 1.9 0 0 0 3.4 0",
   check: "m5 12 5 5L20 7",
+  lock: "M6 11h12v10H6V11Zm2 0V8a4 4 0 0 1 8 0v3m-4 4v2",
+  data: "M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3ZM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6",
+  support: "M4 5h16v11H9l-5 4V5Zm5 5h6m-6-3h8",
+  key: "M15 7a4 4 0 1 1-3.9 4.9L4 19v2h3v-2h2v-2h2l1.1-1.1A4 4 0 0 1 15 7Zm1 1.5h.01",
 } as const;
 
 export function AccountIcon({
@@ -87,5 +94,24 @@ export function AccountEmpty({
       <p>{description}</p>
       {children}
     </div>
+  );
+}
+
+/** Sub-navigation of "My account": profile, sign-in security, data and privacy. */
+export function AccountTabs({ current, locale: l }: { current: "profile" | "security" | "privacy"; locale: Locale }) {
+  const tabs = [
+    { key: "profile", href: "/account/profile", icon: "profile", label: copy(l, "Profile", "Profil", "Profil") },
+    { key: "security", href: "/account/security", icon: "lock", label: copy(l, "Sign-in & security", "Anmeldung & Sicherheit", "Giriş ve güvenlik") },
+    { key: "privacy", href: "/account/privacy", icon: "data", label: copy(l, "Data & privacy", "Daten & Datenschutz", "Veri ve gizlilik") },
+  ] as const;
+  return (
+    <nav className="customer-tabs" aria-label={copy(l, "Account sections", "Kontobereiche", "Hesap bölümleri")}>
+      {tabs.map((tab) => (
+        <Link key={tab.key} href={`${tab.href}?lang=${l}`} aria-current={current === tab.key ? "page" : undefined}>
+          <AccountIcon name={tab.icon} />
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

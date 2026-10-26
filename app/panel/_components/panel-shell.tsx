@@ -61,6 +61,7 @@ const PANEL_NAV: NavItem[] = [
     ],
   },
   { href: "/panel/inbox", icon: "inbox", label: "Inbox" },
+  { href: "/panel/support", icon: "reviews", label: "Support" },
   { href: "/panel/users", icon: "users", label: "Users" },
   {
     href: "/panel/settings",

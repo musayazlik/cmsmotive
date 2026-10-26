@@ -15,8 +15,10 @@ Customers see notifications in their account (bell in the top bar, `/account/not
 | Payment failed | Status becomes `past_due` or `unpaid` | Always mailed (not optional) |
 | Updates ending | One-time purchase whose update window ends within 7 days | Subscriptions & updates |
 | Refund processed | `refund.created` webhook (full or partial) | Subscriptions & updates |
+| Plan changed | The subscription moved to another plan (account upgrade or Creem) | Subscriptions & updates |
+| Support reply | The team answered a support request in the panel | Always mailed (not optional) |
 
-In-account messages are always kept. Customers choose which categories are also mailed under **Notifications → Email me about**; both default to on.
+In-account messages are always kept. Customers choose which categories are also mailed under **Notifications → Email preferences** (both default to on), along with the email language and the store newsletter.
 
 ## How it works
 

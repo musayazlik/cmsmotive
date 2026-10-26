@@ -10,21 +10,23 @@ import { formatAmount } from "@/lib/prices";
 import { AccountEmpty, AccountHeading, AccountIcon } from "../account-ui";
 
 /** Subscriptions and payment history; invoice documents are issued by Creem. */
-export default async function BillingPage() {
-  const [user, l, storeId] = await Promise.all([
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+  const [user, l, storeId, query] = await Promise.all([
     requireCustomer(),
     getRequestLocale(),
     currentStoreId(),
+    searchParams,
   ]);
+  const mode = creemMode();
   const [customers, legal] = await Promise.all([
     prisma.customer.findMany({
-      where: { storeId, userId: user.id, mode: creemMode() },
+      where: { storeId, userId: user.id, mode },
       include: {
         subscriptions: {
           orderBy: { createdAt: "desc" },
           include: {
             product: { select: { name: true } },
-            price: { select: { name: true } },
+            price: { select: { id: true, name: true, enabled: true, creemTestProductId: true, creemLiveProductId: true } },
           },
         },
         transactions: {
@@ -61,6 +63,12 @@ export default async function BillingPage() {
           "Aboneliklerinizi, ödemelerinizi ve fatura bilgilerinizi tek yerden takip edin.",
         )}
       />
+
+      {query.plan === "changed" && (
+        <p className="customer-banner" role="status">
+          {copy(l, "Your plan was changed. Creem sends the receipt for the difference by email.", "Ihr Tarif wurde geändert. Creem sendet die Quittung für die Differenz per E-Mail.", "Planınız değiştirildi. Creem fark tutarının makbuzunu e-postayla gönderir.")}
+        </p>
+      )}
 
       <div className="customer-summary">
         <div className="customer-summary-item">
@@ -151,16 +159,32 @@ export default async function BillingPage() {
                         </time>
                       </p>
                     </div>
-                    <span
-                      className="customer-status"
-                      data-positive={[
-                        "active",
-                        "trialing",
-                        "scheduled_cancel",
-                      ].includes(subscription.status)}
-                    >
-                      {subscription.status}
-                    </span>
+                    <div className="customer-record-amount">
+                      <span
+                        className="customer-status"
+                        data-positive={[
+                          "active",
+                          "trialing",
+                          "scheduled_cancel",
+                        ].includes(subscription.status)}
+                      >
+                        {subscription.status}
+                      </span>
+                      {["active", "trialing"].includes(subscription.status) && (
+                        <a className="customer-renew-link" href={`/account/billing/change-plan?subscription=${subscription.id}&lang=${l}`}>
+                          {copy(l, "Change plan", "Tarif wechseln", "Planı değiştir")}
+                          <AccountIcon name="arrow" />
+                        </a>
+                      )}
+                      {["canceled", "expired"].includes(subscription.status) &&
+                        subscription.price.enabled &&
+                        (mode === "prod" ? subscription.price.creemLiveProductId : subscription.price.creemTestProductId) && (
+                          <a className="customer-renew-link" href={`/account/checkout?price=${subscription.price.id}&lang=${l}`}>
+                            {copy(l, "Restart subscription", "Abonnement neu starten", "Aboneliği yeniden başlat")}
+                            <AccountIcon name="arrow" />
+                          </a>
+                        )}
+                    </div>
                   </li>
                 ))}
               </ul>

@@ -4,6 +4,8 @@ import { requireCustomer } from "@/lib/customer-auth";
 import { getRequestLocale } from "@/lib/i18n/request";
 import { copy } from "@/lib/legal-copy";
 import { presentNotifications } from "@/lib/notification-text";
+import { newsletterSubscribed } from "@/lib/account-preferences";
+import { getLegalSettings } from "@/lib/legal";
 import { loadNotificationPreferences, loadNotifications } from "@/lib/notifications";
 import { AccountEmpty, AccountHeading, AccountIcon } from "../account-ui";
 import { markNotificationsReadAction, saveNotificationPreferencesAction } from "./_actions";
@@ -11,7 +13,12 @@ import { markNotificationsReadAction, saveNotificationPreferencesAction } from "
 /** Everything we told the customer, and which of it may also arrive by email. */
 export default async function NotificationsPage() {
   const [user, l, storeId] = await Promise.all([requireCustomer(), getRequestLocale(), currentStoreId()]);
-  const [rows, preferences] = await Promise.all([loadNotifications(user.id, storeId), loadNotificationPreferences(user.id)]);
+  const [rows, preferences, subscribed, legal] = await Promise.all([
+    loadNotifications(user.id, storeId),
+    loadNotificationPreferences(user.id),
+    newsletterSubscribed(storeId, user.email),
+    getLegalSettings(storeId),
+  ]);
   const items = presentNotifications(rows, l);
   const unread = items.filter((item) => !item.read).length;
 
@@ -79,7 +86,7 @@ export default async function NotificationsPage() {
         <aside className="customer-stack" aria-label={copy(l, "Email settings", "E-Mail-Einstellungen", "E-posta ayarları")}>
           <section className="customer-card customer-aside">
             <AccountIcon name="mail" />
-            <h2>{copy(l, "Email me about", "Per E-Mail benachrichtigen über", "E-posta ile haber ver")}</h2>
+            <h2>{copy(l, "Email preferences", "E-Mail-Einstellungen", "E-posta tercihleri")}</h2>
             <form action={saveNotificationPreferencesAction} className="customer-switches">
               <label>
                 <input type="checkbox" name="emailReleases" defaultChecked={preferences.emailReleases} />
@@ -100,6 +107,31 @@ export default async function NotificationsPage() {
                   )}
                 </span>
               </label>
+              <label>
+                <input type="checkbox" name="newsletter" defaultChecked={subscribed} />
+                <span>
+                  <strong>{copy(l, "Newsletter", "Newsletter", "Bülten")}</strong>
+                  {copy(
+                    l,
+                    "New products and occasional offers. Unsubscribe here or from any newsletter at any time.",
+                    "Neue Produkte und gelegentliche Angebote. Abmeldung jederzeit hier oder in jedem Newsletter.",
+                    "Yeni ürünler ve ara sıra kampanyalar. Buradan veya her bültendeki bağlantıdan istediğiniz zaman ayrılabilirsiniz.",
+                  )}{" "}
+                  <a href={l === "de" ? "/privacy" : `/${l}/privacy`}>{copy(l, "Privacy notice", "Datenschutzhinweis", "Gizlilik bildirimi")}</a>
+                </span>
+              </label>
+              <input type="hidden" name="privacyVersion" value={legal.privacyVersion} />
+              <label className="customer-select-field">
+                <span>
+                  <strong>{copy(l, "Email language", "E-Mail-Sprache", "E-posta dili")}</strong>
+                  {copy(l, "Notifications and account emails are sent in this language.", "Benachrichtigungen und Konto-E-Mails werden in dieser Sprache gesendet.", "Bildirimler ve hesap e-postaları bu dilde gönderilir.")}
+                </span>
+                <select name="accountLocale" defaultValue={user.accountLocale}>
+                  <option value="de">Deutsch</option>
+                  <option value="en">English</option>
+                  <option value="tr">Türkçe</option>
+                </select>
+              </label>
               <button className="wbtn wbtn-primary" type="submit">
                 {copy(l, "Save", "Speichern", "Kaydet")}
               </button>
@@ -107,9 +139,9 @@ export default async function NotificationsPage() {
             <p className="customer-portal-note">
               {copy(
                 l,
-                "Failed-payment notices are always emailed so your subscription is not interrupted. Everything stays visible here either way.",
-                "Hinweise zu fehlgeschlagenen Zahlungen senden wir immer per E-Mail, damit Ihr Abonnement nicht unterbrochen wird. Hier bleibt alles in jedem Fall sichtbar.",
-                "Başarısız ödeme bildirimleri aboneliğiniz kesilmesin diye her zaman e-postayla gönderilir. Tüm bildirimler her durumda burada görünür.",
+                "Failed payments and replies to your support requests are always emailed. Everything stays visible here either way.",
+                "Fehlgeschlagene Zahlungen und Antworten auf Ihre Supportanfragen senden wir immer per E-Mail. Hier bleibt alles in jedem Fall sichtbar.",
+                "Başarısız ödemeler ve destek taleplerinize gelen yanıtlar her zaman e-postayla gönderilir. Tüm bildirimler her durumda burada görünür.",
               )}
             </p>
           </section>

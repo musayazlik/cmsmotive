@@ -20,6 +20,8 @@ export const NOTIFICATION_TYPES = [
   "subscription.ended",
   "subscription.payment_failed",
   "updates.expiring",
+  "subscription.plan_changed",
+  "support.replied",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -32,9 +34,11 @@ export type NotificationData = {
   amountCents?: number;
   currency?: string;
   recurring?: boolean;
+  /** Support request subject (support.replied). */
+  subject?: string;
 };
 
-/** Mail preference groups. `critical` messages (a failed payment) are always mailed. */
+/** Mail preference groups. `critical` messages (a failed payment, a support reply) are always mailed. */
 export type NotificationCategory = "releases" | "billing" | "critical";
 
 export const REMINDER_DAYS = 3;
@@ -47,7 +51,7 @@ export function isNotificationType(value: string): value is NotificationType {
 
 export function notificationCategory(type: NotificationType): NotificationCategory {
   if (type === "release.published") return "releases";
-  if (type === "subscription.payment_failed") return "critical";
+  if (type === "subscription.payment_failed" || type === "support.replied") return "critical";
   return "billing";
 }
 
@@ -76,6 +80,8 @@ export function notificationHref(type: NotificationType): string {
       return "/account/downloads";
     case "purchase.confirmed":
       return "/account/products";
+    case "support.replied":
+      return "/account/support";
     default:
       return "/account/billing";
   }
@@ -186,6 +192,26 @@ export function renderNotification(type: NotificationType, data: NotificationDat
           `We could not charge your payment method for ${name}. Please update it in the billing portal to keep your subscription active.`,
           `Die Zahlung für ${name} konnte nicht abgebucht werden. Bitte aktualisieren Sie Ihre Zahlungsmethode im Abrechnungsportal, damit Ihr Abonnement aktiv bleibt.`,
           `${name} için ödeme yönteminizden tahsilat yapılamadı. Aboneliğinizin aktif kalması için fatura portalından ödeme yönteminizi güncelleyin.`,
+        ),
+      };
+    case "subscription.plan_changed":
+      return {
+        title: copy(l, "Plan changed", "Tarif geändert", "Plan değişti"),
+        body: copy(
+          l,
+          `Your subscription to ${data.product} now runs on the ${data.plan ?? ""} plan. Any difference is settled by Creem on your next invoice or right away.`,
+          `Ihr Abonnement für ${data.product} läuft jetzt im Tarif ${data.plan ?? ""}. Eine Differenz rechnet Creem sofort oder mit der nächsten Rechnung ab.`,
+          `${data.product} aboneliğiniz artık ${data.plan ?? ""} planında. Fark, Creem tarafından hemen veya bir sonraki faturada tahsil edilir.`,
+        ),
+      };
+    case "support.replied":
+      return {
+        title: copy(l, "New reply to your support request", "Neue Antwort auf Ihre Supportanfrage", "Destek talebinize yeni yanıt"),
+        body: copy(
+          l,
+          `Our team replied to “${data.subject ?? data.product}”. Open the request to read it and answer.`,
+          `Unser Team hat auf „${data.subject ?? data.product}“ geantwortet. Öffnen Sie die Anfrage, um die Antwort zu lesen.`,
+          `Ekibimiz “${data.subject ?? data.product}” talebinize yanıt verdi. Okumak ve cevaplamak için talebi açın.`,
         ),
       };
     case "updates.expiring":

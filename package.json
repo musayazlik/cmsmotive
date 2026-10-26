@@ -31,6 +31,7 @@
     "test:commerce:db": "tsx --test tests/commerce.integration.test.ts tests/checkout.integration.test.ts",
     "test:notifications": "tsx --test tests/notifications.test.ts",
     "test:notifications:db": "tsx --test tests/notifications.integration.test.ts",
+    "test:account:db": "tsx --test tests/account-self-service.integration.test.ts",
     "test:membership": "tsx --test tests/site-account-menu.test.ts",
     "test:membership:db": "tsx --test tests/membership.integration.test.ts",
     "test:blog-comments": "tsx --test tests/blog-comments.test.ts",

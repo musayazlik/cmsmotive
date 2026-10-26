@@ -5,6 +5,11 @@ import {
 } from "./billing-access";
 import { readChanges } from "./changelog";
 
+const renewable = { id: true, name: true, features: true, enabled: true, creemTestProductId: true, creemLiveProductId: true } as const;
+
+/** Subscriptions that ended can be bought again; a running or scheduled-to-end one cannot. */
+const RESTARTABLE = ["canceled", "expired"];
+
 /** Only buyer-owned data and download identifiers leave this loader; storage keys remain private. */
 export async function loadCustomerLibrary(
   userId: string,
@@ -20,11 +25,11 @@ export async function loadCustomerLibrary(
       updatesUntil: true,
       revokedAt: true,
       store: { select: { name: true } },
-      order: { select: { price: { select: { name: true, features: true } } } },
+      order: { select: { price: { select: renewable } } },
       subscription: {
         select: {
           status: true,
-          price: { select: { name: true, features: true } },
+          price: { select: renewable },
         },
       },
       licenseKeys: {
@@ -75,6 +80,14 @@ export async function loadCustomerLibrary(
   return entitlements.map((entitlement) => {
     const { product } = entitlement;
     const plan = entitlement.subscription?.price ?? entitlement.order?.price;
+    const sellable = Boolean(plan?.enabled && (mode === "prod" ? plan.creemLiveProductId : plan.creemTestProductId));
+    // Buying the same plan again renews an ended update window or restarts an ended subscription.
+    const renewable =
+      !entitlement.revokedAt &&
+      sellable &&
+      (entitlement.subscription
+        ? RESTARTABLE.includes(entitlement.subscription.status)
+        : !entitlementReceivesUpdates(entitlement));
     return {
       id: entitlement.id,
       name: product.name,
@@ -91,6 +104,7 @@ export async function loadCustomerLibrary(
       updatesActive: entitlementReceivesUpdates(entitlement),
       revoked: Boolean(entitlement.revokedAt),
       subscriptionStatus: entitlement.subscription?.status ?? null,
+      renewPriceId: renewable && plan ? plan.id : null,
       releases: product.releases.map((release) => ({
         id: release.id,
         version: release.version,
@@ -106,6 +120,8 @@ export async function loadCustomerLibrary(
             key: license.key,
             status: license.status,
             activations: license.creemLicenseId ? license.activations : null,
+            /** Creem tracks this key's installations; the customer can release them. */
+            manageable: Boolean(license.creemLicenseId),
             limit: license.activationLimit,
             expiresAt: license.expiresAt?.toISOString() ?? null,
           })),

@@ -68,6 +68,9 @@ export const auth = betterAuth({
     : {},
   account: { accountLinking: { disableImplicitLinking: true } },
   user: {
+    // Account → Security: the new address receives a verification link and only
+    // replaces the old one once confirmed (emailVerification.sendVerificationEmail).
+    changeEmail: { enabled: true },
     additionalFields: {
       termsVersion: { type: "string", required: false, input: false },
       privacyVersion: { type: "string", required: false, input: false },

@@ -161,6 +161,7 @@ test("package registration checks metadata and scope, preserves existing version
       promote: async () => { events.push("promote"); return { $metadata: {} }; },
       remove: async (_bucket, key) => { events.push(`delete:${key.split("/")[0]}`); return { $metadata: {} }; },
       downloadUrl: async () => "https://fixture.example/signed-download",
+      read: async () => { events.push("read"); return Buffer.from("zip"); },
     };
     const deps = {
       bucket: "private-packages", storage,
@@ -226,6 +227,36 @@ test("package registration checks metadata and scope, preserves existing version
       assert.equal(result.status, 502);
       assert.ok(!JSON.stringify(result).includes("fixture-private-secret"));
       assert.deepEqual(events, ["inspect"]);
+    });
+    await t.test("a package failing the licence audit is removed from staging and never registered", async () => {
+      const { deps, events } = fixture();
+      const complete = await prepared(deps);
+      const audit = (errors: { code: string; message: string }[]) => ({
+        checkedAt: "", gplRequired: true, errors, warnings: [], licenseFile: null, licenseKind: null, noticesFile: null, sourceFiles: 0, dependencies: [],
+      });
+      let audited = "";
+      const refused = await handlePackageUpload(complete, actor, {
+        ...deps,
+        audit: async (_bucket, _key, license) => { audited = license; return audit([{ code: "license-missing", message: "Add the licence text." }]); },
+      });
+      assert.equal(refused.status, 422);
+      assert.match(String(refused.data.error), /licence check: Add the licence text\./);
+      assert.equal(audited, "Commercial", "the audit sees the declared licence");
+      assert.deepEqual(events, ["inspect", "delete:staging"]);
+
+      const passed = fixture();
+      const again = await prepared(passed.deps);
+      let stored: unknown;
+      passed.deps.createRelease = async (data: { fileKey: string; audit?: unknown }) => { stored = data.audit; return { id: "release" }; };
+      const ok = await handlePackageUpload(again, actor, { ...passed.deps, audit: async () => audit([]) });
+      assert.equal(ok.status, 200);
+      assert.deepEqual((stored as { errors: unknown[] }).errors, [], "the report is stored with the release");
+    });
+    await t.test("a store that requires GPL refuses other code licences before any upload", async () => {
+      const { deps, events } = fixture();
+      const result = await handlePackageUpload(upload, actor, { ...deps, licenseProblem: (license) => (license === "Commercial" ? "Use GPL-2.0-or-later." : null) });
+      assert.deepEqual(result, { status: 400, data: { error: "Use GPL-2.0-or-later." } });
+      assert.deepEqual(events, []);
     });
     await t.test("a version race removes only the losing final object", async () => {
       const { deps, events } = fixture();

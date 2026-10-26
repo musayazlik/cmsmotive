@@ -522,6 +522,8 @@ model ProductRelease {
   codeLicense String
   /// When buyers were told about this version (lib/notifications.ts); null = still to announce.
   notifiedAt  DateTime?
+  /// Licence audit of the ZIP (lib/package-audit.ts); null for packages uploaded before audits.
+  audit       Json?
   createdAt   DateTime  @default(now())
 
   @@unique([productId, version])

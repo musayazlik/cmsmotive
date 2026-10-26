@@ -16,6 +16,7 @@
     "db:seed:stores": "tsx prisma/seeds/index.ts",
     "storage:r2:setup": "tsx scripts/storage/setup-r2.ts",
     "test:package-storage": "tsx --test tests/package-storage.test.ts",
+    "test:package-licensing": "tsx --test tests/package-audit.test.ts tests/legal-gpl-terms.test.ts",
     "test:media-storage": "tsx --test tests/media-storage.test.ts",
     "mcp": "tsx mcp/stdio.ts",
     "telegram:poll": "tsx telegram/poll.ts",

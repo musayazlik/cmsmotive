@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "@/app/panel/_components/panel-navigation";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
 import { MAX_PACKAGE_BYTES, type PackageStorageProvider } from "@/lib/package-storage-config";
 import { uploadR2Package } from "@/lib/package-upload-client";
@@ -9,6 +9,7 @@ import { formatBytes } from "@/app/panel/media/_lib";
 import { useDropTarget } from "../../_components/catalog-media";
 import ConfirmDialog from "../../_components/confirm-dialog";
 import { TextField } from "../../_components/ui";
+import type { PackageAudit } from "@/lib/package-audit";
 
 type ReleaseRow = {
   id: string;
@@ -16,13 +17,17 @@ type ReleaseRow = {
   fileName: string;
   codeLicense: string;
   createdAt: string;
+  /** Licence audit report; null for packages uploaded before audits. */
+  audit: PackageAudit | null;
 };
 
 type Props = {
   productId: string;
   releases: ReleaseRow[];
-  /** Whether the product's code-license checklist step is complete; the upload endpoint rejects otherwise. */
-  licenseReady: boolean;
+  /** Why the code licence blocks uploads (missing, or not GPL where the store requires it); null when fine. */
+  licenseProblem: string | null;
+  /** The store sells GPL code (Settings → Legal); packages are audited strictly. */
+  gplRequired: boolean;
   storage: { provider: PackageStorageProvider; configured: boolean; error: string };
 };
 
@@ -50,7 +55,41 @@ function ArchiveIcon() {
  * Releases tab: the private ZIP packages customers download. Files go
  * directly to the configured private storage; only completed uploads become releases.
  */
-export default function ReleaseManager({ productId, releases, licenseReady, storage }: Props) {
+function AuditBadge({ audit }: { audit: PackageAudit | null }) {
+  if (!audit) return <span className="wbadge wbadge-user">Not checked</span>;
+  if (audit.errors.length) return <span className="wbadge wbadge-danger">{audit.errors.length} {audit.errors.length === 1 ? "problem" : "problems"}</span>;
+  if (audit.warnings.length) return <span className="wbadge wbadge-pending">{audit.warnings.length} {audit.warnings.length === 1 ? "warning" : "warnings"}</span>;
+  return <span className="wbadge wbadge-verified">Passed</span>;
+}
+
+function AuditDetails({ audit }: { audit: PackageAudit }) {
+  const issues = [...audit.errors.map((issue) => ({ ...issue, level: "error" })), ...audit.warnings.map((issue) => ({ ...issue, level: "warning" }))];
+  return (
+    <div className="wpkg-audit">
+      <p>
+        Licence file: <strong>{audit.licenseFile ?? "none"}</strong>
+        {audit.licenseKind ? ` (${audit.licenseKind})` : ""} · Notices: <strong>{audit.noticesFile ?? "none"}</strong> · Own source files:{" "}
+        {audit.sourceFiles} · Bundled packages: {audit.dependencies.length}
+        {audit.gplRequired ? " · GPL rules applied" : ""}
+      </p>
+      {issues.length ? (
+        <ul>
+          {issues.map((issue) => (
+            <li key={`${issue.level}-${issue.code}`} data-level={issue.level}>
+              <strong>{issue.level === "error" ? "Problem" : "Warning"}:</strong> {issue.message}
+              {issue.files?.length ? <code>{issue.files.join(", ")}</code> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>Nothing to fix.</p>
+      )}
+    </div>
+  );
+}
+
+export default function ReleaseManager({ productId, releases, licenseProblem, gplRequired, storage }: Props) {
+  const licenseReady = !licenseProblem;
   const router = useRouter();
   const [version, setVersion] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -61,6 +100,22 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
   const [confirmDelete, setConfirmDelete] = useState<ReleaseRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [r2Uploading, setR2Uploading] = useState(false);
+  const [openAudit, setOpenAudit] = useState<string | null>(null);
+  const [checking, setChecking] = useState<string | null>(null);
+
+  async function recheck(release: ReleaseRow) {
+    setChecking(release.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/releases/${release.id}`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) setError(data.error ?? "The licence check could not run.");
+      else setOpenAudit(release.id);
+      router.refresh();
+    } finally {
+      setChecking(null);
+    }
+  }
   const input = useRef<HTMLInputElement>(null);
 
   function completed() {
@@ -72,7 +127,12 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
 
   const { startUpload, isUploading: uploadthingUploading } = useUploadThing("productPackage", {
     onUploadProgress: setProgress,
-    onClientUploadComplete: completed,
+    onClientUploadComplete: (files) => {
+      // A package refused by the licence audit comes back without a release.
+      const refused = files.find((entry) => entry.serverData?.error)?.serverData?.error;
+      if (refused) setError(refused);
+      else completed();
+    },
     onUploadError: (cause) => setError(cause.message || "The package could not be uploaded."),
   });
   const isUploading = r2Uploading || uploadthingUploading;
@@ -143,7 +203,7 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
         </p>
         {!licenseReady ? (
           <p className="wpkg-notice" role="note">
-            Set the code license in the package checklist first; until then uploads are rejected.
+            {licenseProblem} Until then uploads are rejected.
           </p>
         ) : null}
         {!storage.configured ? (
@@ -226,6 +286,14 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
             {isUploading ? "Uploading…" : "Upload package"}
           </button>
         </div>
+        <p className="wfield-hint-block">
+          Every package gets a licence check before customers can download it: a LICENSE or COPYING file at the top
+          {gplRequired ? " containing the GNU GPL text" : ""}, readable (not encoded) source, licence headers in source files and a
+          THIRD-PARTY-NOTICES file when libraries are bundled.
+          {gplRequired
+            ? " This store sells GPL code, so a missing GPL text or encoded code refuses the upload."
+            : " A missing licence file refuses the upload."}
+        </p>
       </form>
 
       <section className="wfield-card wpkg-releases" aria-labelledby="rel-published-title">
@@ -247,12 +315,14 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
                   <th scope="col">Version</th>
                   <th scope="col">Package file</th>
                   <th scope="col">Uploaded</th>
+                  <th scope="col">Licence check</th>
                   <th scope="col" className="wpkg-release-actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {releases.map((release) => (
-                  <tr key={release.id}>
+                  <Fragment key={release.id}>
+                  <tr>
                     <th scope="row"><span className="wpkg-release-version">{release.version}</span></th>
                     <td>
                       <div className="wpkg-release-file">
@@ -261,6 +331,20 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
                       </div>
                     </td>
                     <td><time dateTime={release.createdAt}>{stamp(release.createdAt)}</time></td>
+                    <td>
+                      <div className="wpkg-audit-cell">
+                        {release.audit ? (
+                          <button type="button" className="wpkg-audit-toggle" aria-expanded={openAudit === release.id} onClick={() => setOpenAudit(openAudit === release.id ? null : release.id)}>
+                            <AuditBadge audit={release.audit} />
+                          </button>
+                        ) : (
+                          <AuditBadge audit={null} />
+                        )}
+                        <button type="button" className="wbtn wbtn-sm wbtn-ghost" onClick={() => recheck(release)} disabled={checking !== null}>
+                          {checking === release.id ? "Checking…" : release.audit ? "Re-check" : "Check"}
+                        </button>
+                      </div>
+                    </td>
                     <td className="wpkg-release-actions">
                       <button
                         type="button"
@@ -276,6 +360,14 @@ export default function ReleaseManager({ productId, releases, licenseReady, stor
                       </button>
                     </td>
                   </tr>
+                  {openAudit === release.id && release.audit ? (
+                    <tr className="wpkg-audit-row">
+                      <td colSpan={5}>
+                        <AuditDetails audit={release.audit} />
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

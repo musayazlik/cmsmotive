@@ -41,6 +41,12 @@ export function r2PackageStorage(client = sharedR2Client()) {
       CopySourceIfMatch: etag, MetadataDirective: "REPLACE", ContentType: "application/zip", ContentDisposition: "attachment",
     })),
     remove: (bucket: string, key: string) => client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })),
+    /** The whole object, for the licence audit before a staged upload becomes a release. */
+    read: async (bucket: string, key: string) => {
+      const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      if (!object.Body) throw new Error("Empty package object.");
+      return Buffer.from(await object.Body.transformToByteArray());
+    },
     downloadUrl: (bucket: string, key: string, fileName: string) => getSignedUrl(client,
       new GetObjectCommand({ Bucket: bucket, Key: key, ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(fileName).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}` }),
       { expiresIn: 60 }),
@@ -52,6 +58,16 @@ export async function packageDownloadUrl(fileKey: string, fileName: string) {
   if (reference) return r2PackageStorage().downloadUrl(reference.bucket, reference.key, fileName);
   const { utapi } = await import("./utapi");
   return (await utapi.generateSignedURL(fileKey, { expiresIn: 60 })).ufsUrl;
+}
+
+/** A stored package's bytes (R2 or UploadThing), for re-running its licence audit. */
+export async function readPackageFile(fileKey: string): Promise<Buffer> {
+  const reference = parseR2FileKey(fileKey);
+  if (reference) return r2PackageStorage().read(reference.bucket, reference.key);
+  const { utapi } = await import("./utapi");
+  const response = await fetch((await utapi.generateSignedURL(fileKey, { expiresIn: 120 })).ufsUrl, { signal: AbortSignal.timeout(120_000) });
+  if (!response.ok) throw new Error(`Package download failed (${response.status}).`);
+  return Buffer.from(await response.arrayBuffer());
 }
 
 export async function deletePackageFile(fileKey: string) {

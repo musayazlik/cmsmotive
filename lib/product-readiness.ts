@@ -1,6 +1,8 @@
 import { creemMode } from "./creem";
 import { getLegalSettings } from "./legal";
 import { legalReadiness, reservedNameTerms, reservedTermIn } from "./legal-settings-shared";
+import { codeLicenseProblem } from "./code-license";
+import { readAudit } from "./package-audit";
 import { publicationMissingLabels, readCompliance } from "./product-compliance";
 import { prisma } from "./prisma";
 
@@ -22,6 +24,7 @@ export async function productReadiness(productId: string): Promise<Readiness | n
     select: {
       storeId: true, name: true, description: true, coverId: true, compliance: true,
       _count: { select: { releases: true } },
+      releases: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { version: true, audit: true } },
       prices: { where: { enabled: true }, select: { id: true } },
     },
   });
@@ -34,6 +37,9 @@ export async function productReadiness(productId: string): Promise<Readiness | n
   // Trademarks the store reserves (Settings → Legal), e.g. a platform name a product may only claim compatibility with.
   const terms = reservedNameTerms(legal);
   const reserved = reservedTermIn(product.name, terms);
+  const latest = product.releases[0];
+  const audit = latest ? readAudit(latest.audit) : null;
+  const licenseProblem = codeLicenseProblem(readCompliance(product.compliance).codeLicense, true);
 
   const items: ReadinessItem[] = [
     { key: "description", label: "Description", ok: text.length >= 10, hint: "Write what the product does and who it is for.", tab: "general" },
@@ -51,6 +57,32 @@ export async function productReadiness(productId: string): Promise<Readiness | n
       : []),
     { key: "price", label: "A price on sale", ok: product.prices.length > 0, hint: "Add a price and put it on sale; its Creem product is created for you.", tab: "prices" },
     { key: "package", label: "Package uploaded", ok: product._count.releases > 0, hint: "Upload the ZIP customers download after paying.", tab: "packages" },
+    ...(latest
+      ? [
+          {
+            key: "audit",
+            label: "Latest package passes the licence check",
+            ok: Boolean(audit && audit.errors.length === 0),
+            hint: !audit
+              ? `Run the licence check on version ${latest.version} (Packages tab).`
+              : audit.errors.length
+                ? audit.errors.map((issue) => issue.message).join(" ")
+                : "Licence file, readable source and notices are in place.",
+            tab: "packages" as const,
+          },
+        ]
+      : []),
+    ...(legal.gplCodeRequired
+      ? [
+          {
+            key: "gpl",
+            label: "GPL code license",
+            ok: !licenseProblem,
+            hint: licenseProblem ?? "The code is distributed under the GNU GPL.",
+            tab: "packages" as const,
+          },
+        ]
+      : []),
     {
       key: "checklist",
       label: "Package checklist",

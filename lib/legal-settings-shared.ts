@@ -17,6 +17,11 @@ export const DEFAULT_LEGAL_SETTINGS = {
   membershipDetails: "",
   /** Trademarks product names may not contain (comma separated), e.g. a platform's mark; checked before publishing. */
   reservedNameTerms: "",
+  /**
+   * The store sells code that must be distributed under the GNU GPL (TYPO3 extensions and
+   * themes are GPL-2.0-or-later): product code licences and uploaded packages are checked for it.
+   */
+  gplCodeRequired: false,
   termsVersion: LEGAL_VERSION,
   privacyVersion: LEGAL_VERSION,
   accountTermsReviewed: false,

@@ -3,6 +3,10 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { announceRelease, deliverPendingEmails } from "@/lib/notifications";
 import { panelStore } from "@/lib/panel-store";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
+import { codeLicenseProblem } from "@/lib/code-license";
+import { getLegalSettings } from "@/lib/legal";
+import { auditPackage } from "@/lib/package-audit";
 import { readCompliance } from "@/lib/product-compliance";
 import { r2Config } from "@/lib/package-storage-config";
 import { getUploadSettings } from "@/lib/settings";
@@ -25,14 +29,18 @@ export async function POST(request: Request) {
     if ((await getUploadSettings(storeId)).packageProvider !== "r2") return reply({ error: "R2 package uploads are not enabled for this store." }, 409);
     const config = r2Config();
     if ((process.env.BETTER_AUTH_SECRET?.length ?? 0) < 32) throw new Error("Set BETTER_AUTH_SECRET to at least 32 characters before uploading packages.");
+    const storage = r2PackageStorage();
+    const { gplCodeRequired } = await getLegalSettings(storeId);
     const result = await handlePackageUpload(input.data, { userId: session.user.id, storeId }, {
-      bucket: config.bucket, storage: r2PackageStorage(),
+      bucket: config.bucket, storage,
+      licenseProblem: (license) => codeLicenseProblem(license, gplCodeRequired),
+      audit: async (bucket, key, declaredLicense) => auditPackage(await storage.read(bucket, key), { gplRequired: gplCodeRequired, declaredLicense }),
       findProduct: async (id) => {
         const product = await prisma.product.findFirst({ where: { id, storeId }, select: { id: true, compliance: true } });
         return product ? { id: product.id, codeLicense: readCompliance(product.compliance).codeLicense } : null;
       },
       findRelease: (productId, version) => prisma.productRelease.findUnique({ where: { productId_version: { productId, version } }, select: { id: true, fileKey: true } }),
-      createRelease: (data) => prisma.productRelease.create({ data, select: { id: true } }),
+      createRelease: ({ audit, ...data }) => prisma.productRelease.create({ data: { ...data, audit: audit as Prisma.InputJsonObject | undefined }, select: { id: true } }),
     });
     // The release exists only once the package is stored; tell its buyers after responding (repeats are no-ops).
     const releaseId = result.status === 200 && typeof result.data.releaseId === "string" ? result.data.releaseId : null;

@@ -7,6 +7,9 @@ import { prisma } from "@/lib/prisma";
 import { productReadiness, type ReadinessTab } from "@/lib/product-readiness";
 import { packageStorageStatus } from "@/lib/package-storage-config";
 import { getUploadSettings } from "@/lib/settings";
+import { codeLicenseProblem } from "@/lib/code-license";
+import { getLegalSettings } from "@/lib/legal";
+import { readAudit } from "@/lib/package-audit";
 import DeliverySettings from "../_components/delivery-settings";
 import PackageChecklist from "../_components/package-checklist";
 import PriceManager, { type PriceRow } from "../_components/price-manager";
@@ -52,6 +55,7 @@ export default async function EditProductPage({
 
   const mode = creemMode();
   const field = mode === "prod" ? "creemLiveProductId" : "creemTestProductId";
+  const { gplCodeRequired: gplRequired } = await getLegalSettings(storeId);
   const [prices, releases, types, stores] = await Promise.all([
     active === "prices"
       ? prisma.price.findMany({
@@ -147,8 +151,10 @@ export default async function EditProductPage({
               fileName: release.fileName,
               codeLicense: release.codeLicense,
               createdAt: release.createdAt.toISOString(),
+              audit: readAudit(release.audit),
             }))}
-            licenseReady={record.compliance.codeLicense !== ""}
+            licenseProblem={codeLicenseProblem(record.compliance.codeLicense, gplRequired)}
+            gplRequired={gplRequired}
             storage={packageStorageStatus((await getUploadSettings(storeId)).packageProvider)}
           />
           <DeliverySettings productId={record.id} issueLicenseKeys={record.issueLicenseKeys} deliveryNote={record.deliveryNote} />

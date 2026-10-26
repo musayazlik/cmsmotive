@@ -147,6 +147,12 @@ export default function LegalSettingsForm({
           label="Privacy information reviewed against our actual providers and retention"
         />
         <Switch
+          checked={values.gplCodeRequired}
+          onChange={(v) => set("gplCodeRequired", v)}
+          label="Products in this store are GPL code (TYPO3 extensions and themes)"
+          note="Code licences must then be GPL, and every uploaded package is checked for the GPL text, readable (not encoded) source and third-party notices."
+        />
+        <Switch
           checked={values.salesTermsReviewed}
           onChange={(v) => set("salesTermsReviewed", v)}
           label="Sales terms reviewed for the selected customer audience"

@@ -5,6 +5,10 @@ import { getStoreRole, isStoreAdmin } from "@/lib/store-access";
 import { z } from "zod";
 import { announceRelease } from "@/lib/notifications";
 import { avatarFileKey } from "@/lib/avatar-file";
+import type { Prisma } from "@/generated/prisma/client";
+import { codeLicenseProblem } from "@/lib/code-license";
+import { getLegalSettings } from "@/lib/legal";
+import { auditFailureMessage, auditPackage } from "@/lib/package-audit";
 import { readCompliance } from "@/lib/product-compliance";
 import { panelStoreFromRequest } from "@/lib/panel-store";
 import { getUploadSettings } from "@/lib/settings";
@@ -67,19 +71,34 @@ export const uploadRouter = {
       });
       const license = readCompliance(product?.compliance).codeLicense;
       if (!product || !license) throw new UploadThingError("Complete the product code-license checklist first.");
+      const { gplCodeRequired } = await getLegalSettings(storeId);
+      const licenseProblem = codeLicenseProblem(license, gplCodeRequired);
+      if (licenseProblem) throw new UploadThingError(licenseProblem);
       if (await prisma.productRelease.findUnique({ where: { productId_version: { productId: product.id, version: input.version } } })) {
         throw new UploadThingError("This release version already exists. Upload a new version instead.");
       }
-      return { productId: product.id, version: input.version, license };
+      return { productId: product.id, version: input.version, license, gplRequired: gplCodeRequired };
     })
     .onUploadComplete(async ({ metadata, file }) => {
+      // Licence audit before the file becomes a release; a refused package is removed again.
+      const signed = await utapi.generateSignedURL(file.key, { expiresIn: 120 });
+      const response = await fetch(signed.ufsUrl, { signal: AbortSignal.timeout(120_000) });
+      if (!response.ok) throw new UploadThingError("The uploaded package could not be read for the licence check.");
+      const audit = auditPackage(Buffer.from(await response.arrayBuffer()), { gplRequired: metadata.gplRequired, declaredLicense: metadata.license });
+      if (audit.errors.length) {
+        await utapi.deleteFiles(file.key).catch((error) => console.error("refused package cleanup failed", error instanceof Error ? error.message : error));
+        return { releaseId: null, error: auditFailureMessage(audit) };
+      }
       const release = await prisma.productRelease.create({
-        data: { productId: metadata.productId, version: metadata.version, codeLicense: metadata.license, fileKey: file.key, fileName: file.name },
+        data: {
+          productId: metadata.productId, version: metadata.version, codeLicense: metadata.license, fileKey: file.key, fileName: file.name,
+          audit: audit as Prisma.InputJsonObject,
+        },
       });
       // Buyers are told in their account; a failure here is retried by the scheduled job.
       await announceRelease(release.id).catch((error) => console.error("release announcement failed", error instanceof Error ? error.message : error));
       // Private keys and URLs never enter MediaAsset or the public media library.
-      return { releaseId: release.id };
+      return { releaseId: release.id, error: null };
     }),
   productMedia: f({
     image: { maxFileSize: "8MB", maxFileCount: 12 },

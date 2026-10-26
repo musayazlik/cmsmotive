@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { finalPackageKey, issuePackageReceipt, r2FileKey, readPackageReceipt, type PackageUploadRequest } from "./package-upload";
 import type { r2PackageStorage } from "./package-storage";
+import { auditFailureMessage, type PackageAudit } from "./package-audit";
 
 type Release = { id: string; fileKey: string };
 type Dependencies = {
@@ -8,7 +9,11 @@ type Dependencies = {
   storage: ReturnType<typeof r2PackageStorage>;
   findProduct: (id: string) => Promise<{ id: string; codeLicense: string } | null>;
   findRelease: (productId: string, version: string) => Promise<Release | null>;
-  createRelease: (data: { productId: string; version: string; fileName: string; fileKey: string; codeLicense: string }) => Promise<{ id: string }>;
+  createRelease: (data: { productId: string; version: string; fileName: string; fileKey: string; codeLicense: string; audit?: PackageAudit }) => Promise<{ id: string }>;
+  /** Refuses a product's code licence (e.g. not GPL where the store requires it); returns the reason. */
+  licenseProblem?: (license: string) => string | null;
+  /** Licence audit of the uploaded ZIP; errors refuse the upload, the report is stored with the release. */
+  audit?: (bucket: string, key: string, declaredLicense: string) => Promise<PackageAudit>;
 };
 const reply = (data: Record<string, unknown>, status = 200) => ({ data, status });
 
@@ -22,6 +27,8 @@ export async function handlePackageUpload(input: PackageUploadRequest, actor: { 
   if (!product) return reply({ error: "Product not found." }, 404);
   const license = product.codeLicense.trim();
   if (!license) return reply({ error: "Set the code license in the package checklist first." }, 400);
+  const licenseProblem = deps.licenseProblem?.(license);
+  if (licenseProblem) return reply({ error: licenseProblem }, 400);
   const existing = await deps.findRelease(product.id, upload.version);
   const finalKey = receipt ? finalPackageKey(receipt.key) : null;
   if (existing) {
@@ -40,12 +47,17 @@ export async function handlePackageUpload(input: PackageUploadRequest, actor: { 
     const pending = receipt!;
     const object = await storage.inspect(pending.bucket, pending.key);
     if (object.ContentLength !== pending.fileSize || object.ContentType !== "application/zip" || !object.ETag) return reply({ error: "Uploaded file does not match the selected ZIP. Upload it again." }, 400);
+    const audit = deps.audit ? await deps.audit(pending.bucket, pending.key, license) : undefined;
+    if (audit?.errors.length) {
+      await storage.remove(pending.bucket, pending.key).catch(() => console.error("R2 staging cleanup failed."));
+      return reply({ error: auditFailureMessage(audit), audit }, 422);
+    }
     await storage.promote(pending.bucket, pending.key, finalKey!, object.ETag);
     let release: { id: string };
     try {
       release = await deps.createRelease({
         productId: product.id, version: pending.version, fileName: pending.fileName,
-        fileKey: r2FileKey(pending.bucket, finalKey!), codeLicense: license,
+        fileKey: r2FileKey(pending.bucket, finalKey!), codeLicense: license, audit,
       });
     } catch (error) {
       const winner = await deps.findRelease(product.id, pending.version);

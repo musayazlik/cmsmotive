@@ -16,24 +16,34 @@ import {
   type AiModelInfo,
   type AiStyle,
 } from "@/app/panel/blog/_ai";
-import { DEFAULT_RESEARCH_MODEL, NATIVE_RESEARCH, type AiSettings, type InlineCitations } from "@/lib/ai-settings-shared";
+import {
+  DEFAULT_RESEARCH_MODEL,
+  NATIVE_RESEARCH,
+  type AiSettings,
+  type InlineCitations,
+} from "@/lib/ai-settings-shared";
 
 /** What each research option does; keyed by the stored value ("" = the default model). */
 const RESEARCH_NOTES: Record<string, string> = {
   "": "Perplexity Sonar Pro: searches the web in one pass and cites every fact. Fast (under a minute) and typically a few cents per post.",
   "perplexity/sonar-deep-research":
     "Deep research: runs dozens of searches and reads them before answering. The most thorough option, but takes several minutes and costs noticeably more per post.",
-  "perplexity/sonar-reasoning-pro": "Searches the web and reasons over the results before answering; slower than Sonar Pro.",
-  "perplexity/sonar-pro-search": "Sonar Pro with multi-step search; more thorough than Sonar Pro, priced higher per search.",
-  "perplexity/sonar": "The cheapest Perplexity model; fewer and shallower sources.",
+  "perplexity/sonar-reasoning-pro":
+    "Searches the web and reasons over the results before answering; slower than Sonar Pro.",
+  "perplexity/sonar-pro-search":
+    "Sonar Pro with multi-step search; more thorough than Sonar Pro, priced higher per search.",
+  "perplexity/sonar":
+    "The cheapest Perplexity model; fewer and shallower sources.",
   [NATIVE_RESEARCH]:
     "The content model researches with its provider's own web search — Google Search for Gemini models. Fewer sources than Perplexity.",
 };
 import { saveAiSettingsAction } from "../_actions";
 import { EnvFacts, SettingsFoot, useSettingsForm } from "./settings-kit";
 
-const options = <T extends string>(values: readonly T[], labels: Record<T, string>) =>
-  values.map((value) => ({ value, label: labels[value] }));
+const options = <T extends string>(
+  values: readonly T[],
+  labels: Record<T, string>,
+) => values.map((value) => ({ value, label: labels[value] }));
 
 type Catalogue = { text: AiModelInfo[]; image: AiModelInfo[] };
 type KeyUsage = {
@@ -46,7 +56,11 @@ type KeyUsage = {
   free_model_daily_requests: { used: number; limit: number; remaining: number };
 };
 
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 });
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 4,
+});
 
 function credit(value: number | null) {
   return value === null ? "Unlimited" : usd.format(value);
@@ -64,19 +78,34 @@ function ModelDefault({
   value: string;
   onChange: (id: string) => void;
 }) {
-  const unknown = Boolean(value) && models !== null && !models.some((model) => model.id === value);
+  const unknown =
+    Boolean(value) &&
+    models !== null &&
+    !models.some((model) => model.id === value);
   return (
     <div className="wsettings-quality">
       <CheckBox
         checked={!value}
-        onChange={(automatic) => onChange(automatic ? "" : (models?.find((model) => model.free) ?? models?.[0])?.id ?? "")}
+        onChange={(automatic) =>
+          onChange(
+            automatic
+              ? ""
+              : ((models?.find((model) => model.free) ?? models?.[0])?.id ??
+                  ""),
+          )
+        }
         label={`${label}: choose automatically`}
         note="The assistant picks a fast, inexpensive model that is currently available."
         disabled={!models?.length && !value}
       />
       {value ? (
         models?.length ? (
-          <ModelPicker label={label} models={models} value={value} onChange={onChange} />
+          <ModelPicker
+            label={label}
+            models={models}
+            value={value}
+            onChange={onChange}
+          />
         ) : (
           <p className="wfield-hint-block">
             Saved: <code>{value}</code>
@@ -85,14 +114,21 @@ function ModelDefault({
       ) : null}
       {unknown ? (
         <p className="wfield-error" role="alert">
-          <code>{value}</code> is no longer offered by OpenRouter; the assistant falls back to automatic.
+          <code>{value}</code> is no longer offered by OpenRouter; the assistant
+          falls back to automatic.
         </p>
       ) : null}
     </div>
   );
 }
 
-export default function AiSettingsForm({ settings, configured }: { settings: AiSettings; configured: boolean }) {
+export default function AiSettingsForm({
+  settings,
+  configured,
+}: {
+  settings: AiSettings;
+  configured: boolean;
+}) {
   const form = useSettingsForm(settings, saveAiSettingsAction);
   const { values, set } = form;
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
@@ -102,13 +138,16 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
 
   // Perplexity models search by themselves; any other model researches through its native web search.
   const perplexity = (catalogue?.text ?? []).filter(
-    (model) => model.id.startsWith("perplexity/") && model.id !== DEFAULT_RESEARCH_MODEL,
+    (model) =>
+      model.id.startsWith("perplexity/") && model.id !== DEFAULT_RESEARCH_MODEL,
   );
   const researchOptions = [
     { value: "", label: "Perplexity Sonar Pro (recommended)" },
     ...perplexity.map((model) => ({ value: model.id, label: model.name })),
     { value: NATIVE_RESEARCH, label: "Content model with its own web search" },
-    ...(values.researchModel && values.researchModel !== NATIVE_RESEARCH && !perplexity.some((model) => model.id === values.researchModel)
+    ...(values.researchModel &&
+    values.researchModel !== NATIVE_RESEARCH &&
+    !perplexity.some((model) => model.id === values.researchModel)
       ? [{ value: values.researchModel, label: values.researchModel }]
       : []),
   ];
@@ -122,7 +161,9 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
         const payload = await response.json();
         if (cancelled) return;
         if (!response.ok) {
-          setCatalogueError(payload.error ?? "The model list could not be loaded.");
+          setCatalogueError(
+            payload.error ?? "The model list could not be loaded.",
+          );
           return;
         }
         setCatalogue({ text: payload.text, image: payload.image });
@@ -197,8 +238,9 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
           onChange={(id) => set("chatModel", id)}
         />
         <p className="wfield-hint-block" style={{ marginTop: 0 }}>
-          Answers the floating assistant in the corner of every panel page. Picked separately from the blog&apos;s
-          text model — short questions are usually best served by a fast, inexpensive model.
+          Answers the floating assistant in the corner of every panel page.
+          Picked separately from the blog&apos;s text model — short questions
+          are usually best served by a fast, inexpensive model.
         </p>
       </div>
 
@@ -207,22 +249,33 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
         {usage ? (
           <EnvFacts
             facts={[
-              { label: "Remaining", value: credit(usage.limit_remaining), ok: usage.limit_remaining === null || usage.limit_remaining > 0 },
+              {
+                label: "Remaining",
+                value: credit(usage.limit_remaining),
+                ok: usage.limit_remaining === null || usage.limit_remaining > 0,
+              },
               { label: "Used all time", value: credit(usage.usage) },
               { label: "Used today", value: credit(usage.usage_daily) },
               { label: "Used this week", value: credit(usage.usage_weekly) },
               { label: "Used this month", value: credit(usage.usage_monthly) },
-              { label: "Free requests today", value: `${usage.free_model_daily_requests.remaining.toLocaleString()} remaining of ${usage.free_model_daily_requests.limit.toLocaleString()}` },
+              {
+                label: "Free requests today",
+                value: `${usage.free_model_daily_requests.remaining.toLocaleString()} remaining of ${usage.free_model_daily_requests.limit.toLocaleString()}`,
+              },
             ]}
           />
         ) : (
-          <p className="wfield-hint-block" role={usageError ? "alert" : undefined}>
+          <p
+            className="wfield-hint-block"
+            role={usageError ? "alert" : undefined}
+          >
             {usageError || "Loading credit usage…"}
           </p>
         )}
         <p className="wfield-hint-block" style={{ marginBottom: 0 }}>
-          OpenRouter exposes key counters here. It does not provide a list endpoint for historical model-by-model activity;
-          detailed records require a generation ID from an individual completion.
+          OpenRouter exposes key counters here. It does not provide a list
+          endpoint for historical model-by-model activity; detailed records
+          require a generation ID from an individual completion.
         </p>
       </div>
 
@@ -240,14 +293,19 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
             value={values.researchModel}
             onChange={(value) => set("researchModel", value)}
             options={researchOptions}
-            note={RESEARCH_NOTES[values.researchModel] ?? "Searches the web through OpenRouter; priced per search on top of tokens."}
+            note={
+              RESEARCH_NOTES[values.researchModel] ??
+              "Searches the web through OpenRouter; priced per search on top of tokens."
+            }
           />
         ) : null}
         {values.webSearch ? (
           <Select
             label="Source numbers in the text"
             value={values.inlineCitations}
-            onChange={(value) => set("inlineCitations", value as InlineCitations)}
+            onChange={(value) =>
+              set("inlineCitations", value as InlineCitations)
+            }
             options={[
               { value: "none", label: "None — bibliography at the end only" },
               { value: "light", label: "Light — at most one per paragraph" },
@@ -256,8 +314,9 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
           />
         ) : (
           <p className="wdialog-error" role="alert" style={{ margin: 0 }}>
-            Without research, posts are written from the model&apos;s own knowledge: no sources, and facts about recent
-            events may be outdated or wrong.
+            Without research, posts are written from the model&apos;s own
+            knowledge: no sources, and facts about recent events may be outdated
+            or wrong.
           </p>
         )}
       </div>
@@ -283,7 +342,8 @@ export default function AiSettingsForm({ settings, configured }: { settings: AiS
           options={options(AI_LANGUAGES, AI_LANGUAGE_LABELS)}
         />
         <p className="wfield-hint-block" style={{ marginTop: 0 }}>
-          These are starting values — every choice can still be changed in the assistant before generating.
+          These are starting values — every choice can still be changed in the
+          assistant before generating.
         </p>
       </div>
 

@@ -2,7 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { PRODUCT_STATUSES, isProductStatus, validateDetail, validateProduct, validateProductType } from "@/lib/catalog-guard";
 import { creemMode, creemRequest } from "@/lib/creem";
 import { CREEM_BILLING_PERIOD, creemProductMismatch, isBillingInterval, validatePrice } from "@/lib/prices";
-import { publicationMissing, validateCompliance } from "@/lib/product-compliance";
+import { DELIVERY_NOTE_LIMIT, publicationMissing, validateCompliance } from "@/lib/product-compliance";
 import { productReadiness } from "@/lib/product-readiness";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
@@ -111,6 +111,20 @@ export async function saveCompliance(storeId: string, id: string, body: Record<s
   return { data: { id } };
 }
 
+/**
+ * Saves what buyers receive besides the packages (Packages tab): our own
+ * licence key per purchase and a plain-text note in their account. Creem only
+ * takes the payment; delivery never depends on its product settings.
+ */
+export async function saveDelivery(storeId: string, id: string, body: Record<string, unknown>): Promise<AdminResult<{ id: string }>> {
+  const current = await findStoreProduct(storeId, id);
+  if (!current) return fail("Product not found.", 404);
+  const note = typeof body.deliveryNote === "string" ? body.deliveryNote.replace(/\r\n/g, "\n").trim() : "";
+  if (note.length > DELIVERY_NOTE_LIMIT) return fail(`The note can be at most ${DELIVERY_NOTE_LIMIT.toLocaleString("en-US")} characters.`);
+  await prisma.product.update({ where: { id }, data: { issueLicenseKeys: body.issueLicenseKeys === true, deliveryNote: note || null } });
+  return { data: { id } };
+}
+
 /** Changes the status (Publish tab); publishing requires every ready-to-sell item. */
 export async function setProductStatus(storeId: string, id: string, status: unknown): Promise<AdminResult<{ id: string; status: string }>> {
   if (!isProductStatus(status)) return fail(`Status must be one of: ${PRODUCT_STATUSES.join(", ")}.`);
@@ -169,6 +183,7 @@ export async function copyProductToStore(storeId: string, id: string, targetStor
         tagline: source.tagline, intro: source.intro, highlights: source.highlights,
         compatibility: source.compatibility as Prisma.InputJsonValue, compliance: source.compliance as Prisma.InputJsonValue,
         ctaLabel: source.ctaLabel, ctaUrl: source.ctaUrl, demoUrl: source.demoUrl,
+        issueLicenseKeys: source.issueLicenseKeys, deliveryNote: source.deliveryNote,
         coverId: source.coverId ? assetIds.get(source.coverId) : null,
         position: (last._max.position ?? 0) + 10,
         gallery: { create: source.gallery.map((entry) => ({ assetId: assetIds.get(entry.assetId)!, position: entry.position })) },

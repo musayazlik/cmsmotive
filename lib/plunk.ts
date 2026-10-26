@@ -57,17 +57,46 @@ async function send(storeId: string, message: { to: string; subject: string; bod
   if (!response.ok) throw await plunkError(response);
 }
 
+/** Seller identity and legal links every customer mail ends with. */
+async function legalFooter(storeId: string, origin: string) {
+  const legal = await getLegalSettings(storeId);
+  return `<p style="font-size:12px;color:#5e666d">${escapeHtml(legal.legalName)}<br>${escapeHtml(legal.address)}<br>${escapeHtml(legal.country)}<br><a href="mailto:${escapeHtml(legal.contactEmail)}">${escapeHtml(legal.contactEmail)}</a><br><a href="${escapeHtml(origin)}/imprint">Impressum</a> · <a href="${escapeHtml(origin)}/privacy">Privacy / Datenschutz / Gizlilik</a></p>`;
+}
+
 export async function sendAccountEmail(storeId: string, message: Message, requestOrigin?: string) {
   const subject = escapeHtml(message.subject);
   const actionUrl = escapeHtml(message.actionUrl);
   const actionText = escapeHtml(message.actionText);
-  const legal=await getLegalSettings(storeId);
   const origin=requestOrigin ?? await originOfStore(storeId);
-  const footer=`<p style="font-size:12px;color:#5e666d">${escapeHtml(legal.legalName)}<br>${escapeHtml(legal.address)}<br>${escapeHtml(legal.country)}<br><a href="mailto:${escapeHtml(legal.contactEmail)}">${escapeHtml(legal.contactEmail)}</a><br><a href="${escapeHtml(origin)}/imprint">Impressum</a> · <a href="${escapeHtml(origin)}/privacy">Privacy / Datenschutz / Gizlilik</a></p>`;
+  const footer = await legalFooter(storeId, origin);
   await send(storeId, {
     to: message.to,
     subject: message.subject,
     body: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#101418"><h1 style="font-size:28px">${subject}</h1><p>Complete your CMSMotive request using the button below.</p><p><a href="${actionUrl}" style="display:inline-block;background:#4353e8;color:#fff;padding:14px 20px;border-radius:8px;text-decoration:none">${actionText}</a></p><p style="font-size:12px;color:#5e666d">If you did not request this, you can ignore this email.</p>${footer}</div>`,
+  });
+}
+
+/**
+ * A notification mail to one customer (new release, renewal reminder, …).
+ * `path` is an account path, made absolute against the store's origin; the
+ * footer links to the notification settings where the customer can opt out.
+ */
+export async function sendCustomerNotificationEmail(storeId: string, message: {
+  to: string;
+  subject: string;
+  heading: string;
+  body: string;
+  path: string;
+  actionText: string;
+  settingsText: string;
+  lang: string;
+}) {
+  const origin = await originOfStore(storeId);
+  const link = (path: string) => escapeHtml(`${origin}${path}${path.includes("?") ? "&" : "?"}lang=${message.lang}`);
+  await send(storeId, {
+    to: message.to,
+    subject: message.subject,
+    body: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px;color:#101418"><h1 style="font-size:24px">${escapeHtml(message.heading)}</h1><p style="line-height:1.6">${escapeHtml(message.body)}</p><p><a href="${link(message.path)}" style="display:inline-block;background:#4353e8;color:#fff;padding:14px 20px;border-radius:8px;text-decoration:none">${escapeHtml(message.actionText)}</a></p><p style="font-size:12px;color:#5e666d"><a href="${link("/account/notifications")}">${escapeHtml(message.settingsText)}</a></p>${await legalFooter(storeId, origin)}</div>`,
   });
 }
 

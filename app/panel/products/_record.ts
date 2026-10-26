@@ -25,6 +25,8 @@ export type ProductRecord = {
   ctaLabel: string;
   ctaUrl: string;
   demoUrl: string;
+  issueLicenseKeys: boolean;
+  deliveryNote: string;
   cover: UploadedImage | null;
   gallery: UploadedImage[];
   counts: { prices: number; pricesOnSale: number; releases: number; changelog: number; reviews: number; pendingReviews: number; orders: number };
@@ -71,6 +73,8 @@ export async function loadProduct(storeId: string, id: string): Promise<ProductR
     ctaLabel: product.ctaLabel ?? "",
     ctaUrl: product.ctaUrl ?? "",
     demoUrl: product.demoUrl ?? "",
+    issueLicenseKeys: product.issueLicenseKeys,
+    deliveryNote: product.deliveryNote ?? "",
     cover: product.cover ? toImage(product.cover) : null,
     gallery: product.gallery.map((entry) => toImage(entry.asset)),
     counts: {

@@ -14,14 +14,21 @@ export default async function CheckoutPage({
 }) {
   const [query, locale] = await Promise.all([searchParams, getRequestLocale()]);
   const price = await prisma.price.findFirst({
-    where: { id: query.price ?? "", enabled: true, product: { storeId: await currentStoreId() } },
+    where: {
+      id: query.price ?? "",
+      enabled: true,
+      product: { storeId: await currentStoreId() },
+    },
     select: { id: true, product: { select: { slug: true, storeId: true } } },
   });
   if (!price) notFound();
-  const product = await loadProductPage(price.product.storeId, price.product.slug);
+  const product = await loadProductPage(
+    price.product.storeId,
+    price.product.slug,
+  );
   if (!product || !product.prices.some((p) => p.id === price.id)) notFound();
   return (
-    <section className="wtable-card wsettings-section">
+    <section className="customer-card wsettings-section customer-checkout">
       <h1>{product.name}</h1>
       <p>
         {copy(

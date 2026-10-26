@@ -13,8 +13,11 @@ export type EmbeddedUsage = { posts: number; products: number };
 
 const FILE_KEY = /\/f\/([A-Za-z0-9_-]{8,})/g;
 
-function keysIn(html: string): Set<string> {
-  return new Set(Array.from(html.matchAll(FILE_KEY), (match) => match[1]));
+export function mediaKeysIn(html: string): Set<string> {
+  return new Set([
+    ...Array.from(html.matchAll(FILE_KEY), (match) => match[1]),
+    ...Array.from(html.matchAll(/\/api\/media\/r2\/([a-z0-9-]+\/media\/[A-Za-z0-9_-]+\/[a-f0-9-]+\.[a-z0-9]+)/g), (match) => `r2://${match[1]}`),
+  ]);
 }
 
 /** File key → number of the store's posts and products whose text embeds it. */
@@ -27,7 +30,7 @@ export async function getEmbeddedUsage(storeId: string): Promise<Map<string, Emb
   const usage = new Map<string, EmbeddedUsage>();
   const count = (documents: string[], field: keyof EmbeddedUsage) => {
     for (const html of documents) {
-      for (const key of keysIn(html)) {
+      for (const key of mediaKeysIn(html)) {
         const entry = usage.get(key) ?? { posts: 0, products: 0 };
         entry[field] += 1;
         usage.set(key, entry);

@@ -18,6 +18,8 @@ import { readStoreValues, upsertStoreValue } from "@/lib/settings-store";
 import { createCmsMcpServer } from "@/mcp/create-server";
 import type { AiLanguage } from "@/app/panel/blog/_ai";
 import { editText, sendPhoto, sendText, sendTyping } from "./api";
+import { mediaKeyFromUrl, r2MediaReference } from "@/lib/media-upload-shared";
+import { r2MediaStorage } from "@/lib/media-storage";
 import { sendPostCard } from "./drafts";
 import { DEFAULT_MODE, isToolMode, TOOL_MODES, toolInMode, type ToolMode } from "./modes";
 
@@ -222,7 +224,10 @@ async function executeCall(ctx: AgentContext, tools: Tools, call: ToolCall, stat
   if (call.function.name === SEND_PHOTO_TOOL.name) {
     if (typeof args.url !== "string") return "Error: url is required.";
     await activityStep("Sending the image to Telegram…");
-    await sendPhoto(ctx.token, ctx.chatId, args.url, typeof args.caption === "string" ? args.caption : undefined);
+    const mediaKey = mediaKeyFromUrl(args.url);
+    const reference = mediaKey ? r2MediaReference(mediaKey) : null;
+    const url = reference ? await r2MediaStorage().signedUrl(reference.bucket, reference.key) : args.url;
+    await sendPhoto(ctx.token, ctx.chatId, url, typeof args.caption === "string" ? args.caption : undefined);
     return "The image was shown to the user.";
   }
   if (!tools.byName.has(call.function.name)) return `Error: there is no tool named ${call.function.name}.`;

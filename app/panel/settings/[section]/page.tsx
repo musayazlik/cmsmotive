@@ -22,6 +22,7 @@ import {
   getUploadSettings,
 } from "@/lib/settings";
 import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared";
+import { packageStorageStatus } from "@/lib/package-storage-config";
 import AiSettingsForm from "../_components/ai-settings-form";
 import EmailSettingsForm from "../_components/email-settings-form";
 import GeneralSettingsForm from "../_components/general-settings-form";
@@ -156,7 +157,7 @@ async function MediaPanel() {
   const settings = await getUploadSettings(storeId);
   return (
     <>
-      <MediaSettingsForm settings={settings} />
+      <MediaSettingsForm settings={settings} availability={{ uploadthing: packageStorageStatus("uploadthing"), r2: packageStorageStatus("r2") }} />
       <p className="wsettings-scope">
         Quality range {WEBP_QUALITY_MIN}–{WEBP_QUALITY_MAX}. Applies to product, blog and media library uploads;
         existing files in storage keep their current format.

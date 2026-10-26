@@ -3,7 +3,7 @@ import TextField from "./ui/text-field";
 import TextArea from "./ui/text-area";
 import Switch from "./ui/switch";
 import {
-  publicationMissing,
+  publicationMissingLabels,
   type ProductCompliance,
 } from "@/lib/product-compliance";
 export default function ProductComplianceFields({
@@ -57,9 +57,9 @@ export default function ProductComplianceFields({
         checked={value.reviewed}
         onChange={(v) => set("reviewed", v)}
       />
-      {publicationMissing(value).length > 0 && (
+      {publicationMissingLabels(value).length > 0 && (
         <p className="wfield-hint-block">
-          Still needed: {publicationMissing(value).join(", ")}
+          Still needed: {publicationMissingLabels(value).join(", ")}
         </p>
       )}
     </div>

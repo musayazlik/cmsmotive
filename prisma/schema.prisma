@@ -39,6 +39,7 @@ model Store {
   pageViews     PageViewDaily[]
   activities    AssistantActivity[]
   members       StoreMember[]
+  notifications Notification[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 }
@@ -91,26 +92,28 @@ model StoreDomain {
 }
 
 model User {
-  id               String        @id
-  name             String
-  email            String        @unique
-  emailVerified    Boolean       @default(false)
-  termsVersion     String?
-  privacyVersion   String?
-  termsAcceptedAt  DateTime?
-  accountLocale    String        @default("en")
-  image            String?
+  id                     String                  @id
+  name                   String
+  email                  String                  @unique
+  emailVerified          Boolean                 @default(false)
+  termsVersion           String?
+  privacyVersion         String?
+  termsAcceptedAt        DateTime?
+  accountLocale          String                  @default("en")
+  image                  String?
   /// "admin" grants panel administration; "user" is the default account level.
   /// Additional levels (editor, reviewer) can be added without a schema change.
-  role             String        @default("user")
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  sessions         Session[]
-  accounts         Account[]
-  uploads          MediaAsset[]
-  posts            Post[]
-  customers        Customer[]
-  storeMemberships StoreMember[]
+  role                   String                  @default("user")
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  sessions               Session[]
+  accounts               Account[]
+  uploads                MediaAsset[]
+  posts                  Post[]
+  customers              Customer[]
+  storeMemberships       StoreMember[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
 
   @@map("user")
 }
@@ -423,55 +426,59 @@ model ProductType {
   updatedAt   DateTime  @updatedAt
 }
 
-/// Anything the catalogue shows and sells. Owned by one store (its panel and
-/// media library) and listed in any number of stores (ProductStore).
+/// Anything the catalogue shows and sells. Owned by and listed in one store;
+/// "copy to store" duplicates it into another.
 model Product {
-  id            String           @id @default(cuid())
-  storeId       String
-  store         Store            @relation(fields: [storeId], references: [id])
-  typeId        String
-  type          ProductType      @relation(fields: [typeId], references: [id])
+  id               String           @id @default(cuid())
+  storeId          String
+  store            Store            @relation(fields: [storeId], references: [id])
+  typeId           String
+  type             ProductType      @relation(fields: [typeId], references: [id])
   /// Public URL /products/<slug> on its store's domain.
-  slug          String
-  name          String
-  summary       String
+  slug             String
+  name             String
+  summary          String
   /// Tiptap HTML output.
-  description   String
+  description      String
   /// draft (hidden) | preview (shown, not buyable) | published (buyable)
-  status        String           @default("draft")
+  status           String           @default("draft")
   /// Optional progress note on cards and the detail page, e.g. "In development".
-  badge         String?
+  badge            String?
   /// Order on the store's catalogue, ascending.
-  position      Int              @default(0)
+  position         Int              @default(0)
   /// Card kicker such as an industry; empty = the type name.
-  category      String?
-  /// Stacks and versions it targets, e.g. ["TYPO3 13", "TYPO3 14"] or ["Next.js", "PostgreSQL"].
-  technologies  String[]         @default([])
-  compliance    Json             @default("{}")
+  category         String?
+  /// Stacks and versions it targets, e.g. ["Next.js 16", "PostgreSQL"].
+  technologies     String[]         @default([])
+  compliance       Json             @default("{}")
   /// Detail page hero kicker; empty = category.
-  tagline       String?
+  tagline          String?
   /// Detail page hero paragraph; empty = summary.
-  intro         String?
+  intro            String?
   /// Short lines listed under the buy panel.
-  highlights    String[]         @default([])
+  highlights       String[]         @default([])
   /// Compatibility tab rows: [{ area, target, status }].
-  compatibility Json             @default("[]")
+  compatibility    Json             @default("[]")
   /// Primary buy panel button when nothing can be bought yet; empty = "Ask about <name>".
-  ctaLabel      String?
-  ctaUrl        String?
-  demoUrl       String?
-  coverId       String?
-  cover         MediaAsset?      @relation("ProductCover", fields: [coverId], references: [id], onDelete: SetNull)
-  gallery       ProductGallery[]
-  prices        Price[]
-  releases      ProductRelease[]
-  changelog     ChangelogEntry[]
-  reviews       ProductReview[]
-  orders        Order[]
-  subscriptions Subscription[]
-  entitlements  Entitlement[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  ctaLabel         String?
+  ctaUrl           String?
+  demoUrl          String?
+  /// Delivery: issue our own licence key with every purchase (activations = the price's installations).
+  issueLicenseKeys Boolean          @default(false)
+  /// Delivery: plain-text note buyers see in their account next to the downloads.
+  deliveryNote     String?
+  coverId          String?
+  cover            MediaAsset?      @relation("ProductCover", fields: [coverId], references: [id], onDelete: SetNull)
+  gallery          ProductGallery[]
+  prices           Price[]
+  releases         ProductRelease[]
+  changelog        ChangelogEntry[]
+  reviews          ProductReview[]
+  orders           Order[]
+  subscriptions    Subscription[]
+  entitlements     Entitlement[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@unique([storeId, slug])
   @@index([storeId, status, position])
@@ -490,16 +497,19 @@ model ProductGallery {
   @@index([productId, position])
 }
 
-/// A private ZIP package of one product version (UploadThing private ACL).
+/// A private ZIP package of one product version (UploadThing or Cloudflare R2).
 model ProductRelease {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   version     String
-  fileKey     String   @unique
+  /// UploadThing key or r2://bucket/packages/... reference; never a public URL.
+  fileKey     String    @unique
   fileName    String
   codeLicense String
-  createdAt   DateTime @default(now())
+  /// When buyers were told about this version (lib/notifications.ts); null = still to announce.
+  notifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
 
   @@unique([productId, version])
 }
@@ -676,13 +686,14 @@ model Entitlement {
   @@index([productId])
 }
 
-/// A licence key Creem issued with an order (products with the licence key feature).
+/// A licence key delivered with a purchase: issued by us (Product.issueLicenseKeys,
+/// creemLicenseId null) or by Creem when its product has the licence key feature.
 model LicenseKey {
   id              String      @id @default(cuid())
   entitlementId   String
   entitlement     Entitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
-  creemLicenseId  String      @unique
-  key             String
+  creemLicenseId  String?     @unique
+  key             String      @unique
   /// inactive | active | expired | disabled
   status          String
   activations     Int         @default(0)
@@ -751,4 +762,41 @@ model PageViewDaily {
   updatedAt DateTime @updatedAt
 
   @@unique([storeId, date, slug])
+}
+
+/// A message in one customer's account (new release, renewal reminder, …). `type` and `data`
+/// are rendered in the reader's language by lib/notifications.ts; `dedupeKey` makes each
+/// event fire once per user however often a webhook or the scheduled job repeats.
+model Notification {
+  id            String    @id @default(cuid())
+  storeId       String
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String
+  data          Json
+  /// Account path the message points to, e.g. /account/downloads.
+  href          String?
+  dedupeKey     String
+  readAt        DateTime?
+  /// pending | sent | skipped (opted out or no mail needed) | failed (gave up after retries)
+  emailState    String    @default("pending")
+  emailAttempts Int       @default(0)
+  emailedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, storeId, createdAt])
+  @@index([userId, storeId, readAt])
+  @@index([emailState, createdAt])
+}
+
+/// Which notification mails a customer wants. In-account messages are always kept; payment
+/// problems are always mailed.
+model NotificationPreference {
+  userId        String   @id
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailReleases Boolean  @default(true)
+  emailBilling  Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
 }

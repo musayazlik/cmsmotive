@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useUploadThing } from "@/lib/uploadthing";
-import { useUploadSettings } from "@/app/panel/_components/upload-settings";
-import { optimizeForUpload } from "@/lib/webp";
+import { useOptimizedUpload } from "@/app/panel/_components/use-optimized-upload";
 import type { CoverRef } from "../_lib";
 
 type Props = {
@@ -21,11 +19,8 @@ type Props = {
 export default function CoverField({ value, onChange, library }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDialogElement>(null);
-  const [error, setError] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [assets, setAssets] = useState(library);
-  const [optimizing, setOptimizing] = useState(false);
-  const uploadSettings = useUploadSettings();
 
   useEffect(() => {
     const dialog = pickerRef.current;
@@ -34,14 +29,12 @@ export default function CoverField({ value, onChange, library }: Props) {
     if (!pickerOpen && dialog.open) dialog.close();
   }, [pickerOpen]);
 
-  const { startUpload, isUploading } = useUploadThing("blogMedia", {
-    onClientUploadComplete: (files) => {
-      setError("");
+  const { upload, busy, error, status } = useOptimizedUpload("blogMedia", ["image"], (files) => {
       const file = files[0];
       if (file) {
         const cover: CoverRef = {
-          assetId: String(file.serverData?.assetId ?? ""),
-          url: file.ufsUrl,
+          assetId: file.assetId,
+          url: file.url,
           name: file.name,
         };
         setAssets((prev) =>
@@ -50,11 +43,7 @@ export default function CoverField({ value, onChange, library }: Props) {
         onChange(cover);
         setPickerOpen(false);
       }
-    },
-    onUploadError: (message) => setError(message.message || "The cover image could not be uploaded."),
   });
-
-  const busy = isUploading || optimizing;
 
   function choose(asset: CoverRef) {
     onChange(asset);
@@ -85,7 +74,7 @@ export default function CoverField({ value, onChange, library }: Props) {
           onClick={() => setPickerOpen(true)}
           disabled={busy}
         >
-          {busy ? (optimizing ? "Optimizing…" : "Uploading…") : "Choose a cover image"}
+          {busy ? status : "Choose a cover image"}
         </button>
       )}
 
@@ -100,10 +89,7 @@ export default function CoverField({ value, onChange, library }: Props) {
           const files = Array.from(event.target.files ?? []);
           event.target.value = "";
           if (files.length === 0) return;
-          setOptimizing(true);
-          const optimized = await optimizeForUpload(files[0], uploadSettings);
-          setOptimizing(false);
-          startUpload([optimized.file]);
+          await upload([files[0]]);
         }}
       />
 
@@ -134,7 +120,7 @@ export default function CoverField({ value, onChange, library }: Props) {
           <div className="wpick-toolbar">
             <p className="wtable-count">{assets.length} images in the media library</p>
             <button type="button" className="wbtn wbtn-primary" onClick={() => inputRef.current?.click()} disabled={busy}>
-              {busy ? (optimizing ? "Optimizing…" : "Uploading…") : "Upload new image"}
+              {busy ? status : "Upload new image"}
             </button>
           </div>
 

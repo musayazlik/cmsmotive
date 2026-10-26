@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { utapi } from "@/lib/utapi";
+import { deleteMediaFile } from "@/lib/media-storage";
 import { requireAdmin } from "@/lib/admin-guard";
 import type { ActionResult } from "./_lib";
 import { panelStore } from "@/lib/panel-store";
@@ -32,16 +32,11 @@ export async function deleteMedia(key: string): Promise<ActionResult> {
 
   // Storage first: if UploadThing rejects, the database record still
   // describes a real file and nothing is left dangling.
-  let storageDeleted = true;
   try {
-    await utapi.deleteFiles(key);
+    await deleteMediaFile(key);
   } catch (error) {
-    storageDeleted = false;
-    if (!asset) {
-      console.error("deleteMedia (storage) failed", error);
-      return { ok: false, error: "The file could not be deleted from storage." };
-    }
-    // No storage copy behind this row — fall through and clean the record.
+    console.error("deleteMedia (storage) failed", error);
+    return { ok: false, error: "The file could not be deleted from storage. The library record was kept; try again." };
   }
 
   try {
@@ -51,14 +46,9 @@ export async function deleteMedia(key: string): Promise<ActionResult> {
     console.error("deleteMedia (database) failed", error);
     return {
       ok: false,
-      error: storageDeleted
-        ? "Removed from storage, but the database record could not be deleted. Try again."
-        : "The file could not be deleted.",
+      error: "Removed from storage, but the database record could not be deleted. Try again.",
     };
   }
 
-  if (!storageDeleted) {
-    return { ok: false, error: "The file was already gone from storage; the stale database record was removed." };
-  }
   return { ok: true };
 }

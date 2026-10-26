@@ -700,6 +700,10 @@ a.workspace-person:hover{border-color:var(--indigo)}
 
 /* package upload (product Packages tab) */
 .wpkg-intro{margin:0 0 14px}
+.wpkg-readiness-note{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:17px 20px;border:1px solid #f7d8aa;border-radius:10px;background:#fff8ec;color:#7a4300}
+.wpkg-readiness-note strong{font-size:13px;line-height:1.6}
+.wpkg-readiness-note p{margin-top:4px;color:#7a4300;font-size:12px;line-height:1.7}
+@media(max-width:600px){.wpkg-readiness-note{align-items:flex-start;flex-direction:column}}
 .wpkg-notice{margin:0 0 14px;padding:10px 12px;border:1px solid #f7d8aa;border-left-width:3px;border-radius:8px;background:#fff8ec;font-size:12px;line-height:1.55;color:#7a4300}
 .wdrop-package{min-height:150px}
 .wpkg-file{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:11px;background:#fafbf9;transition:border-color .2s,box-shadow .2s}
@@ -713,6 +717,35 @@ a.workspace-person:hover{border-color:var(--indigo)}
 .wpkg-submit{display:flex;align-items:flex-start;gap:12px;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .wpkg-submit .wfield{flex:1;max-width:280px;margin:0}
 .wpkg-submit .wbtn{min-height:46px;margin-top:24px}
+/* Published packages have their own columns; other repeaters use different layouts. */
+.wpkg-releases{min-width:0}
+.wpkg-releases .wsection-label{color:var(--muted)}
+.wpkg-releases>.wfield-hint-block{color:var(--muted)}
+.wpkg-release-count{flex:none;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--canvas);color:var(--muted);font:500 11px/1.5 'DM Mono',monospace}
+.wpkg-release-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.wpkg-release-scroll:focus-visible{outline-offset:-3px}
+.wpkg-release-table{width:100%;min-width:600px;table-layout:fixed;border-collapse:collapse;text-align:left}
+.wpkg-release-table th,.wpkg-release-table td{padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13px;line-height:1.5}
+.wpkg-release-table thead th{background:var(--canvas);color:var(--muted);font:500 10px/1.5 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.wpkg-release-table thead th:first-child{width:22%}
+.wpkg-release-table thead th:nth-child(3){width:136px}
+.wpkg-release-table thead th:last-child{width:120px}
+.wpkg-release-table tbody tr:last-child>*{border-bottom:0}
+.wpkg-release-table tbody tr:hover,.wpkg-release-table tbody tr:focus-within{background:var(--canvas)}
+.wpkg-release-version{display:inline-block;max-width:100%;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:500 12px/1.5 'DM Mono',monospace;overflow-wrap:anywhere}
+.wpkg-release-file{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.wpkg-release-file>span:last-child{min-width:0;overflow-wrap:anywhere}
+.wpkg-release-icon{display:grid;place-items:center;flex:none;width:32px;height:36px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--muted)}
+.wpkg-release-icon svg{width:18px;height:18px}
+.wpkg-release-table time{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wpkg-release-table .wpkg-release-actions{text-align:right}
+.wpkg-release-remove{min-height:44px;padding:0 8px;background:transparent}
+.wpkg-release-remove svg{width:15px;height:15px;flex:none}
+.wpkg-release-remove:active:not(:disabled){background:var(--canvas)}
+.wpkg-releases-empty{display:grid;justify-items:center;gap:8px;padding:32px 20px;border:1px dashed var(--line);border-radius:8px;background:var(--canvas);text-align:center}
+.wpkg-releases-empty>svg{width:28px;height:28px;margin-bottom:4px;color:var(--muted)}
+.wpkg-releases-empty strong{font-size:14px;color:var(--ink)}
+.wpkg-releases-empty p{max-width:390px;font-size:13px;line-height:1.65}
 @media (max-width:560px){
   .wpkg-file{flex-wrap:wrap}
   .wpkg-file-tools{width:100%}
@@ -722,6 +755,12 @@ a.workspace-person:hover{border-color:var(--indigo)}
   .wpkg-submit .wbtn{margin-top:0}
 }
 @media (prefers-reduced-motion:reduce){.wpkg-progress span{transition:none}}
+
+/* account library: delivered licence keys and the seller's note */
+.waccount-licences,.waccount-note{margin-top:14px}
+.waccount-licences ul{display:grid;gap:6px;margin:0;padding:0;list-style:none;font-size:12.5px;color:#55616a}
+.waccount-licences code{padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:#fafbf9;font:600 12px/1.6 'DM Mono',monospace;color:var(--ink);user-select:all;overflow-wrap:anywhere}
+.waccount-note p:last-child{margin:0;font-size:13px;line-height:1.65;color:#3d474e;white-space:pre-line}
 /* gallery grid: numbered tiles, tools on hover/focus (always on touch), an add tile at the end */
 .wgallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:0;padding:0;list-style:none;border-radius:12px;outline:2px dashed transparent;outline-offset:6px;transition:outline-color .2s}
 .wgallery.is-dragging{outline-color:var(--indigo)}

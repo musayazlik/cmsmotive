@@ -57,7 +57,7 @@ export const SETTINGS_TABS = [
     id: "media",
     label: "Media",
     intro:
-      "Workspace-wide defaults for how the panel handles media. Image uploads are optimized before they reach storage, so every theme, extension, post and library file benefits automatically.",
+      "Choose UploadThing or Cloudflare R2 for this store’s product files, images and videos, and set image optimization defaults.",
   },
   {
     id: "mcp",

@@ -1,7 +1,7 @@
 import { creemMode } from "./creem";
 import { getLegalSettings } from "./legal";
 import { legalReadiness, reservedNameTerms, reservedTermIn } from "./legal-settings-shared";
-import { publicationMissing, readCompliance } from "./product-compliance";
+import { publicationMissingLabels, readCompliance } from "./product-compliance";
 import { prisma } from "./prisma";
 
 /** Where in the panel a missing item is fixed. */
@@ -29,7 +29,7 @@ export async function productReadiness(productId: string): Promise<Readiness | n
   const mode = creemMode();
   const legal = await getLegalSettings(product.storeId);
   const legalMissing = [...legalReadiness(legal), ...(legal.salesTermsReviewed ? [] : ["sales terms review"])];
-  const packageMissing = publicationMissing(readCompliance(product.compliance));
+  const packageMissing = publicationMissingLabels(readCompliance(product.compliance));
   const text = product.description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   // Trademarks the store reserves (Settings → Legal), e.g. a platform name a product may only claim compatibility with.
   const terms = reservedNameTerms(legal);

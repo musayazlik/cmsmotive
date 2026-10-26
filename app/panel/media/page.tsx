@@ -7,6 +7,7 @@ import MediaList from "./_components/media-list";
 import { TableCardSkeleton } from "../_components/skeletons";
 import { guessMimeType, type MediaRow, type MediaUsageInfo } from "./_lib";
 import { panelStore } from "@/lib/panel-store";
+import { r2MediaReference } from "@/lib/media-upload-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 type UtStorageFile = Awaited<ReturnType<typeof utapi.listFiles>>["files"][number];
 
 async function listStorageFiles() {
+  if (!process.env.UPLOADTHING_TOKEN?.trim()) return { files: [], truncated: false };
   const files: UtStorageFile[] = [];
   let truncated = false;
   for (let offset = 0; files.length < UT_MAX_FILES; offset += UT_PAGE_SIZE) {
@@ -66,14 +68,14 @@ async function MediaLibrary({ storeId }: { storeId: string }) {
     // One UploadThing bucket serves every store: files another store owns stay out of this library.
     Promise.all([
       prisma.mediaAsset.findMany({ where: { storeId: { not: storeId } }, select: { key: true } }),
-      prisma.productRelease.findMany({ where: { product: { storeId: { not: storeId } } }, select: { fileKey: true } }),
+      prisma.productRelease.findMany({ select: { fileKey: true } }),
     ]).then(([media, releases]) => new Set([...media.map((row) => row.key), ...releases.map((row) => row.fileKey)])),
   ]);
 
   // Storage stats are what the plan bills against, so they come straight
   // from UploadThing rather than being summed from the table slice.
   let usage: MediaUsageInfo | null = null;
-  if (storage.result) {
+  if (storage.result && process.env.UPLOADTHING_TOKEN?.trim()) {
     try {
       const info = await utapi.getUsageInfo();
       usage = { filesUploaded: info.filesUploaded, totalBytes: info.totalBytes, limitBytes: info.limitBytes };
@@ -132,8 +134,8 @@ async function MediaLibrary({ storeId }: { storeId: string }) {
       mimeType: asset.mimeType,
       url: asset.url,
       uploadedAt: asset.createdAt.toISOString(),
-      status: "Missing",
-      source: "missing",
+      status: r2MediaReference(asset.key) || !storage.result ? "Uploaded" : "Missing",
+      source: r2MediaReference(asset.key) || !storage.result ? "tracked" : "missing",
       usage: {
         products: asset._count.productCovers,
         posts: asset._count.postCovers,
@@ -168,8 +170,8 @@ export default async function MediaPage() {
             Media in <em>storage.</em>
           </h1>
           <p>
-            Every file in the UploadThing bucket with its size, tracking state and where it is used. Search
-            the library, copy URLs, upload new media and clean up files the database no longer references.
+            Images and videos from this store’s UploadThing and Cloudflare R2 storage. Search the library,
+            copy URLs, upload new media and review where each file is used.
           </p>
         </div>
         <span className="workspace-index">MEDIA</span>

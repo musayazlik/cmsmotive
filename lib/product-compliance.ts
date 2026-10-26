@@ -7,6 +7,14 @@ export const DEFAULT_COMPLIANCE = {
   reviewed: false,
 };
 export type ProductCompliance = typeof DEFAULT_COMPLIANCE;
+export const COMPLIANCE_LABELS: Record<keyof ProductCompliance, string> = {
+  codeLicense: "Code license",
+  noticesUrl: "License and third-party notices URL",
+  releaseVersion: "Release version",
+  testedVersions: "Tested platform and runtime versions",
+  serviceScope: "Support scope and included services",
+  reviewed: "Package, compatibility, rights and service review",
+};
 export function readCompliance(value: unknown): ProductCompliance {
   const raw =
     value && typeof value === "object"
@@ -46,3 +54,10 @@ export function publicationMissing(data: ProductCompliance) {
   // licence only has to be set.
   return missing;
 }
+
+export function publicationMissingLabels(data: ProductCompliance) {
+  return publicationMissing(data).map((key) => COMPLIANCE_LABELS[key as keyof ProductCompliance]);
+}
+
+/** The plain-text delivery note buyers see in their account (Product.deliveryNote). */
+export const DELIVERY_NOTE_LIMIT = 2000;

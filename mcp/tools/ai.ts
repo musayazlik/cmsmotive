@@ -14,6 +14,8 @@ import { isPostStatus } from "@/app/panel/blog/_lib";
 import { savePostRecord } from "../lib/posts";
 import { runTool, ToolError } from "../lib/result";
 import { mcpStoreId } from "@/mcp/context";
+import { mediaKeyFromUrl, r2MediaReference } from "@/lib/media-upload-shared";
+import { r2MediaStorage } from "@/lib/media-storage";
 
 /** Same house style as the panel's AI cover and inline images (app/api/admin/ai/generate). */
 const STYLE_GUIDE: Record<"cover" | "inline" | "free", string> = {
@@ -36,7 +38,10 @@ const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 
 /** The source of an edit as a data URL, so the image provider never has to reach our storage. */
 async function sourceAsDataUrl(url: string): Promise<string> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  const key = mediaKeyFromUrl(url);
+  const ref = key ? r2MediaReference(key) : null;
+  const source = ref ? await r2MediaStorage().signedUrl(ref.bucket, ref.key) : url;
+  const response = await fetch(source, { signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new ToolError(`Could not download the source image: HTTP ${response.status}.`);
   const mime = response.headers.get("content-type")?.split(";")[0]?.trim() || "image/png";
   if (!mime.startsWith("image/")) throw new ToolError("The source is not an image.");

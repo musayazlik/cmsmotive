@@ -6,6 +6,7 @@ import { authText } from "@/lib/auth-copy";
 import { trademarkNote } from "@/lib/legal-copy";
 import GoogleSignIn from "./google-sign-in";
 import { copy } from "@/lib/legal-copy";
+import LanguageSwitcher from "@/app/_components/language-switcher";
 
 const FONTS_CSS = "/assets/css/fonts.css";
 
@@ -60,11 +61,7 @@ export default function AuthScreen({ page, content, authRoot, authTarget, showSw
               {t("Back to site")}
             </a>
           </header>
-          <nav className="auth-languages" aria-label="Language">{(["de","en","tr"] as const).map(lang=>{
-            const params=new URLSearchParams({lang});
-            for(const [key,value]of Object.entries(query))if(value)params.set(key,value);
-            return <a key={lang} href={`${authRoot}/${page}?${params}`} aria-current={locale===lang?"page":undefined}>{lang.toUpperCase()}</a>;
-          })}</nav>
+          <div className="auth-languages"><LanguageSwitcher locale={locale} path={`${authRoot}/${page}`} /></div>
           <div className="auth-panel-inner">
             <div className="auth-panel-heading">
               <div className="auth-page-icon" aria-hidden="true"><PageIcon page={page} /></div>

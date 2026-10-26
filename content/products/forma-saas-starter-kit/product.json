@@ -1,0 +1,145 @@
+{
+  "storeKey": "global",
+  "typeKey": "theme",
+  "name": "Forma — SaaS Theme & Starter Kit",
+  "slug": "forma-saas-starter-kit",
+  "summary": "An editorial SaaS theme and frontend starter kit concept with marketing pages, a workspace dashboard, responsive layouts, and light and dark styles. Preview the planned experience in seven device mockups.",
+  "description": "<h2>A considered starting point for your next SaaS product</h2><p>Forma brings a calm, editorial visual language to software: warm ivory surfaces, forest-green accents, sage charts, generous spacing, and distinctive typography. It is designed for founders, independent developers, and studios building a polished marketing website and a consistent application interface.</p><h2>Planned template collection</h2><ul><li>Marketing: homepage, features, pricing, blog index, article, and contact page.</li><li>Account screens: sign in, create account, and reset password interface templates.</li><li>Workspace: overview dashboard, projects, and account settings.</li><li>Reusable interface components: navigation, buttons, form fields, cards, tables, tabs, badges, dialogs, and empty states.</li><li>Responsive layouts for desktop, tablet, and phone, plus coordinated light and dark styles.</li></ul><h2>Planned developer experience</h2><p>The intended stack is Next.js App Router, React, TypeScript, and Tailwind CSS. The release scope targets editable frontend source, reusable components, CSS theme tokens, sample data, setup instructions, and customization notes.</p><h2>Built to become your own</h2><p>Use the marketing templates to communicate your product, adapt the workspace screens to your workflow, and change the colors and type through a shared theme foundation. Planned keyboard focus states and semantic markup will be validated during implementation; no accessibility certification or performance score is claimed.</p><h2>License options</h2><p>Indicative launch pricing: Single project, USD 79 for one end product; Studio, USD 199 for up to five end products. Both options target commercial use, editable source delivery, and 12 months of release updates after launch. Source redistribution and resale as a competing template are outside the proposed license. Final license and support terms will accompany the first release.</p><h2>Preview status and scope</h2><p>Forma is currently a product concept in development. The cover and six gallery images are AI-generated visual mockups, not screenshots of a released codebase. Numbers, plans, charts, and names inside the device screens are illustrative demo content and do not describe actual customers or the kit license prices. The downloadable source package, tested version matrix, and final license are not available yet, and checkout is disabled. Authentication, payments, database persistence, email delivery, and backend integrations are not included in the current frontend concept. Contact CMSMotive to discuss availability.</p>",
+  "status": "preview",
+  "badge": "In development",
+  "compliance": {
+    "codeLicense": "Commercial"
+  },
+  "category": "SaaS & Startups",
+  "technologies": [
+    "Next.js",
+    "React",
+    "TypeScript",
+    "Tailwind CSS"
+  ],
+  "tagline": "A calm foundation for ambitious software",
+  "intro": "Shape your next SaaS with an editorial marketing site and a coordinated workspace UI. Explore Forma's planned responsive layouts, light and dark themes, and reusable frontend components through seven device mockups.",
+  "highlights": [
+    "Marketing pages and workspace UI",
+    "Desktop, tablet, and mobile layouts",
+    "Coordinated light and dark styles",
+    "Planned editable TypeScript source",
+    "Reusable components and theme tokens",
+    "Frontend concept; backend not included",
+    "AI-generated concept mockups",
+    "In development — checkout unavailable"
+  ],
+  "compatibility": [
+    {
+      "area": "Framework",
+      "target": "Next.js App Router + React",
+      "status": "Planned; release testing pending"
+    },
+    {
+      "area": "Language",
+      "target": "TypeScript",
+      "status": "Planned source delivery"
+    },
+    {
+      "area": "Styling",
+      "target": "Tailwind CSS + CSS theme tokens",
+      "status": "Planned"
+    },
+    {
+      "area": "Devices",
+      "target": "Desktop, tablet, and mobile web",
+      "status": "Responsive design target"
+    },
+    {
+      "area": "Themes",
+      "target": "Light and dark",
+      "status": "Concept mockups available"
+    },
+    {
+      "area": "Backend",
+      "target": "Auth, payments, database, and email",
+      "status": "Not included in frontend scope"
+    },
+    {
+      "area": "Browser support",
+      "target": "Modern Chrome, Safari, Firefox, Edge",
+      "status": "Testing pending first release"
+    }
+  ],
+  "ctaLabel": "Ask about Forma",
+  "ctaUrl": "/contact?product=forma-saas-starter-kit",
+  "demoUrl": "",
+  "prices": [
+    {
+      "name": "Single project",
+      "billingType": "onetime",
+      "amountCents": 7900,
+      "currency": "USD",
+      "taxMode": "inclusive",
+      "updatesMonths": 12,
+      "seats": 1,
+      "features": [
+        "Planned license for one end product",
+        "Editable frontend source at release",
+        "12 months of updates after launch",
+        "Indicative price — not available to buy"
+      ],
+      "enabled": false,
+      "position": 0
+    },
+    {
+      "name": "Studio",
+      "billingType": "onetime",
+      "amountCents": 19900,
+      "currency": "USD",
+      "taxMode": "inclusive",
+      "updatesMonths": 12,
+      "seats": 5,
+      "features": [
+        "Planned license for up to five end products",
+        "Editable frontend source at release",
+        "12 months of updates after launch",
+        "Indicative price — not available to buy"
+      ],
+      "enabled": false,
+      "position": 10
+    }
+  ],
+  "images": [
+    {
+      "file": "cover.png",
+      "role": "cover",
+      "alt": "Forma SaaS theme concept on a silver laptop and graphite phone in a warm ivory studio"
+    },
+    {
+      "file": "gallery-01-landing.png",
+      "role": "gallery",
+      "alt": "Forma marketing homepage concept displayed on a laptop"
+    },
+    {
+      "file": "gallery-02-dashboard.png",
+      "role": "gallery",
+      "alt": "Forma light dashboard concept with charts and projects on laptop and phone"
+    },
+    {
+      "file": "gallery-03-mobile.png",
+      "role": "gallery",
+      "alt": "Three phone mockups showing Forma landing page, dashboard, and projects"
+    },
+    {
+      "file": "gallery-04-dark-mode.png",
+      "role": "gallery",
+      "alt": "Forma dark dashboard concept on graphite laptop and phone"
+    },
+    {
+      "file": "gallery-05-pricing.png",
+      "role": "gallery",
+      "alt": "Illustrative SaaS pricing page concept displayed on laptop and tablet"
+    },
+    {
+      "file": "gallery-06-auth.png",
+      "role": "gallery",
+      "alt": "Forma sign-in and workspace registration interface concepts on laptop and phone"
+    }
+  ]
+}

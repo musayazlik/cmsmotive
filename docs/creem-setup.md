@@ -19,7 +19,17 @@ Implemented on 24 October 2026. Live payments are disabled until the operational
 3. In Creem test mode create an **active recurring yearly** EUR product with a **tax-inclusive** price and **no trial**. The application checks those settings before checkout and when enabling a plan. Use a separate product per service plan. The amount in the panel must match Creem, including cents.
 4. In Settings → Legal complete actual hosting/database locations, retention, processors and transfer safeguards. Check identity, applicable tax/register details and all four public legal pages against the real operation before marking reviewed. Account registration additionally follows Settings → General → Accounts.
 5. Complete each theme/extension's release checklist, including GPL-compatible code licensing, third-party notices, tested TYPO3 versions and actual support scope. In Subscriptions & packages create its plan, upload its private ZIP release, add the Creem test product ID and enable the plan. Publication and checkout perform separate checks; uploading a file does not publish a concept.
-6. Register `https://YOUR-DOMAIN/api/webhooks/creem` in Creem. Local testing needs an HTTPS tunnel forwarding to port 3000; use its public origin for both site URLs. Subscribe to `checkout.completed`, `subscription.active`, `subscription.paid`, `subscription.scheduled_cancel`, `subscription.canceled`, `subscription.expired`, `subscription.past_due`, `subscription.unpaid`, `subscription.paused`, `refund.created` and `dispute.created`, where available in the Creem dashboard. Copy that endpoint's signing secret to the environment and restart.
+6. For deployed HTTP deliveries, register `https://YOUR-DOMAIN/api/webhooks/creem` in Creem. Subscribe to `checkout.completed`, `subscription.active`, `subscription.paid`, `subscription.scheduled_cancel`, `subscription.canceled`, `subscription.expired`, `subscription.past_due`, `subscription.unpaid`, `subscription.paused`, `refund.created` and `dispute.created`, where available in the Creem dashboard. Copy that endpoint's signing secret to the environment and restart.
+
+### Local webhook forwarding
+
+Run the application with `pnpm dev`, then run `pnpm creem:webhook` in a second terminal. The launcher loads the same Next.js environment files and forwards to `http://localhost:PORT/api/webhooks/creem`; `PORT` defaults to 3000 only when unset. A tunnel is not required with Creem CLI.
+
+Set `CREEM_CLI_WEBHOOK_ID` to an existing **CLI-mode** test endpoint and set `CREEM_WEBHOOK_SECRET` to that endpoint's signing secret. Reusing the ID keeps the signing secret stable between listener runs. Without an ID, the CLI creates a temporary endpoint with a new signing secret; copy that secret into the local environment and restart the app before sending events. HTTP deployment endpoints have their own secrets and must not use this CLI endpoint ID.
+
+The launcher uses the project's `CREEM_API_KEY` and `CREEM_MODE`, so a different saved CLI login cannot silently select another account or environment. Live listening still requires the explicit `--live` flag. Additional CLI options, such as `--once` or `--webhook`, can be passed after `pnpm creem:webhook`.
+
+If the dashboard records **503**, inspect the delivery response: `creem listen could not reach ...` means the server/port is unreachable or timed out; `Webhook not configured` means the app has no signing secret. A **401** means the signature or signing secret does not match. Fix the target or configuration and replay the failed event from the Creem dashboard; CLI deliveries already acknowledged as failed are not retried automatically. See the [Creem CLI documentation](https://docs.creem.io/code/cli).
 
 ## Delivery and cancellation
 

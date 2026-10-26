@@ -37,7 +37,7 @@ import {
 } from "@/lib/telegram-settings";
 import { getMe, telegram } from "@/telegram/api";
 import { BOT_COMMANDS } from "@/telegram/modes";
-import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared";
+import { validateUploadSettings } from "@/lib/upload-settings-shared";
 import type { ActionResult } from "@/app/panel/media/_lib";
 import { saveLegalSettings } from "@/lib/legal";
 import { validateLegalSettings } from "@/lib/legal-settings-shared";
@@ -143,23 +143,21 @@ export async function sendTestEmailAction(): Promise<{ ok: true; to: string } | 
  * layout guard.
  */
 export async function saveUploadSettingsAction(
-  convertWebp: boolean,
-  webpQuality: number,
+  input: Record<string, unknown>,
 ): Promise<ActionResult> {
   const { failure } = await requireAdmin();
   if (failure) return { ok: false, error: FORBIDDEN };
 
-  if (!Number.isInteger(webpQuality) || webpQuality < WEBP_QUALITY_MIN || webpQuality > WEBP_QUALITY_MAX) {
-    return { ok: false, error: `Quality must be between ${WEBP_QUALITY_MIN} and ${WEBP_QUALITY_MAX}.` };
-  }
+  const parsed = validateUploadSettings(input);
+  if ("error" in parsed) return { ok: false, error: parsed.error };
 
   try {
-    await saveUploadSettings((await panelStore()).id, { convertWebp, webpQuality });
-    revalidatePath("/panel/settings", "layout");
+    await saveUploadSettings((await panelStore()).id, parsed.data);
+    revalidatePath("/panel", "layout");
     return { ok: true };
   } catch (error) {
     console.error("saveUploadSettingsAction failed", error);
-    return { ok: false, error: "The settings could not be saved." };
+    return { ok: false, error: error instanceof Error ? error.message : "The settings could not be saved." };
   }
 }
 

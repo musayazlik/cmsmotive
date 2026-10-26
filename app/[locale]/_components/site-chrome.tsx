@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Script from "next/script";
-import { LOCALES, LOCALE_LABELS, localizePath, type Locale } from "@/lib/i18n/config";
+import { localizePath, type Locale } from "@/lib/i18n/config";
+import LanguageSwitcher from "@/app/_components/language-switcher";
 import { getTranslator, type Translate } from "@/lib/i18n/translate";
 import { getPublicAccount } from "@/lib/public-session";
 import { isAdminRole } from "@/lib/admin-guard";
@@ -11,8 +12,8 @@ import { currentStoreId } from "@/lib/current-store";
 
 /**
  * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
- * static-site pages ship (site.css + site.js do the actual styling and
- * behavior). Links are plain anchors on purpose: every other public page is
+ * static-site pages ship. The language menu uses the shared React component;
+ * site.css + site.js handle the remaining public chrome. Links are plain anchors: other public pages are
  * served as prerendered HTML, so full page loads are the expected motion.
  * Copy comes from the shared catalog (lib/i18n/translate.ts), keyed by the
  * English text of the static pages.
@@ -57,7 +58,7 @@ const SOCIAL = [
 type ChromeProps = { locale: Locale; t: Translate; path: string };
 
 /**
- * Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py (site.js binds [data-lang-switch]).
+ * Utility bar above the sticky header; mirrors TOPBAR in static-site/build.py.
  * Account entry lives in the header's avatar menu, so the bar stays purely informational.
  */
 export function TopBar({ locale, t, path }: ChromeProps) {
@@ -90,37 +91,7 @@ export function TopBar({ locale, t, path }: ChromeProps) {
             ))}
           </ul>
           <span className="topbar-divider" aria-hidden="true"></span>
-          <div className="lang-switch" data-lang-switch>
-            <button className="lang-trigger" type="button" aria-expanded="false" aria-controls="lang-menu">
-              <svg className="lang-globe" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M3 12h18M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3Z" />
-              </svg>
-              <span className="topbar-sr">{t("Language:")} </span>
-              <span className="lang-current" data-lang-current>
-                {locale.toUpperCase()}
-              </span>
-              <svg className="lang-chevron" viewBox="0 0 12 8" aria-hidden="true">
-                <path d="M1 1.5 6 6.5 11 1.5" />
-              </svg>
-            </button>
-            <ul className="lang-menu" id="lang-menu" hidden>
-              {LOCALES.map((code) => (
-                <li key={code}>
-                  <a
-                    href={localizePath(path, code)}
-                    hrefLang={code}
-                    lang={code}
-                    data-lang={code}
-                    aria-current={code === locale ? "true" : undefined}
-                  >
-                    <span className="lang-code">{code.toUpperCase()}</span>
-                    <span>{LOCALE_LABELS[code]}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <LanguageSwitcher locale={locale} path={path} routing="path" tone="dark" />
         </div>
       </div>
     </div>

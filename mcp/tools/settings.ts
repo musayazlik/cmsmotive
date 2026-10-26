@@ -23,6 +23,7 @@ import { validateSiteSettings } from "@/lib/site-settings-shared";
 import {
   WEBP_QUALITY_MAX,
   WEBP_QUALITY_MIN,
+  UPLOAD_PROVIDERS,
 } from "@/lib/upload-settings-shared";
 import { runTool, ToolError } from "../lib/result";
 import { mcpStoreId } from "@/mcp/context";
@@ -88,22 +89,29 @@ export function registerSettingsTools(server: McpServer) {
     {
       title: "Update upload settings",
       description:
-        "Update upload settings. Omitted fields keep their current values. Quality must be an integer between 40 and 100.",
+        "Update this store's ZIP, image and video storage providers (uploadthing or r2) and image optimization. Omitted fields keep their current values. Quality must be an integer between 40 and 100.",
       inputSchema: {
         convertWebp: z.boolean().optional(),
         webpQuality: z.number().int().min(WEBP_QUALITY_MIN).max(WEBP_QUALITY_MAX).optional(),
+        packageProvider: z.enum(UPLOAD_PROVIDERS).optional(),
+        imageProvider: z.enum(UPLOAD_PROVIDERS).optional(),
+        videoProvider: z.enum(UPLOAD_PROVIDERS).optional(),
       },
       annotations: { destructiveHint: false },
     },
     async (args) =>
       runTool(async () => {
-        if (args.convertWebp === undefined && args.webpQuality === undefined) {
-          throw new ToolError("Nothing to update. Provide convertWebp or webpQuality.");
+        if (Object.values(args).every((value) => value === undefined)) {
+          throw new ToolError("Nothing to update. Provide an upload setting.");
         }
         const current = await getUploadSettings(mcpStoreId());
         const next = {
+          ...current,
           convertWebp: args.convertWebp ?? current.convertWebp,
           webpQuality: args.webpQuality ?? current.webpQuality,
+          packageProvider: args.packageProvider ?? current.packageProvider,
+          imageProvider: args.imageProvider ?? current.imageProvider,
+          videoProvider: args.videoProvider ?? current.videoProvider,
         };
         if (
           !Number.isInteger(next.webpQuality) ||

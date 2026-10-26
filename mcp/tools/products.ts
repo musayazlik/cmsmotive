@@ -53,6 +53,9 @@ const productFields = {
   technologies: z.array(z.string().max(40)).max(12).optional().describe("Stacks and versions it targets."),
   position: z.number().int().min(0).max(9999).optional().describe("Sort order in this store's catalogue."),
   compliance: complianceSchema.optional(),
+  issueLicenseKeys: z.boolean().optional()
+    .describe("Deliver our own licence key with every purchase (valid for the bought price's installations). Nothing is set up in Creem."),
+  deliveryNote: z.string().max(2000).optional().describe("Plain-text note buyers see in their account next to the downloads; empty clears it."),
 };
 
 export function registerProductTools(server: McpServer) {

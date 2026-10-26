@@ -12,7 +12,10 @@ import {
   WEBP_QUALITY_MAX,
   WEBP_QUALITY_MIN,
   type UploadSettings,
+  isUploadProvider,
+  validateUploadSettings,
 } from "@/lib/upload-settings-shared";
+import { packageStorageProvider, packageStorageStatus } from "@/lib/package-storage-config";
 
 /**
  * Server-side access to a store's settings (StoreSetting): every getter and
@@ -24,27 +27,38 @@ import {
 
 const KEY_ENABLED = "upload.webp.enabled";
 const KEY_QUALITY = "upload.webp.quality";
-const SETTING_KEYS = [KEY_ENABLED, KEY_QUALITY];
+const PROVIDER_KEYS = { packageProvider: "upload.provider.package", imageProvider: "upload.provider.image", videoProvider: "upload.provider.video" } as const;
+const SETTING_KEYS = [KEY_ENABLED, KEY_QUALITY, ...Object.values(PROVIDER_KEYS)];
 
 export const getUploadSettings = cache(async (storeId: string): Promise<UploadSettings> => {
+  const defaults = { ...DEFAULT_UPLOAD_SETTINGS, packageProvider: packageStorageProvider() };
   try {
     const values = await readStoreValues(storeId, SETTING_KEYS);
     const quality = Number.parseInt(values.get(KEY_QUALITY) ?? "", 10);
     return {
+      ...defaults,
       convertWebp: (values.get(KEY_ENABLED) ?? String(DEFAULT_UPLOAD_SETTINGS.convertWebp)) === "true",
       webpQuality: Number.isFinite(quality)
         ? Math.min(WEBP_QUALITY_MAX, Math.max(WEBP_QUALITY_MIN, quality))
         : DEFAULT_UPLOAD_SETTINGS.webpQuality,
+      ...Object.fromEntries(Object.entries(PROVIDER_KEYS).map(([field, key]) => [field, isUploadProvider(values.get(key)) ? values.get(key) : defaults[field as keyof typeof PROVIDER_KEYS]])),
     };
   } catch {
-    return DEFAULT_UPLOAD_SETTINGS;
+    return defaults;
   }
 });
 
 export async function saveUploadSettings(storeId: string, settings: UploadSettings): Promise<void> {
+  const parsed = validateUploadSettings(settings);
+  if ("error" in parsed) throw new Error(parsed.error);
+  for (const provider of new Set([settings.packageProvider, settings.imageProvider, settings.videoProvider])) {
+    const status = packageStorageStatus(provider);
+    if (!status.configured) throw new Error(status.error);
+  }
   await prisma.$transaction([
     upsertStoreValue(storeId, KEY_ENABLED, String(settings.convertWebp)),
     upsertStoreValue(storeId, KEY_QUALITY, String(settings.webpQuality)),
+    ...Object.entries(PROVIDER_KEYS).map(([field, key]) => upsertStoreValue(storeId, key, settings[field as keyof typeof PROVIDER_KEYS])),
   ]);
 }
 

@@ -39,7 +39,7 @@ export default function PackageChecklist({ productId, value }: { productId: stri
   }
 
   return (
-    <form className="wform-stack" onSubmit={handleSubmit}>
+    <form className="wform-stack" id="package-checklist" onSubmit={handleSubmit}>
       <ProductComplianceFields value={compliance} onChange={setCompliance} />
       <div className="wpub-actions">
         <button className="wbtn wbtn-primary" type="submit" disabled={saving}>

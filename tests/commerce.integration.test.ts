@@ -69,6 +69,7 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
         slug: "fixture",
         summary: "Fixture product",
         description: "<p>Fixture</p>",
+        issueLicenseKeys: true,
       },
     });
     const price = await db.price.create({
@@ -78,6 +79,7 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
         billingType: "recurring",
         interval: "year",
         amountCents: 26900,
+        seats: 3,
       },
     });
     const attempt = await db.checkoutAttempt.create({
@@ -142,6 +144,11 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
     assert.equal((await send("paid")).status, 200);
     const local = await db.subscription.findFirstOrThrow({ include: { customer: true } });
     assert.equal(local.customer.userId, "buyer");
+    // The product delivers our own licence key: one per purchase, sized to the price's installations.
+    const [licence] = await db.licenseKey.findMany();
+    assert.match(licence.key, /^([A-HJ-NP-Z2-9]{5}-){4}[A-HJ-NP-Z2-9]{5}$/);
+    assert.equal(licence.creemLicenseId, null);
+    assert.equal(licence.activationLimit, 3);
     const count = calls;
     assert.equal((await send("paid")).status, 200);
     assert.equal(calls, count);
@@ -211,6 +218,20 @@ test("signed payment events reconcile idempotently, preserve scheduled cancellat
       (await db.subscription.findFirstOrThrow()).status,
       "active",
     );
+    assert.equal(await db.licenseKey.count(), 1, "later events never issue a second key");
+    // The buyer hears about cancellation, the end of the subscription and the refund, once each;
+    // the first payment is silent here (the checkout confirmation covers it) and repeats add nothing.
+    const heard = async () => (await db.notification.findMany({ where: { userId: "buyer" } })).map((row) => row.type).sort();
+    assert.deepEqual(await heard(), ["purchase.refunded", "subscription.cancel_scheduled", "subscription.ended"]);
+    canonical = {
+      ...canonical,
+      current_period_end_date: "2028-01-01T00:00:00Z",
+      last_transaction_id: "tran_year_two",
+      updated_at: "2026-10-24T14:00:00Z",
+    };
+    await send("year-two");
+    await send("year-two-again");
+    assert.deepEqual(await heard(), ["purchase.refunded", "subscription.cancel_scheduled", "subscription.ended", "subscription.renewed"]);
     canonical = { ...canonical, mode: "prod" };
     assert.equal((await send("wrong-mode")).status, 400);
     assert.equal(

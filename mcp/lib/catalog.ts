@@ -8,6 +8,7 @@ import {
   deleteProduct,
   findStoreProduct,
   saveCompliance,
+  saveDelivery,
   savePrice,
   saveProduct,
   setProductStatus,
@@ -48,6 +49,8 @@ export type ProductInput = {
   coverId?: string | null;
   galleryIds?: string[];
   compliance?: Partial<ProductCompliance>;
+  issueLicenseKeys?: boolean;
+  deliveryNote?: string;
   status?: string;
 };
 
@@ -97,7 +100,7 @@ export async function updateProduct(id: string, input: ProductInput) {
     include: { gallery: { orderBy: { position: "asc" }, select: { assetId: true } } },
   });
   if (!current) throw new ToolError("Product not found.");
-  const { compliance, status, ...content } = input;
+  const { compliance, issueLicenseKeys, deliveryNote, status, ...content } = input;
 
   if (Object.keys(content).length) {
     await admin(
@@ -125,6 +128,14 @@ export async function updateProduct(id: string, input: ProductInput) {
   }
   if (compliance) {
     await admin(saveCompliance(storeId, id, { compliance: { ...readCompliance(current.compliance), ...compliance } }));
+  }
+  if (issueLicenseKeys !== undefined || deliveryNote !== undefined) {
+    await admin(
+      saveDelivery(storeId, id, {
+        issueLicenseKeys: issueLicenseKeys ?? current.issueLicenseKeys,
+        deliveryNote: deliveryNote ?? current.deliveryNote ?? "",
+      }),
+    );
   }
   if (status !== undefined && status !== current.status) await admin(setProductStatus(storeId, id, status));
   return { id, slug: content.slug?.trim() || current.slug };

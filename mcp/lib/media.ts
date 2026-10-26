@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { utapi } from "@/lib/utapi";
+import { deleteMediaFile, storeMediaFile } from "@/lib/media-storage";
 import { ToolError } from "./result";
 import { mcpStoreId } from "@/mcp/context";
 
@@ -68,36 +68,7 @@ export async function uploadMediaRecord(
     );
   }
 
-  const upload = await utapi.uploadFiles(
-    new File([new Uint8Array(buffer)], fileName, { type: mimeType }),
-  );
-  if (upload.error) {
-    throw new ToolError(`UploadThing rejected the upload: ${upload.error.message}`);
-  }
-
-  const asset = await prisma.mediaAsset.create({
-    data: {
-      storeId: mcpStoreId(),
-      key: upload.data.key,
-      url: upload.data.ufsUrl,
-      fileName: upload.data.name,
-      fileSize: upload.data.size,
-      mimeType: upload.data.type,
-      uploadedById,
-    },
-    select: {
-      id: true,
-      key: true,
-      url: true,
-      fileName: true,
-      fileSize: true,
-      mimeType: true,
-      alt: true,
-      width: true,
-      height: true,
-      createdAt: true,
-    },
-  });
+  const asset = await storeMediaFile(mcpStoreId(), uploadedById, new File([new Uint8Array(buffer)], fileName, { type: mimeType }));
 
   return { ...asset, createdAt: asset.createdAt.toISOString() };
 }
@@ -161,7 +132,7 @@ export async function deleteMediaRecord(input: { id?: string; key?: string }) {
   // The panel removes the storage object first so a failed database delete
   // leaves a stale row (which is easier to clean up) instead of a dangling file.
   try {
-    await utapi.deleteFiles(key);
+    await deleteMediaFile(key);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new ToolError(`The file could not be deleted from storage: ${message}`);

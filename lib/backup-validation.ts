@@ -33,6 +33,8 @@ export const backupSchema = z.strictObject({
       compliance: z.json().default({}), tagline: text.nullable(), intro: text.nullable(),
       highlights: z.array(text), compatibility: z.json(), ctaLabel: text.nullable(),
       ctaUrl: text.nullable(), demoUrl: text.nullable(), coverId: id.nullable(), ...timestamps,
+      // Added after version 4 shipped; older files restore with delivery off.
+      issueLicenseKeys: z.boolean().default(false), deliveryNote: text.nullable().default(null),
     })),
     productGallery: rows(z.strictObject({ id, productId: id, assetId: id, position: integer })),
     changelog: rows(z.strictObject({ id, productId: id, version: text, title: text, releasedAt: date, changes: z.json(), ...timestamps })),

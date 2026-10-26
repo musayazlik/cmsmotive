@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import { REVERSED_STATUSES, updatesUntilForPurchase } from "@/lib/billing-access";
 import {
@@ -11,6 +12,8 @@ import {
   type CreemSubscription,
   type CreemTransaction,
 } from "@/lib/creem";
+import { subscriptionTransition } from "@/lib/notification-text";
+import { createNotifications } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -46,7 +49,7 @@ async function lockedOnce(key: string, event: EventRef, mode: string, write: (tx
 
 async function findAttempt(metadata: Record<string, unknown> | null | undefined, requestId?: string | null) {
   const id = typeof metadata?.checkoutAttemptId === "string" ? metadata.checkoutAttemptId : requestId;
-  return id ? prisma.checkoutAttempt.findUnique({ where: { id }, include: { price: true } }) : null;
+  return id ? prisma.checkoutAttempt.findUnique({ where: { id }, include: { price: { include: { product: { select: { name: true } } } } } }) : null;
 }
 
 /** The store's customer row for a Creem customer, linked to the buyer's account. */
@@ -94,6 +97,28 @@ async function upsertTransactions(
       update: { ...data, ...(owner.orderId ? { orderId: owner.orderId } : {}), ...(owner.subscriptionId ? { subscriptionId: owner.subscriptionId } : {}) },
     });
   }
+}
+
+/** Unambiguous characters (no 0/O, 1/I) in Creem's key shape: five groups of five. */
+const KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const newLicenseKey = () =>
+  Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => KEY_ALPHABET[randomInt(KEY_ALPHABET.length)]).join("")).join("-");
+
+/**
+ * Delivers our own licence key when the product asks for one and the
+ * purchase has no key yet (neither ours nor Creem's), so retries and a
+ * Creem-issued key never add a second one. Activations follow the price's
+ * installations; validity follows the entitlement (refunds revoke it).
+ */
+async function issueLicenseKey(tx: Tx, entitlementId: string, mode: string) {
+  const entitlement = await tx.entitlement.findUnique({
+    where: { id: entitlementId },
+    select: { seats: true, product: { select: { issueLicenseKeys: true } }, _count: { select: { licenseKeys: true } } },
+  });
+  if (!entitlement?.product.issueLicenseKeys || entitlement._count.licenseKeys > 0) return;
+  await tx.licenseKey.create({
+    data: { entitlementId, key: newLicenseKey(), status: "active", activationLimit: entitlement.seats, mode },
+  });
 }
 
 /**
@@ -207,8 +232,15 @@ export async function syncCheckout(event: EventRef, object: Record<string, unkno
           update: data,
         });
       }
+      await issueLicenseKey(tx, entitlement.id, checkout.mode);
     }
     await upsertTransactions(tx, transactions, { storeId: attempt.storeId, customerId: customer.id, orderId: orderRow.id, subscriptionId: subscriptionRow?.id });
+    if (attempt.userId) {
+      await createNotifications(tx, [{
+        storeId: attempt.storeId, userId: attempt.userId, type: "purchase.confirmed", dedupeKey: `purchase:${orderRow.id}`,
+        data: { product: price.product.name, plan: price.name, amountCents: order.amount, currency: order.currency, recurring: Boolean(subscription) },
+      }]);
+    }
   });
   return done;
 }
@@ -219,7 +251,10 @@ export async function syncCheckout(event: EventRef, object: Record<string, unkno
 export async function syncSubscription(event: EventRef, subscriptionId: string): Promise<SyncResult> {
   const s = await fetchSubscription(subscriptionId);
   if (s.mode !== creemMode()) return rejected(400, "Wrong payment environment");
-  const local = await prisma.subscription.findUnique({ where: { creemSubscriptionId: s.id }, include: { price: true } });
+  const local = await prisma.subscription.findUnique({
+    where: { creemSubscriptionId: s.id },
+    include: { price: true, product: { select: { name: true } }, customer: { select: { userId: true } } },
+  });
   const attempt = local ? null : await findAttempt(s.metadata);
   if (!local && !attempt) return ignored;
   if (attempt && (attempt.creemProductId !== objectId(s.product) || attempt.mode !== s.mode)) return rejected(400, "Product mismatch");
@@ -236,6 +271,19 @@ export async function syncSubscription(event: EventRef, subscriptionId: string):
       local?.customerId ??
       (await upsertCustomer(tx, { storeId, mode: s.mode, creemCustomerId: objectId(s.customer), userId: attempt!.userId })).id;
     const row = await writeSubscription(tx, s, { storeId, customerId, productId: price.productId, priceId: price.id, seats: price.seats });
+    const entitlement = await tx.entitlement.findUnique({ where: { subscriptionId: row.id }, select: { id: true } });
+    if (entitlement) await issueLicenseKey(tx, entitlement.id, s.mode);
+    // The first period is announced by the purchase confirmation; later changes are the customer's news.
+    const type = local ? subscriptionTransition(local, row) : null;
+    if (local && type && local.customer.userId) {
+      await createNotifications(tx, [{
+        storeId, userId: local.customer.userId, type, dedupeKey: `${type}:${row.id}:${row.currentPeriodEnd.getTime()}`,
+        data: {
+          product: local.product.name, plan: local.price.name, date: row.currentPeriodEnd.toISOString(),
+          ...(type === "subscription.renewed" ? { amountCents: local.price.amountCents, currency: local.price.currency } : {}),
+        },
+      }]);
+    }
     await upsertTransactions(tx, transactions, { storeId, customerId, subscriptionId: row.id });
   });
   return done;
@@ -258,7 +306,10 @@ export async function syncReversal(event: EventRef, object: Record<string, unkno
   if (subscriptionId?.startsWith("sub_")) {
     const s = await fetchSubscription(subscriptionId);
     if (s.mode !== creemMode()) return rejected(400, "Wrong payment environment");
-    const local = await prisma.subscription.findUnique({ where: { creemSubscriptionId: s.id }, include: { price: true } });
+    const local = await prisma.subscription.findUnique({
+      where: { creemSubscriptionId: s.id },
+      include: { price: true, product: { select: { name: true } }, customer: { select: { userId: true } } },
+    });
     if (!local) return ignored;
     const latest = Boolean(transactionId) && transactionId === s.last_transaction_id;
     const fullRefund = transaction.status === "refunded";
@@ -269,13 +320,22 @@ export async function syncReversal(event: EventRef, object: Record<string, unkno
         { storeId: local.storeId, customerId: local.customerId, productId: local.productId, priceId: local.priceId, seats: local.price.seats },
         status,
       );
+      if (status === "refunded" && local.customer.userId) {
+        await createNotifications(tx, [{
+          storeId: local.storeId, userId: local.customer.userId, type: "purchase.refunded", dedupeKey: `refund:${event.id}`,
+          data: { product: local.product.name, plan: local.price.name },
+        }]);
+      }
     });
     return done;
   }
 
   const orderId = ref(object.order) ?? (typeof transaction.order === "string" ? transaction.order : null);
   if (!orderId) return ignored;
-  const order = await prisma.order.findUnique({ where: { creemOrderId: orderId } });
+  const order = await prisma.order.findUnique({
+    where: { creemOrderId: orderId },
+    include: { product: { select: { name: true } }, price: { select: { name: true } }, customer: { select: { userId: true } } },
+  });
   if (!order) return ignored;
   if (order.mode !== creemMode()) return rejected(400, "Wrong payment environment");
   // The order's transactions from the API are the authority on how much was refunded.
@@ -293,6 +353,12 @@ export async function syncReversal(event: EventRef, object: Record<string, unkno
       });
     }
     await upsertTransactions(tx, transactions, { storeId: order.storeId, customerId: order.customerId, orderId: order.id });
+    if ((status === "refunded" || status === "partially_refunded") && order.customer.userId) {
+      await createNotifications(tx, [{
+        storeId: order.storeId, userId: order.customer.userId, type: "purchase.refunded", dedupeKey: `refund:${event.id}`,
+        data: { product: order.product.name, plan: order.price.name, amountCents: refunded, currency: order.currency },
+      }]);
+    }
   });
   return done;
 }

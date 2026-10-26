@@ -1,0 +1,158 @@
+.root {
+  --language-surface: #fff;
+  --language-text: #424d62;
+  --language-muted: #65728a;
+  --language-line: #e6e8ef;
+  --language-hover: #f4f6fb;
+  --language-selected: #edf0ff;
+  --language-accent: #4253d9;
+  position: relative;
+  flex: none;
+  font-family: Manrope, "Segoe UI", sans-serif;
+}
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 88px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--language-line);
+  border-radius: 8px;
+  background: var(--language-surface);
+  color: var(--language-text);
+  font:
+    750 11px/1.4 Manrope,
+    "Segoe UI",
+    sans-serif;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.trigger:hover,
+.trigger[aria-expanded="true"] {
+  border-color: var(--language-accent);
+  background: var(--language-hover);
+}
+.root svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.globe {
+  width: 16px;
+  height: 16px;
+  color: var(--language-muted);
+}
+.chevron {
+  width: 13px;
+  height: 13px;
+  color: var(--language-muted);
+  transition: transform 0.15s;
+}
+.trigger[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+.menu {
+  position: absolute;
+  inset: calc(100% + 8px) 0 auto auto;
+  z-index: 120;
+  width: min(200px, calc(100vw - 32px));
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  border: 1px solid var(--language-line);
+  border-radius: 11px;
+  background: var(--language-surface);
+  box-shadow:
+    0 12px 32px #2738581f,
+    0 2px 6px #2738580a;
+}
+.menu li {
+  margin: 0;
+  padding: 0;
+}
+.menu li + li {
+  margin-top: 3px;
+}
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--language-text);
+  text-decoration: none;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 650;
+}
+.menu a:hover {
+  background: var(--language-hover);
+}
+.menu a[aria-current="true"] {
+  background: var(--language-selected);
+  color: var(--language-accent);
+}
+.code {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 29px;
+  height: 24px;
+  border: 1px solid var(--language-line);
+  border-radius: 5px;
+  color: var(--language-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+.menu a[aria-current="true"] .code {
+  border-color: currentColor;
+  color: var(--language-accent);
+}
+.check {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+}
+.root :is(button, a):focus-visible {
+  outline: 2px solid var(--language-accent);
+  outline-offset: 2px;
+}
+.root[data-tone="dark"] {
+  --language-surface: #182128;
+  --language-text: #eef2f5;
+  --language-muted: #acb8c3;
+  --language-line: #39454f;
+  --language-hover: #25323c;
+  --language-selected: #29364b;
+  --language-accent: #c6f36a;
+}
+.root[data-tone="dark"] .trigger {
+  min-height: 30px;
+  min-width: 80px;
+  background: transparent;
+}
+.root[data-tone="dark"] .globe {
+  color: var(--language-accent);
+}
+@media (max-width: 620px) {
+  .trigger {
+    min-height: 44px;
+    min-width: 80px;
+    gap: 7px;
+    padding-inline: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .chevron {
+    transition: none;
+  }
+}

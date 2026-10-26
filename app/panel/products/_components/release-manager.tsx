@@ -3,6 +3,8 @@
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { useRef, useState } from "react";
 import { useUploadThing } from "@/lib/uploadthing";
+import { MAX_PACKAGE_BYTES, type PackageStorageProvider } from "@/lib/package-storage-config";
+import { uploadR2Package } from "@/lib/package-upload-client";
 import { formatBytes } from "@/app/panel/media/_lib";
 import { useDropTarget } from "../../_components/catalog-media";
 import ConfirmDialog from "../../_components/confirm-dialog";
@@ -21,16 +23,15 @@ type Props = {
   releases: ReleaseRow[];
   /** Whether the product's code-license checklist step is complete; the upload endpoint rejects otherwise. */
   licenseReady: boolean;
+  storage: { provider: PackageStorageProvider; configured: boolean; error: string };
 };
 
 const stamp = (iso: string) =>
   new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso));
 
-/** Mirrors the productPackage endpoint's limit so a wrong file is caught before the upload starts. */
-const MAX_PACKAGE_BYTES = 128 * 1024 * 1024;
-
 function packageProblem(file: File): string {
   if (!file.name.toLowerCase().endsWith(".zip")) return "Choose a .zip file; other formats are rejected.";
+  if (file.size === 0) return "The selected ZIP file is empty.";
   if (file.size > MAX_PACKAGE_BYTES) return `This file is ${formatBytes(file.size)}; packages can be up to 128 MB.`;
   return "";
 }
@@ -47,10 +48,9 @@ function ArchiveIcon() {
 
 /**
  * Releases tab: the private ZIP packages customers download. Files go
- * straight to UploadThing's private storage; the database row is written by
- * the upload endpoint's onUploadComplete.
+ * directly to the configured private storage; only completed uploads become releases.
  */
-export default function ReleaseManager({ productId, releases, licenseReady }: Props) {
+export default function ReleaseManager({ productId, releases, licenseReady, storage }: Props) {
   const router = useRouter();
   const [version, setVersion] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -60,18 +60,22 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<ReleaseRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [r2Uploading, setR2Uploading] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
-  const { startUpload, isUploading } = useUploadThing("productPackage", {
+  function completed() {
+    setFile(null);
+    setVersion("");
+    setMessage("Package uploaded. Customers with the right entitlement can download it now.");
+    router.refresh();
+  }
+
+  const { startUpload, isUploading: uploadthingUploading } = useUploadThing("productPackage", {
     onUploadProgress: setProgress,
-    onClientUploadComplete: () => {
-      setFile(null);
-      setVersion("");
-      setMessage("Package uploaded. Customers with the right entitlement can download it now.");
-      router.refresh();
-    },
+    onClientUploadComplete: completed,
     onUploadError: (cause) => setError(cause.message || "The package could not be uploaded."),
   });
+  const isUploading = r2Uploading || uploadthingUploading;
 
   function choose(next: File | undefined) {
     if (!next) return;
@@ -86,6 +90,7 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isUploading || !licenseReady || !storage.configured) return;
     if (!file) {
       setFileError("Choose the ZIP package to upload.");
       return;
@@ -93,7 +98,17 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
     setError("");
     setMessage("");
     setProgress(0);
-    await startUpload([file], { productId, version: version.trim() });
+    if (storage.provider === "uploadthing") {
+      await startUpload([file], { productId, version: version.trim() });
+      return;
+    }
+    setR2Uploading(true);
+    try {
+      await uploadR2Package(file, { productId, version: version.trim() }, setProgress);
+      completed();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The package could not be uploaded.");
+    } finally { setR2Uploading(false); }
   }
 
   async function handleDelete() {
@@ -130,6 +145,9 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
           <p className="wpkg-notice" role="note">
             Set the code license in the package checklist first; until then uploads are rejected.
           </p>
+        ) : null}
+        {!storage.configured ? (
+          <p className="wpkg-notice" role="note">{storage.error}</p>
         ) : null}
 
         <input
@@ -204,50 +222,69 @@ export default function ReleaseManager({ productId, releases, licenseReady }: Pr
             placeholder="v1.0.0"
             note="Letters, numbers, dots, plus and minus."
           />
-          <button className="wbtn wbtn-primary" type="submit" disabled={isUploading || !licenseReady}>
+          <button className="wbtn wbtn-primary" type="submit" disabled={isUploading || !licenseReady || !storage.configured}>
             {isUploading ? "Uploading…" : "Upload package"}
           </button>
         </div>
       </form>
 
-      <div className="wfield-card">
-        <p className="wsection-label">Published versions</p>
+      <section className="wfield-card wpkg-releases" aria-labelledby="rel-published-title">
+        <div className="wmedia-head">
+          <h2 className="wsection-label" id="rel-published-title">Published versions</h2>
+          <span className="wpkg-release-count">{releases.length} {releases.length === 1 ? "version" : "versions"}</span>
+        </div>
         {releases.length === 0 ? (
-          <p className="wrepeat-empty">No packages yet. Until one is uploaded, buyers receive their licence key but no download.</p>
+          <div className="wpkg-releases-empty">
+            <ArchiveIcon />
+            <strong>No published versions yet</strong>
+            <p>Upload your first ZIP package above. Until then, buyers receive their licence key but no download.</p>
+          </div>
         ) : (
-          <div className="wrepeat wrepeat-table" role="table" aria-label="Releases">
-            <div className="wrepeat-head" role="row">
-              <span role="columnheader">Version</span>
-              <span role="columnheader">File</span>
-              <span role="columnheader">Uploaded</span>
-              <span aria-hidden="true" />
-            </div>
-            {releases.map((release) => (
-              <div className="wrepeat-row" role="row" key={release.id}>
-                <span role="cell">
-                  <strong>{release.version}</strong>
-                </span>
-                <span role="cell">
-                  <small className="status-slug" title={release.fileName}>
-                    {release.fileName}
-                  </small>
-                </span>
-                <span role="cell">
-                  <small>{stamp(release.createdAt)}</small>
-                </span>
-                <div className="wrepeat-tools">
-                  <button type="button" className="is-danger" onClick={() => setConfirmDelete(release)} aria-label={`Remove ${release.version}`}>
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="wpkg-release-scroll" role="region" aria-label="Published versions table" tabIndex={0}>
+            <table className="wpkg-release-table" aria-labelledby="rel-published-title">
+              <thead>
+                <tr>
+                  <th scope="col">Version</th>
+                  <th scope="col">Package file</th>
+                  <th scope="col">Uploaded</th>
+                  <th scope="col" className="wpkg-release-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {releases.map((release) => (
+                  <tr key={release.id}>
+                    <th scope="row"><span className="wpkg-release-version">{release.version}</span></th>
+                    <td>
+                      <div className="wpkg-release-file">
+                        <span className="wpkg-release-icon"><ArchiveIcon /></span>
+                        <span>{release.fileName}</span>
+                      </div>
+                    </td>
+                    <td><time dateTime={release.createdAt}>{stamp(release.createdAt)}</time></td>
+                    <td className="wpkg-release-actions">
+                      <button
+                        type="button"
+                        className="wbtn wbtn-sm wbtn-danger-ghost wpkg-release-remove"
+                        onClick={() => setConfirmDelete(release)}
+                        aria-label={`Remove version ${release.version}`}
+                        disabled={deleting}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M5 6l1 14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-14M10 10v7M14 10v7" />
+                        </svg>
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
         <p className="wfield-hint-block">
           Removing a version takes it out of storage; customers immediately lose access to that download.
         </p>
-      </div>
+      </section>
 
       {error ? (
         <p className="wdialog-error wpost-feedback" role="alert">

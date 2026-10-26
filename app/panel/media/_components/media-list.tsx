@@ -162,10 +162,10 @@ export default function MediaList({
       <div className="wpage-stats">
         <div>
           <span>Files in storage</span>
-          <strong>{usage ? usage.filesUploaded : counts.total}</strong>
+          <strong>{counts.total}</strong>
         </div>
         <div>
-          <span>Storage used</span>
+          <span>UploadThing storage used</span>
           <strong>{usage ? formatBytes(usage.totalBytes) : "—"}</strong>
           {usage ? <StorageMeter used={usage.totalBytes} limit={usage.limitBytes} /> : null}
         </div>
@@ -335,7 +335,7 @@ export default function MediaList({
         <div className="wtable-foot">
           <p className="wtable-count">
             {visible.length} of {counts.total} files
-            {usage ? ` · ${formatBytes(usage.totalBytes)} stored` : ""}
+            {usage ? ` · ${formatBytes(usage.totalBytes)} in UploadThing` : ""}
             {truncated ? " · showing the newest files" : ""}
           </p>
         </div>
@@ -346,7 +346,7 @@ export default function MediaList({
         title="Delete this file?"
         body={
           pendingDelete
-            ? `"${pendingDelete.name}" is removed from UploadThing storage permanently. Pages using it lose the image${
+            ? `"${pendingDelete.name}" is removed from its storage permanently. Pages using it lose the image${
                 usageSummary(pendingDelete.usage).length > 0 ? ` (${usageSummary(pendingDelete.usage).join(", ").toLowerCase()})` : ""
               }. This cannot be undone.`
             : ""

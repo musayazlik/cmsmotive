@@ -5,6 +5,9 @@ import { requirePanelUser } from "@/lib/panel-auth";
 import { panelStore } from "@/lib/panel-store";
 import { prisma } from "@/lib/prisma";
 import { productReadiness, type ReadinessTab } from "@/lib/product-readiness";
+import { packageStorageStatus } from "@/lib/package-storage-config";
+import { getUploadSettings } from "@/lib/settings";
+import DeliverySettings from "../_components/delivery-settings";
 import PackageChecklist from "../_components/package-checklist";
 import PriceManager, { type PriceRow } from "../_components/price-manager";
 import ProductForm from "../_components/product-form";
@@ -41,7 +44,11 @@ export default async function EditProductPage({
 
   const active: TabKey = TABS.some((entry) => entry.key === tab) ? (tab as TabKey) : "general";
   const openTabs = new Set<ReadinessTab>(readiness.items.filter((item) => !item.ok).map((item) => item.tab));
-  const tabOpen = (key: TabKey) => (key === "publish" ? !readiness.ready : openTabs.has(key as ReadinessTab));
+  const packageUploaded = readiness.items.find((item) => item.key === "package")?.ok ?? false;
+  const packageChecklist = readiness.items.find((item) => item.key === "checklist");
+  // The package step records successful delivery-file upload. Publication still
+  // requires the entire checklist, including licensing and notices.
+  const tabOpen = (key: TabKey) => key === "packages" ? !packageUploaded : key === "publish" ? !readiness.ready : openTabs.has(key as ReadinessTab);
 
   const mode = creemMode();
   const field = mode === "prod" ? "creemLiveProductId" : "creemTestProductId";
@@ -101,6 +108,7 @@ export default async function EditProductPage({
               className={`weditor-tab ${active === entry.key ? "active" : ""}`}
               href={`/panel/products/${record.id}?tab=${entry.key}`}
               aria-current={active === entry.key ? "page" : undefined}
+              title={entry.key === "packages" ? packageUploaded ? "Package uploaded. Publication also requires the release checklist." : "Upload a ZIP package." : undefined}
             >
               {entry.label}
               <span className={`weditor-tab-mark ${tabOpen(entry.key) ? "is-open" : "is-done"}`} aria-label={tabOpen(entry.key) ? "needs work" : "done"}>
@@ -122,6 +130,15 @@ export default async function EditProductPage({
       {active === "prices" ? <PriceManager productId={record.id} prices={priceRows} mode={mode} configured={creemConfigured()} /> : null}
       {active === "packages" ? (
         <div className="wform-stack">
+          {packageUploaded && packageChecklist && !packageChecklist.ok ? (
+            <div className="wpkg-readiness-note" role="note">
+              <div>
+                <strong>Package uploaded. One more step before publishing.</strong>
+                <p>{packageChecklist.hint}</p>
+              </div>
+              <a className="wbtn wbtn-ghost wbtn-sm" href="#package-checklist">Complete checklist</a>
+            </div>
+          ) : null}
           <ReleaseManager
             productId={record.id}
             releases={releases.map((release) => ({
@@ -132,7 +149,9 @@ export default async function EditProductPage({
               createdAt: release.createdAt.toISOString(),
             }))}
             licenseReady={record.compliance.codeLicense !== ""}
+            storage={packageStorageStatus((await getUploadSettings(storeId)).packageProvider)}
           />
+          <DeliverySettings productId={record.id} issueLicenseKeys={record.issueLicenseKeys} deliveryNote={record.deliveryNote} />
           <PackageChecklist productId={record.id} value={record.compliance} />
         </div>
       ) : null}

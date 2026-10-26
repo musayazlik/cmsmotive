@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyCreemSignature } from "@/lib/billing-access";
+import { deliverPendingEmails } from "@/lib/notifications";
 import { syncCheckout, syncReversal, syncSubscription, type SyncResult } from "@/lib/commerce";
 const eventSchema = z.object({
   id: z.string().min(1),
@@ -14,6 +16,16 @@ const id = (value: unknown) =>
     : value && typeof value === "object" && "id" in value
       ? String(value.id)
       : null;
+
+/** Mails what the event queued after responding; never lets mail trouble (or a missing request scope) fail the webhook. */
+function mailNotificationsLater() {
+  const run = () => deliverPendingEmails().catch((error) => console.error("creem webhook: notification email failed", error instanceof Error ? error.message : error));
+  try {
+    after(run);
+  } catch {
+    // Not inside a request (direct handler calls); the scheduled job mails them instead.
+  }
+}
 
 /**
  * Creem webhook: verified on the exact raw bytes, then handed to lib/commerce,
@@ -70,6 +82,7 @@ export async function POST(request: Request) {
       result = { status: "ignored" };
     }
     if (result.status === "rejected") return new Response(result.message, { status: result.code });
+    if (result.status === "done") mailNotificationsLater();
     return Response.json(result.status === "ignored" ? { received: true, ignored: true } : { received: true });
   } catch (error) {
     console.error("creem webhook: reconciliation failed", event.eventType, error instanceof Error ? error.message : error);

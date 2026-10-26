@@ -1,5 +1,4 @@
-import { prisma } from "@/lib/prisma";
-import { utapi } from "@/lib/utapi";
+import { storeMediaFile } from "@/lib/media-storage";
 import { requireAdmin } from "@/lib/admin-guard";
 import { insertInlineImages, writePost } from "@/lib/ai-writer";
 import { getAiSettings } from "@/lib/settings";
@@ -67,22 +66,8 @@ async function storeAiImage(storeId: string, userId: string, dataUrl: string, ba
   const buffer = Buffer.from(base64, "base64");
   const fileName = `${baseName}-ai.${mime.split("/")[1] || "png"}`;
 
-  const upload = await utapi.uploadFiles(new File([buffer], fileName, { type: mime }));
-  if (upload.error) throw new Error(`Image upload failed: ${upload.error.message}`);
-
-  const asset = await prisma.mediaAsset.create({
-    data: {
-      storeId,
-      key: upload.data.key,
-      url: upload.data.ufsUrl,
-      fileName: upload.data.name,
-      fileSize: upload.data.size,
-      mimeType: upload.data.type,
-      uploadedById: userId,
-    },
-    select: { id: true },
-  });
-  return { assetId: asset.id, url: upload.data.ufsUrl, name: upload.data.name };
+  const asset = await storeMediaFile(storeId, userId, new File([new Uint8Array(buffer)], fileName, { type: mime }));
+  return { assetId: asset.id, url: asset.url, name: asset.fileName };
 }
 
 /** POST /api/admin/ai/generate — generates the selected blog fields. */

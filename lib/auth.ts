@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { oneTimeToken } from "better-auth/plugins/one-time-token";
+import { oAuthProxy } from "better-auth/plugins/oauth-proxy";
 import { getStoreRole, isStoreAdmin } from "./store-access";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
@@ -28,8 +29,19 @@ async function authStoreId(source?: Request | Headers | null): Promise<string> {
   return source ? (await resolveRequestStore(source)).store.id : currentStoreId();
 }
 
+/** Social callback: Better Auth's own route, or the dev OAuth proxy's hand-over to a store host. */
+const isSocialCallback = (path?: string) => path === "/callback/:id" || path === "/callback/:id/oauth-proxy";
+
 export const auth = betterAuth({
-  plugins: [oneTimeToken({ disableClientRequest: true, storeToken: "hashed", expiresIn: 1 })],
+  plugins: [
+    oneTimeToken({ disableClientRequest: true, storeToken: "hashed", expiresIn: 1 }),
+    // Google rejects `<key>.localhost` redirect URIs. In development the Google round trip goes through
+    // BETTER_AUTH_URL (http://localhost:PORT, which Google accepts) and the profile is handed back to the
+    // store host the sign-in started on. Requests already on BETTER_AUTH_URL skip the proxy.
+    ...(process.env.NODE_ENV === "production" || !process.env.BETTER_AUTH_URL
+      ? []
+      : [oAuthProxy({ productionURL: process.env.BETTER_AUTH_URL })]),
+  ],
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // One auth server for every store: links, cookies and the Google callback
   // follow the request's host. Stores live in the database, so any host is
@@ -67,7 +79,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user, ctx) => {
-          const social = ctx?.path === "/callback/:id";
+          const social = isSocialCallback(ctx?.path);
           if (ctx?.path !== "/sign-up/email" && !social) return { data: user };
           const storeId = await authStoreId(ctx?.headers ?? ctx?.request);
           const legal = await getLegalSettings(storeId);
@@ -118,7 +130,7 @@ export const auth = betterAuth({
     session: {
       create: {
         before: async (session, ctx) => {
-          if (ctx?.path !== "/callback/:id") return { data: session };
+          if (!isSocialCallback(ctx?.path)) return { data: session };
           if (isStoreAdmin(await getStoreRole(session.userId, await authStoreId(ctx.headers ?? ctx.request)))) {
             const { panelPath } = await getAdminAccessSettings();
             if (

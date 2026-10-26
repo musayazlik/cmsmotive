@@ -3,8 +3,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStoreRole, isStoreAdmin } from "@/lib/store-access";
 import { z } from "zod";
+import { announceRelease } from "@/lib/notifications";
 import { readCompliance } from "@/lib/product-compliance";
 import { panelStoreFromRequest } from "@/lib/panel-store";
+import { getUploadSettings } from "@/lib/settings";
 
 const f = createUploadthing();
 
@@ -22,6 +24,15 @@ async function requireAdminUpload(req: Request) {
 
   // The store the panel is editing receives the upload (lib/panel-store.ts).
   return { userId: session.user.id, storeId };
+}
+
+async function requireMediaUpload(req: Request, files: readonly { type: string }[]) {
+  const actor = await requireAdminUpload(req);
+  const settings = await getUploadSettings(actor.storeId);
+  if (files.some((file) => (file.type.startsWith("video/") ? settings.videoProvider : settings.imageProvider) !== "uploadthing")) {
+    throw new UploadThingError("This media type uses Cloudflare R2. Refresh the panel and try again.");
+  }
+  return actor;
 }
 
 /** Every upload lands in its store's MediaAsset library so the media library can track it. */
@@ -46,6 +57,7 @@ export const uploadRouter = {
     .input(z.object({ productId: z.string().min(1), version: z.string().regex(/^[a-zA-Z0-9.+-]{1,40}$/) }))
     .middleware(async ({ req, input, files }) => {
       const { storeId } = await requireAdminUpload(req);
+      if ((await getUploadSettings(storeId)).packageProvider !== "uploadthing") throw new UploadThingError("Use the configured package upload flow in the product panel.");
       if (files.some((file) => !file.name.toLowerCase().endsWith(".zip"))) throw new UploadThingError("Product packages must be ZIP files.");
       const product = await prisma.product.findFirst({
         where: { id: input.productId, storeId },
@@ -62,13 +74,15 @@ export const uploadRouter = {
       const release = await prisma.productRelease.create({
         data: { productId: metadata.productId, version: metadata.version, codeLicense: metadata.license, fileKey: file.key, fileName: file.name },
       });
+      // Buyers are told in their account; a failure here is retried by the scheduled job.
+      await announceRelease(release.id).catch((error) => console.error("release announcement failed", error instanceof Error ? error.message : error));
       // Private keys and URLs never enter MediaAsset or the public media library.
       return { releaseId: release.id };
     }),
   productMedia: f({
     image: { maxFileSize: "8MB", maxFileCount: 12 },
   })
-    .middleware(({ req }) => requireAdminUpload(req))
+    .middleware(({ req, files }) => requireMediaUpload(req, files))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
 
   // Images and videos embedded in product descriptions. Cover and gallery
@@ -77,7 +91,7 @@ export const uploadRouter = {
     image: { maxFileSize: "8MB", maxFileCount: 8 },
     video: { maxFileSize: "64MB", maxFileCount: 4 },
   })
-    .middleware(({ req }) => requireAdminUpload(req))
+    .middleware(({ req, files }) => requireMediaUpload(req, files))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
 
   // Blog content media: images and videos embedded through the Tiptap editor,
@@ -86,7 +100,7 @@ export const uploadRouter = {
     image: { maxFileSize: "8MB", maxFileCount: 8 },
     video: { maxFileSize: "64MB", maxFileCount: 4 },
   })
-    .middleware(({ req }) => requireAdminUpload(req))
+    .middleware(({ req, files }) => requireMediaUpload(req, files))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
 
   // Standalone uploads from the media library itself.
@@ -94,7 +108,7 @@ export const uploadRouter = {
     image: { maxFileSize: "8MB", maxFileCount: 12 },
     video: { maxFileSize: "64MB", maxFileCount: 4 },
   })
-    .middleware(({ req }) => requireAdminUpload(req))
+    .middleware(({ req, files }) => requireMediaUpload(req, files))
     .onUploadComplete(async ({ metadata, file }) => trackUpload(metadata, file)),
 } satisfies FileRouter;
 

@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { findStoreProduct } from "@/lib/product-admin";
 import { panelStore } from "@/lib/panel-store";
 import { prisma } from "@/lib/prisma";
-import { utapi } from "@/lib/utapi";
+import { deletePackageFile } from "@/lib/package-storage";
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     return Response.json({ error: "Release not found." }, { status: 404 });
   }
   try {
-    await utapi.deleteFiles(release.fileKey);
+    await deletePackageFile(release.fileKey);
   } catch (error) {
     console.error("release delete: storage", error);
     return Response.json({ error: "The package could not be deleted from storage." }, { status: 502 });

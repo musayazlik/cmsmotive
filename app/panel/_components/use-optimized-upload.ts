@@ -1,27 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useUploadThing } from "@/lib/uploadthing";
+import { uploadMediaFiles } from "@/lib/media-upload-client";
+import { mediaKindOf, MAX_MEDIA_BYTES, type MediaEndpoint, type MediaKind, type UploadedMedia } from "@/lib/media-upload-shared";
 import { optimizeAllForUpload } from "@/lib/webp";
 import { useUploadSettings } from "./upload-settings";
 
-export type MediaEndpoint = "productMedia" | "catalogContent" | "blogMedia";
-export type MediaKind = "image" | "video";
-
-/** A file as it lands in the media library (MediaAsset). */
-export type UploadedMedia = {
-  assetId: string;
-  url: string;
-  name: string;
-  mimeType: string;
-  alt?: string | null;
-};
-
-/** Matches the limits of the upload endpoints (app/api/uploadthing/core.ts). */
-const MAX_BYTES: Record<MediaKind, number> = { image: 8 * 1024 * 1024, video: 64 * 1024 * 1024 };
-
-export const mediaKindOf = (type: string): MediaKind | null =>
-  type.startsWith("image/") ? "image" : type.startsWith("video/") ? "video" : null;
+export { mediaKindOf };
+export type { MediaEndpoint, MediaKind, UploadedMedia };
 
 /**
  * Uploads picked or dropped files to an UploadThing endpoint. Images are
@@ -37,25 +23,6 @@ export function useOptimizedUpload(endpoint: MediaEndpoint, accept: MediaKind[],
   const onUploadedRef = useRef(onUploaded);
   useEffect(() => {
     onUploadedRef.current = onUploaded;
-  });
-
-  const { startUpload } = useUploadThing(endpoint, {
-    onUploadProgress: setProgress,
-    onClientUploadComplete: (files) => {
-      setPhase("idle");
-      onUploadedRef.current(
-        files.map((file) => ({
-          assetId: String(file.serverData?.assetId ?? ""),
-          url: file.ufsUrl,
-          name: file.name,
-          mimeType: file.type,
-        })),
-      );
-    },
-    onUploadError: (failure) => {
-      setPhase("idle");
-      setError(failure.message || "The upload failed.");
-    },
   });
 
   async function upload(files: File[]) {
@@ -80,7 +47,7 @@ export function useOptimizedUpload(endpoint: MediaEndpoint, accept: MediaKind[],
       return;
     }
 
-    const oversized = optimized.find((file) => file.size > MAX_BYTES[mediaKindOf(file.type) ?? "image"]);
+    const oversized = optimized.find((file) => !file.size || file.size > MAX_MEDIA_BYTES[mediaKindOf(file.type) ?? "image"]);
     if (oversized) {
       setPhase("idle");
       setError(`${oversized.name} is too large: images can be up to 8 MB, videos up to 64 MB.`);
@@ -89,11 +56,10 @@ export function useOptimizedUpload(endpoint: MediaEndpoint, accept: MediaKind[],
 
     setPhase("uploading");
     try {
-      await startUpload(optimized);
-    } catch {
-      setPhase("idle");
-      setError((current) => current || "The upload failed.");
-    }
+      await uploadMediaFiles(endpoint, optimized, setProgress, (result) => onUploadedRef.current(result));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The upload failed.");
+    } finally { setPhase("idle"); }
   }
 
   return {

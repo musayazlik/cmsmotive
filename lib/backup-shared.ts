@@ -23,11 +23,6 @@ export const BACKUP_TABLE_LABELS = {
   subscribers: "Newsletter subscribers",
   pageViews: "Daily page views",
   settings: "Panel security settings",
-  pages: "Builder pages",
-  pageLocales: "Builder page languages",
-  pageRevisions: "Builder page revisions",
-  pageRedirects: "Builder page redirects",
-  pageSnippets: "Builder page snippets",
 } as const;
 
 export type BackupSummary = {

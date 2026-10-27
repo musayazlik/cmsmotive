@@ -2,7 +2,6 @@ import "dotenv/config";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { globalStore } from "./global";
-import { seedHomepage } from "./homepage";
 import type { StoreSeed } from "./types";
 import { typo3Store } from "./typo3";
 

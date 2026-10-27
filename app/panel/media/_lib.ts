@@ -12,8 +12,8 @@ export type MediaUsage = {
   products: number;
   posts: number;
   gallery: number;
-  /** Placed inside post bodies, product descriptions and builder pages. */
-  embedded: { posts: number; products: number; pages: number };
+  /** Placed inside post bodies and product descriptions. */
+  embedded: { posts: number; products: number };
 };
 
 export type MediaRow = {
@@ -128,7 +128,6 @@ export function usageSummary(usage: MediaUsage): string[] {
   if (usage.products > 0) parts.push(`Product cover ×${usage.products}`);
   if (usage.gallery > 0) parts.push(`Galleries ×${usage.gallery}`);
   if (usage.embedded.products > 0) parts.push(`In product pages ×${usage.embedded.products}`);
-  if (usage.embedded.pages > 0) parts.push(`In builder pages ×${usage.embedded.pages}`);
   return parts;
 }
 

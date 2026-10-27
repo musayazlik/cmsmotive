@@ -6,7 +6,6 @@ import { registerAiTools } from "./tools/ai";
 import { registerChangelogTools } from "./tools/changelog";
 import { registerInboxTools } from "./tools/inbox";
 import { registerMediaTools } from "./tools/media";
-import { registerPageTools } from "./tools/pages";
 import { registerPostTools } from "./tools/posts";
 import { registerProductTools } from "./tools/products";
 import { registerReviewTools } from "./tools/reviews";
@@ -35,7 +34,6 @@ export function createCmsMcpServer(name = DEFAULT_MCP_NAME): McpServer {
   registerProductTools(server);
   registerChangelogTools(server);
   registerMediaTools(server);
-  registerPageTools(server);
   registerReviewTools(server);
   registerInboxTools(server);
   registerUserTools(server);

@@ -60,12 +60,6 @@ export const SETTINGS_TABS = [
       "Choose UploadThing or Cloudflare R2 for this store’s product files, images and videos, and set image optimization defaults.",
   },
   {
-    id: "appearance",
-    label: "Appearance",
-    intro:
-      "Store brand colors, corner radius and typography tokens used across the site and page builder.",
-  },
-  {
     id: "mcp",
     label: "MCP",
     intro:

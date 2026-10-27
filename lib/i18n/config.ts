@@ -32,9 +32,9 @@ export function splitLocale(pathname: string): { locale: Locale; path: string } 
 }
 
 /** Prefixes a root-relative site path for `locale` (`/themes` -> `/en/themes`). */
-export function localizePath(path: string, locale: Locale, defaultLocale: Locale = DEFAULT_LOCALE): string {
+export function localizePath(path: string, locale: Locale): string {
   if (!path.startsWith("/") || path.startsWith("//") || UNLOCALIZED.test(path)) return path;
-  if (locale === defaultLocale) return path;
+  if (locale === DEFAULT_LOCALE) return path;
   const cut = path.search(/[?#]/);
   const pathname = cut < 0 ? path : path.slice(0, cut);
   const rest = cut < 0 ? "" : path.slice(cut);

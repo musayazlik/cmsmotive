@@ -19,7 +19,6 @@ import {
   getReviewSettings,
   getSeoSettings,
   getSiteSettings,
-  getThemeSettings,
   getUploadSettings,
 } from "@/lib/settings";
 import { WEBP_QUALITY_MAX, WEBP_QUALITY_MIN } from "@/lib/upload-settings-shared";
@@ -33,7 +32,6 @@ import MediaSettingsForm from "../_components/media-settings-form";
 import ReviewSettingsForm from "../_components/review-settings-form";
 import SeoSettingsForm from "../_components/seo-settings-form";
 import TelegramSettingsForm, { type WebhookState } from "../_components/telegram-settings-form";
-import ThemeSettingsForm from "../_components/theme-settings-form";
 import { notFound } from "next/navigation";
 import { SETTINGS_TABS, type SettingsTabId } from "../_tabs";
 import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
@@ -102,8 +100,6 @@ async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
       return <TelegramPanel />;
     case "media":
       return <MediaPanel />;
-    case "appearance":
-      return <ThemeSettingsForm settings={await getThemeSettings(storeId)} />;
     case "mcp":
       return <McpPanel />;
   }

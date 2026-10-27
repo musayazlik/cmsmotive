@@ -41,8 +41,6 @@ model Store {
   members        StoreMember[]
   notifications  Notification[]
   supportTickets SupportTicket[]
-  pages          Page[]
-  pageSnippets   PageSnippet[]
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 }
@@ -852,92 +850,4 @@ model SupportMessage {
   createdAt DateTime      @default(now())
 
   @@index([ticketId, createdAt])
-}
-
-/// A page built with the visual editor, owned by one store. Each store has at
-/// most one home page (kind "home", slug ""). See lib/page-builder/pages.ts.
-model Page {
-  id        String         @id @default(cuid())
-  storeId   String
-  store     Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  slug      String // "" for home; lowercase a-z0-9, "-" and "/" segments
-  /// home | landing | page
-  kind      String         @default("landing")
-  locales   PageLocale[]
-  redirects PageRedirect[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  @@unique([storeId, slug])
-}
-
-/// One language version: own Puck document, SEO and publication state.
-model PageLocale {
-  id             String         @id @default(cuid())
-  pageId         String
-  page           Page           @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  /// One of the store's locales.
-  locale         String
-  title          String
-  seoTitle       String?
-  seoDescription String?
-  /// MediaAsset id; kept as a string so a deleted asset only drops the image.
-  ogImageId      String?
-  noindex        Boolean        @default(false)
-  /// draft | published | scheduled | unpublished
-  status         String         @default("draft")
-  draft          Json
-  published      Json?
-  /// Scoped CSS generated at publish time (plan 5.4).
-  publishedCss   String?
-  /// Font files to preload (plan 5.5).
-  usedFonts      String[]       @default([])
-  schemaVersion  Int            @default(1)
-  /// Optimistic locking between two editors.
-  version        Int            @default(0)
-  publishedAt    DateTime?
-  publishAt      DateTime?
-  updatedById    String?
-  revisions      PageRevision[]
-
-  @@unique([pageId, locale])
-}
-
-/// Copy of every publish for history and rollback (keep the last 50 per language).
-model PageRevision {
-  id           String     @id @default(cuid())
-  pageLocaleId String
-  pageLocale   PageLocale @relation(fields: [pageLocaleId], references: [id], onDelete: Cascade)
-  data         Json
-  authorId     String?
-  note         String?
-  createdAt    DateTime   @default(now())
-
-  @@index([pageLocaleId, createdAt])
-}
-
-/// Old slugs keep working after a page is renamed (301 to the current slug).
-model PageRedirect {
-  id        String   @id @default(cuid())
-  storeId   String
-  fromSlug  String
-  pageId    String
-  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@unique([storeId, fromSlug])
-}
-
-/// Saved sections and page templates, per store (Faz 4 consumer; the model
-/// lands now so the schema stays stable).
-model PageSnippet {
-  id        String   @id @default(cuid())
-  storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  name      String
-  /// section | template
-  kind      String
-  category  String?
-  data      Json
-  createdAt DateTime @default(now())
 }

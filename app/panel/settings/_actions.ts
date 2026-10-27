@@ -16,7 +16,6 @@ import { validateEmailSettings } from "@/lib/email-settings-shared";
 import { isPlunkConfigured, sendTestEmail } from "@/lib/plunk";
 import { validateMaintenanceSettings } from "@/lib/maintenance-settings-shared";
 import { validateReviewSettings } from "@/lib/review-settings-shared";
-import { validateThemeSettings, type ThemeSettings } from "@/lib/theme-settings-shared";
 import {
   saveAiSettings,
   saveEmailSettings,
@@ -24,7 +23,6 @@ import {
   saveReviewSettings,
   saveSeoSettings,
   saveSiteSettings,
-  saveThemeSettings,
   saveUploadSettings,
 } from "@/lib/settings";
 import { validateSeoSettings } from "@/lib/seo-settings-shared";
@@ -107,12 +105,6 @@ export async function saveLegalSettingsAction(input: Record<string, unknown>): P
 
 export async function saveSeoSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
   return saveGroup("seo", input, validateSeoSettings, saveSeoSettings);
-}
-
-export async function saveThemeSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
-  const result = await saveGroup<ThemeSettings>("theme", input, validateThemeSettings as any, saveThemeSettings);
-  if (result.ok) revalidatePath("/", "layout");
-  return result;
 }
 
 export async function saveMaintenanceSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {

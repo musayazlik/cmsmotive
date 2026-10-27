@@ -1,5 +1,4 @@
 import type { StoreSeed } from "../types";
-import { seedHomepage } from "../homepage";
 
 /** cmsmotive.com: CMS systems, starter kits, themes and modules for other stacks, English only. */
 const LEGAL_ENTITY = {
@@ -33,5 +32,4 @@ export const globalStore: StoreSeed = {
     legal: { ...LEGAL_ENTITY, contactEmail: "info@cmsmotive.com", privacyEmail: "info@cmsmotive.com" },
     ai: { language: "en" },
   },
-  content: (storeId) => seedHomepage(storeId),
 };

@@ -1,10 +1,23 @@
+import { readdirSync } from "node:fs";
+import path from "node:path";
 import type { NextConfig } from "next";
 
 /**
- * Legacy static-site pages are served through the proxy's rewrite map
- * (lib/page-builder/proxy-pages.ts) since the page builder's catch-all route
- * took over page-path matching. Only the redirects below stay in config.
- *
+ * Top-level static-site pages, read once at startup. Listing them explicitly
+ * (instead of a catch-all) leaves every other URL unmatched, so Next renders
+ * app/not-found.tsx with a real 404. Restart `pnpm dev` after adding a page.
+ */
+const legacySlugs = readdirSync(path.join(process.cwd(), "static-site"))
+  .filter((file) => /^[a-z0-9-]+\.html$/.test(file))
+  .map((file) => file.slice(0, -5));
+
+/** Rendered by app/not-found.tsx, app/error.tsx and the journal loader, never as pages of their own. */
+const statusDocuments = new Set(["404", "500", "loading"]);
+
+/** Static-site pages replaced by a React route (app/[locale]/blog). */
+const reactRoutes = new Set(["blog", "imprint", "privacy", "terms", "cookies"]);
+
+/**
  * Site languages (lib/i18n/config.ts): German at unprefixed URLs, English and
  * Turkish under `/en` and `/tr`. Every public page resolves to a handler that
  * receives the locale as its first segment.
@@ -50,13 +63,27 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
+    const pages = legacySlugs.filter((slug) => !statusDocuments.has(slug) && !reactRoutes.has(slug));
     return {
-      // The legacy page map lives in the proxy (lib/page-builder/proxy-pages.ts):
-      // the builder's catch-all route matches page paths before these rewrite
-      // phases could run, and direct requests to /legacy/* hit the proxy's 404
-      // rewrite instead of this list.
-      beforeFiles: [],
-      afterFiles: [],
+      // The internal handler path is not a public URL: send it to a path no
+      // route matches, which renders the regular 404 page.
+      beforeFiles: [{ source: "/legacy/:path*", destination: "/__not-found" }],
+      afterFiles: [
+        ...["imprint", "privacy", "terms", "cookies"].map((slug) => ({ source: `/${slug}`, destination: `/de/${slug}` })),
+        // `/en/blog` matches app/[locale]/blog directly; the German journal needs its locale filled in.
+        { source: "/blog", destination: "/de/blog" },
+        { source: "/blog/:slug", destination: "/de/blog/:slug" },
+        // Same for the product catalogue and detail pages (app/[locale]/(product)).
+        { source: "/products", destination: "/de/products" },
+        { source: "/products/:slug", destination: "/de/products/:slug" },
+        ...pages.flatMap((slug) => [
+          { source: slug === "index" ? "/" : `/${slug}`, destination: `/legacy/de/${slug}` },
+          {
+            source: slug === "index" ? `/:locale(${prefixedLocales})` : `/:locale(${prefixedLocales})/${slug}`,
+            destination: `/legacy/:locale/${slug}`,
+          },
+        ]),
+      ],
       fallback: [],
     };
   },

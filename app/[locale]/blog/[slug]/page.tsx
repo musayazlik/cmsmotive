@@ -11,7 +11,6 @@ import { SiteFrame } from "../../_components/site-chrome";
 import { JsonLd } from "../../_components/json-ld";
 import CommentsSection from "../_components/comments-section";
 import { currentStoreId } from "@/lib/current-store";
-import { sanitizeRichText } from "@/lib/page-builder/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -174,10 +173,8 @@ export default async function BlogPostPage({ params, searchParams }: Props) {
               </p>
             ) : null}
             <article className="content-article">
-              {/* The title, excerpt and cover live in the hero above; the body is
-                  sanitized at render so even a stored-bypass (direct DB edit)
-                  cannot print unapproved markup (plan 5.10). */}
-              <div className="article-copy" dangerouslySetInnerHTML={{ __html: sanitizeRichText(post.content) }} />
+              {/* The title, excerpt and cover live in the hero above; the body stays authored HTML. */}
+              <div className="article-copy" dangerouslySetInnerHTML={{ __html: post.content }} />
             </article>
 
             <CommentsSection postId={post.id} locale={locale} preview={post.preview} />

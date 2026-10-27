@@ -9,8 +9,6 @@ import { readSettingsGroup } from "@/lib/settings-store";
 import { resolveRequestStore } from "@/lib/stores";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { ADMIN_ENTRY_COOKIE, ADMIN_ENTRY_TTL, issueAdminEntry } from "@/lib/admin-entry";
-import { decidePagePath, listLegacyPageSlugs, type PagePathDecision } from "@/lib/page-builder/proxy-pages";
-import { getStorePageRegistry, type StorePageRegistry } from "@/lib/page-builder/registry";
 
 const ADMIN_CONTEXT_HEADER = "x-admin-gateway";
 // Account pages reachable through the private entry; the historical /login
@@ -78,77 +76,8 @@ export async function proxy(request: NextRequest) {
   const maintenance = await maintenanceResponse(request);
   if (maintenance) return maintenance;
 
-  // Draft previews (plan 5.7): never indexed, never cached, whatever the
-  // token state is. The route itself decides session-or-token access.
-  if (pathname === "/pb-preview" || pathname.startsWith("/pb-preview/")) {
-    return privateResponse(NextResponse.next({ request: { headers } }));
-  }
-
-  // Direct requests to the internal legacy handler: today the beforeFiles
-  // rewrite in next.config.ts blocked these; the proxy does the same now that
-  // the builder's catch-all route makes rewrites the only entrance.
-  if (pathname === "/legacy" || pathname.startsWith("/legacy/")) {
-    return NextResponse.rewrite(new URL("/__not-found", request.nextUrl.origin), { request: { headers } });
-  }
-
-  // The builder page flow (plan 5.8): the catch-all route matches almost every
-  // path, so the proxy decides the rewrite destination while nothing has
-  // been rendered yet. A registry failure sends the request down the normal
-  // flow instead of erroring a public URL.
-  if (request.method === "GET" || request.method === "HEAD") {
-    const cleanPath = pathname.replace(/\/+$/, "") || "/";
-    const decision = await pagePathDecision(request, cleanPath);
-    if (decision.action === "rewrite") {
-      const destination = request.nextUrl.clone();
-      destination.pathname = decision.destination;
-      headers.set(LOCALE_HEADER, decision.locale);
-      const response = NextResponse.rewrite(destination, { request: { headers } });
-      // Builder pages answer with the same headers the legacy route sets
-      // (plan 5.9): the response language, cache splitting on cookies and —
-      // for signed-in visitors — a shared-cache ban.
-      if (decision.builder) {
-        response.headers.set("Content-Language", decision.locale);
-        response.headers.set("Vary", "Cookie");
-        if (await hasPanelSessionFor(request.headers)) response.headers.set("Cache-Control", "private, no-store");
-      }
-      return response;
-    }
-    if (decision.action === "redirect") {
-      const destination = request.nextUrl.clone();
-      destination.pathname = decision.destination;
-      return NextResponse.redirect(destination, decision.permanent ? 301 : 302);
-    }
-  }
-
   headers.set(LOCALE_HEADER, splitLocale(request.nextUrl.pathname).locale);
   return NextResponse.next({ request: { headers } });
-}
-
-/**
- * Builder pages plus the legacy flow (plan 5.8). `decidePagePath` says what a
- * page path becomes; every query hits the short-TTL registry instead of the
- * database per request. A registry failure must not take public URLs down:
- * decidePagePath then runs against an empty registry, which still rewrites the
- * React and legacy routes below — only builder pages go missing.
- */
-const EMPTY_REGISTRY: StorePageRegistry = { pages: [], redirects: [] };
-let legacySlugsCache: Set<string> | null = null;
-async function pagePathDecision(request: NextRequest, pathname: string): Promise<PagePathDecision> {
-  const UNTOUCHED: PagePathDecision = { action: "untouched" };
-  try {
-    const match = await resolveRequestStore(request);
-    if (!legacySlugsCache) legacySlugsCache = listLegacyPageSlugs();
-    const registry = await getStorePageRegistry(match.store.id).catch(() => EMPTY_REGISTRY);
-    return decidePagePath({
-      pathname,
-      method: request.method,
-      store: { defaultLocale: match.store.defaultLocale, locales: match.store.locales },
-      registry,
-      legacySlugs: legacySlugsCache,
-    });
-  } catch {
-    return UNTOUCHED;
-  }
 }
 
 /** Public visitors, including regular members, see the store's maintenance page; administrators may review the live site. */
@@ -188,6 +117,5 @@ async function maintenanceResponse(request: NextRequest): Promise<Response | nul
 
 export const config = {
   // Public pages only: the account area, auth flows, APIs and static files keep their own language.
-  // `/legacy/*` stays covered so direct requests hit the proxy's 404 rewrite.
-  matcher: ["/((?!api(?:/|$)|assets(?:/|$)|_next(?:/|$)|.*\\.[a-z0-9]+$).*)", "/wp-login.php"],
+  matcher: ["/((?!api(?:/|$)|assets(?:/|$)|legacy(?:/|$)|_next(?:/|$)|.*\\.[a-z0-9]+$).*)", "/wp-login.php"],
 };

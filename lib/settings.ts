@@ -5,7 +5,6 @@ import { DEFAULT_MAINTENANCE_SETTINGS, type MaintenanceSettings } from "@/lib/ma
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from "@/lib/review-settings-shared";
 import { DEFAULT_SEO_SETTINGS, type SeoSettings } from "@/lib/seo-settings-shared";
-import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "@/lib/theme-settings-shared";
 import { readSettingsGroup, readStoreValues, upsertStoreValue, writeSettingsGroup } from "@/lib/settings-store";
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from "@/lib/site-settings-shared";
 import {
@@ -82,9 +81,6 @@ export const saveAiSettings = (storeId: string, settings: AiSettings) => writeSe
 
 export const getMaintenanceSettings = cache((storeId: string) => readSettingsGroup(storeId, "maintenance", DEFAULT_MAINTENANCE_SETTINGS));
 export const saveMaintenanceSettings = (storeId: string, settings: MaintenanceSettings) => writeSettingsGroup(storeId, "maintenance", settings);
-
-export const getThemeSettings = cache((storeId: string) => readSettingsGroup(storeId, "theme", DEFAULT_THEME_SETTINGS));
-export const saveThemeSettings = (storeId: string, settings: ThemeSettings) => writeSettingsGroup(storeId, "theme", settings);
 
 /** The inbox that receives a store's inquiries and notifications: its setting, then the environment. */
 export function contactRecipient(settings: EmailSettings): string {

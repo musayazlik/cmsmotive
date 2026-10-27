@@ -1,4 +1,5 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import type { ButtonProps } from "./schema";
 
 export const ButtonRender: PuckComponent<ButtonProps> = ({
@@ -9,12 +10,18 @@ export const ButtonRender: PuckComponent<ButtonProps> = ({
   target = "_self",
   fullWidth,
   id,
+  lang,
+  ariaLabel,
 }) => {
   const isExternal = href.startsWith("http://") || href.startsWith("https://");
   const rel = target === "_blank" || isExternal ? "noopener noreferrer" : undefined;
 
   return (
-    <div data-pb={id} className={`pb-button-wrap${fullWidth ? " pb-button-wrap--full" : ""}`}>
+    <div
+      data-pb={id}
+      {...blockAttributes({ id, lang, ariaLabel })}
+      className={`pb-button-wrap${fullWidth ? " pb-button-wrap--full" : ""}`}
+    >
       <a
         href={href}
         target={target}

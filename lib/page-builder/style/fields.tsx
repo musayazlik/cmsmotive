@@ -15,30 +15,36 @@ import {
   FONT_FAMILIES,
   FONT_SIZE_BOUNDS,
   FONT_WEIGHT_STEPS,
+  GRADIENT_ANGLE_BOUNDS,
   LENGTH_BOUNDS,
   LENGTH_UNITS,
   LINE_HEIGHT_BOUNDS,
+  OVERLAY_OPACITY_BOUNDS,
   RADIUS_BOUNDS,
+  SHADOW_CHOICES,
+  SHADOW_LABELS,
   SIZE_UNITS,
   TRACKING_BOUNDS,
   TRACKING_UNITS,
-  type BackgroundValues,
+  type BgPositionChoice,
+  type BgRepeatChoice,
+  type BgSizeChoice,
   type BlockStyle,
   type BorderStyleChoice,
-  type BorderValues,
   type ColorChoice,
   type CssLength,
   type DimensionLength,
-  type DimensionUnit,
   type FontFamilyChoice,
+  type GradientValues,
   type LengthUnit,
   type LetterSpacing,
   type Responsive,
-  type SizeValues,
+  type ShadowChoice,
   type SpacingValues,
   type TextAlignChoice,
   type TrackingUnit,
   type TypographyValues,
+  type VisibilityValues,
 } from "./types";
 
 /**
@@ -223,6 +229,12 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
                   onCommit={(next) => (next ? set({ color: next }) : clear("color"))}
                 />
               </Row>
+              <Row label="Gradient" isSet={isSet("gradient")} onClear={() => clear("gradient")}>
+                <GradientEditor
+                  value={get("gradient")}
+                  onCommit={(next) => (next ? set({ gradient: next }) : clear("gradient"))}
+                />
+              </Row>
               <Row label="Image URL" isSet={isSet("image")} onClear={() => clear("image")}>
                 <input
                   type="text"
@@ -237,11 +249,28 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
                   }}
                 />
               </Row>
+              <Row label="Dim color" isSet={isSet("overlayColor")} onClear={() => clear("overlayColor")}>
+                <ColorEditor
+                  a11yLabel="Dim overlay color"
+                  value={get("overlayColor")}
+                  onCommit={(next) => (next ? set({ overlayColor: next }) : clear("overlayColor"))}
+                />
+              </Row>
+              <NumberRow
+                label="Dim opacity"
+                a11yLabel="Dim overlay opacity"
+                value={get("overlayOpacity")}
+                step={0.05}
+                bounds={OVERLAY_OPACITY_BOUNDS}
+                isSet={isSet("overlayOpacity")}
+                onCommit={(next) => (next === undefined ? clear("overlayOpacity") : set({ overlayOpacity: next }))}
+                onClear={() => clear("overlayOpacity")}
+              />
               <SelectRow
                 label="Size"
                 value={get("size")}
                 options={[["", "Default"], ...BG_SIZE_CHOICES.map((s) => [s, s] as const)]}
-                onSelect={(next) => (next ? set({ size: next as any }) : clear("size"))}
+                onSelect={(next) => (next ? set({ size: next as BgSizeChoice }) : clear("size"))}
                 isSet={isSet("size")}
                 onClear={() => clear("size")}
               />
@@ -249,7 +278,7 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
                 label="Position"
                 value={get("position")}
                 options={[["", "Default"], ...BG_POSITION_CHOICES.map((p) => [p, p] as const)]}
-                onSelect={(next) => (next ? set({ position: next as any }) : clear("position"))}
+                onSelect={(next) => (next ? set({ position: next as BgPositionChoice }) : clear("position"))}
                 isSet={isSet("position")}
                 onClear={() => clear("position")}
               />
@@ -257,7 +286,7 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
                 label="Repeat"
                 value={get("repeat")}
                 options={[["", "Default"], ...BG_REPEAT_CHOICES.map((r) => [r, r] as const)]}
-                onSelect={(next) => (next ? set({ repeat: next as any }) : clear("repeat"))}
+                onSelect={(next) => (next ? set({ repeat: next as BgRepeatChoice }) : clear("repeat"))}
                 isSet={isSet("repeat")}
                 onClear={() => clear("repeat")}
               />
@@ -308,6 +337,14 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
                   onCommit={(next) => (next ? set({ radius: next }) : clear("radius"))}
                 />
               </Row>
+              <SelectRow
+                label="Shadow"
+                value={get("shadow")}
+                options={[["", "Default (none)"], ...SHADOW_CHOICES.map((s) => [s, SHADOW_LABELS[s]] as const)]}
+                onSelect={(next) => (next ? set({ shadow: next as ShadowChoice }) : clear("shadow"))}
+                isSet={isSet("shadow")}
+                onClear={() => clear("shadow")}
+              />
             </>
           );
         }}
@@ -362,7 +399,56 @@ export function StyleField({ value, onChange }: StyleFieldParams) {
           );
         }}
       />
+
+      <VisibilityGroup value={value?.visibility} onCommit={(next) => commit({ ...value, visibility: next })} />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Visibility (flat: the screen bands are disjoint, so no device layering)
+// ---------------------------------------------------------------------------
+
+const VISIBILITY_DEVICES = [
+  ["desktop", "Hide on desktop", "≥901px"],
+  ["tablet", "Hide on tablet", "621–900px"],
+  ["mobile", "Hide on mobile", "≤620px"],
+] as const satisfies ReadonlyArray<readonly [keyof VisibilityValues, string, string]>;
+
+function VisibilityGroup({
+  value,
+  onCommit,
+}: {
+  value: VisibilityValues | undefined;
+  onCommit: (next: VisibilityValues | undefined) => void;
+}) {
+  const count = VISIBILITY_DEVICES.filter(([key]) => value?.[key]).length;
+  return (
+    <details className="pbstyle-group" open={count > 0}>
+      <summary>
+        <span className="pbstyle-group-name">Visibility</span>
+        {count > 0 && <span className="pbstyle-group-count">{count}</span>}
+      </summary>
+      <div className="pbstyle-group-body">
+        {VISIBILITY_DEVICES.map(([key, label, band]) => (
+          <label key={key} className="pbstyle-check">
+            <input
+              type="checkbox"
+              checked={Boolean(value?.[key])}
+              onChange={(event) => {
+                const next = { ...(value ?? {}) };
+                if (event.currentTarget.checked) next[key] = true;
+                else delete next[key];
+                onCommit(Object.keys(next).length ? next : undefined);
+              }}
+            />
+            <span>
+              {label} <small>({band})</small>
+            </span>
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -584,8 +670,6 @@ function NumberInput({
   );
 }
 
-type LengthEditorValue = CssLength;
-
 /**
  * Keeps the unit the user last picked even before any number is typed, so a
  * unit switch followed by a number lands with the chosen unit instead of
@@ -745,6 +829,49 @@ function ColorEditor({
           </button>
         ))}
       </span>
+    </span>
+  );
+}
+
+/** Two-stop gradient: from/to colors plus the direction angle (plan 5.3). */
+function GradientEditor({
+  value,
+  onCommit,
+}: {
+  value: GradientValues | undefined;
+  onCommit: (value: GradientValues | undefined) => void;
+}) {
+  return (
+    <span className="pbstyle-gradient">
+      <ColorEditor
+        a11yLabel="Gradient start color"
+        value={value?.from}
+        onCommit={(from) => onCommit({ from: from ?? { source: "raw", value: "#000000" }, to: value?.to ?? { source: "raw", value: "#ffffff" }, angle: value?.angle ?? 180 })}
+      />
+      <span aria-hidden="true" className="pbstyle-gradient-arrow">→</span>
+      <ColorEditor
+        a11yLabel="Gradient end color"
+        value={value?.to}
+        onCommit={(to) => onCommit({ from: value?.from ?? { source: "raw", value: "#000000" }, to: to ?? { source: "raw", value: "#ffffff" }, angle: value?.angle ?? 180 })}
+      />
+      <NumberInput
+        a11yLabel="Gradient angle (degrees)"
+        value={value?.angle}
+        step={15}
+        min={GRADIENT_ANGLE_BOUNDS.min}
+        max={GRADIENT_ANGLE_BOUNDS.max}
+        onCommit={(angle) =>
+          onCommit(
+            angle === undefined
+              ? undefined
+              : {
+                  from: value?.from ?? { source: "raw", value: "#000000" },
+                  to: value?.to ?? { source: "raw", value: "#ffffff" },
+                  angle,
+                },
+          )
+        }
+      />
     </span>
   );
 }

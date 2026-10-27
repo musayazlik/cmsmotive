@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 export const BUTTON_VARIANTS = ["primary", "secondary", "outline", "ghost", "link"] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
@@ -20,7 +21,7 @@ export const buttonDefaultProps = {
   fullWidth: false,
 } as const;
 
-export type ButtonProps = {
+export type ButtonProps = AdvancedBlockProps & {
   id?: string;
   text: string | ReactNode;
   href: string;
@@ -33,6 +34,7 @@ export type ButtonProps = {
 
 export const buttonPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   text: z.string().min(1).max(200),
   href: z.string().regex(SAFE_HREF_PATTERN),
   variant: z.enum(BUTTON_VARIANTS),

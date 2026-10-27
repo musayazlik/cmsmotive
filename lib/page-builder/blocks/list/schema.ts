@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 export const LIST_STYLES = ["bullet", "number", "check", "plain"] as const;
 export type ListStyle = (typeof LIST_STYLES)[number];
@@ -14,7 +15,7 @@ export const listDefaultProps = {
   items: [],
 } as const;
 
-export type ListProps = {
+export type ListProps = AdvancedBlockProps & {
   id?: string;
   listStyle: ListStyle;
   items: Array<ListItemInput & { id?: string }>;
@@ -28,6 +29,7 @@ export const listItemSchema = z.strictObject({
 
 export const listPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   listStyle: z.enum(LIST_STYLES),
   items: z.array(listItemSchema).max(50),
   style: blockStyleSchema.optional(),

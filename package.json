@@ -40,6 +40,7 @@
     "test:comment-ai": "tsx --test tests/comment-ai.test.ts",
     "test:comment-ai:db": "tsx --test tests/comment-ai.integration.test.ts",
     "test:page-builder": "tsx --test tests/page-builder-style.test.ts tests/page-builder-document.test.ts tests/page-builder-proxy.test.ts tests/page-builder-blocks.test.ts",
+    "test:page-builder:db": "tsx --test tests/page-builder.integration.test.ts",
     "i18n:check": "tsx scripts/i18n-legacy.ts",
     "creem:webhook": "node scripts/creem-webhook.mjs"
   },
@@ -51,6 +52,7 @@
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "@puckeditor/core": "0.23.0",
+    "@tiptap/core": "^3.31.3",
     "@tiptap/extension-highlight": "^3.31.3",
     "@tiptap/extension-image": "^3.31.3",
     "@tiptap/extension-list": "^3.31.3",

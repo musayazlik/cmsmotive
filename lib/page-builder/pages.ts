@@ -28,6 +28,25 @@ function uniqueViolation(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
+/**
+ * Media served by this installation (`/api/media/r2/...`) must belong to the
+ * page's store (plan 5.14): a draft cannot reference another store's library
+ * by URL. External https/uploadthing addresses are public by nature and stay
+ * out of scope. Key shape per lib/media-upload-shared.ts (`r2://<path>`).
+ */
+async function foreignInstallerMedia(storeId: string, data: PageBuilderData): Promise<string[]> {
+  const keys = new Set(
+    Array.from(
+      JSON.stringify(data).matchAll(/\/api\/media\/r2\/([A-Za-z0-9-]+\/media\/[A-Za-z0-9_-]+\/[a-f0-9-]+\.[a-z0-9]+)/g),
+      (match) => `r2://${match[1]}`,
+    ),
+  );
+  if (keys.size === 0) return [];
+  const rows = await prisma.mediaAsset.findMany({ where: { storeId, key: { in: [...keys] } }, select: { key: true } });
+  const known = new Set(rows.map((row) => row.key));
+  return [...keys].filter((key) => !known.has(key));
+}
+
 /** The home page (slug "") stays unique per store; landing pages are the v1 default. */
 export const PAGE_KINDS = ["home", "landing", "page"] as const;
 export type PageKind = (typeof PAGE_KINDS)[number];
@@ -466,6 +485,8 @@ export async function saveDraft(
   }
   const prepared = prepareDocument(document);
   if (!prepared.ok) return { ok: false, conflict: false, error: prepared.error, status: 400 };
+  const foreign = await foreignInstallerMedia(storeId, prepared.data);
+  if (foreign.length) return { ok: false, conflict: false, error: "The draft references media from another store's library.", status: 400 };
   const result = await prisma.pageLocale.updateMany({
     where: { id: row.id, version: row.version },
     data: {
@@ -575,6 +596,8 @@ export async function publishPage(
   const migrated = migrateDocument(row.draft as PageBuilderData, row.schemaVersion);
   const prepared = prepareDocument(migrated.data);
   if (!prepared.ok) return { ok: false, error: `The draft no longer validates: ${prepared.error}`, blockers: [], warnings: [] };
+  const foreign = await foreignInstallerMedia(storeId, prepared.data);
+  if (foreign.length) return { ok: false, error: "The draft references media from another store's library.", blockers: [], warnings: [] };
   const audit = auditDocumentA11y(prepared.data);
   if (audit.blockers.length) {
     return { ok: false, error: "Accessibility check failed.", blockers: audit.blockers, warnings: audit.warnings };
@@ -585,31 +608,42 @@ export async function publishPage(
   const publishedAt = new Date();
   const note = typeof context.note === "string" ? context.note.slice(0, 200) : null;
 
-  await prisma.$transaction([
-    prisma.page.update({ where: { id: pageId }, data: { updatedAt: new Date() } }),
-    prisma.pageLocale.update({
-      where: { id: row.id },
-      data: {
-        published: prepared.data as unknown as Prisma.InputJsonValue,
-        publishedCss,
-        usedFonts,
-        schemaVersion: CURRENT_SCHEMA_VERSION,
-        status: "published",
-        publishedAt,
-        publishAt: null,
-        updatedById: context.userId,
-        version: { increment: 1 },
-      },
-    }),
-    prisma.pageRevision.create({
-      data: {
-        pageLocaleId: row.id,
-        data: prepared.data as unknown as Prisma.InputJsonValue,
-        authorId: context.userId,
-        note,
-      },
-    }),
-  ]);
+  class StalePublish extends Error {}
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // The version condition makes the write atomic: a concurrent draft or
+      // SEO save between the read above and this update aborts the publish
+      // instead of shipping the older snapshot (plan 5.6/5.7).
+      const updated = await tx.pageLocale.updateMany({
+        where: { id: row.id, version: row.version },
+        data: {
+          published: prepared.data as unknown as Prisma.InputJsonValue,
+          publishedCss,
+          usedFonts,
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          status: "published",
+          publishedAt,
+          publishAt: null,
+          updatedById: context.userId,
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count === 0) throw new StalePublish("The page was modified elsewhere. Reload and try again.");
+      await tx.page.update({ where: { id: pageId }, data: { updatedAt: new Date() } });
+      await tx.pageRevision.create({
+        data: {
+          pageLocaleId: row.id,
+          data: prepared.data as unknown as Prisma.InputJsonValue,
+          authorId: context.userId,
+          note,
+        },
+      });
+    });
+  } catch (error) {
+    if (error instanceof StalePublish) return { ok: false, error: error.message, status: 409 };
+    throw error;
+  }
 
   // Keep only the last 50 revisions per language (plan 5.1).
   const overflow = await prisma.pageRevision.findMany({

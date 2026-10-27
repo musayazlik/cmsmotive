@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { compileDocumentCss, BREAKPOINTS } from "../lib/page-builder/style/css";
+import { compileDocumentCss, BREAKPOINTS, BREAKPOINT_WIDTHS } from "../lib/page-builder/style/css";
 import { blockStyleSchema } from "../lib/page-builder/style/types";
 import { DEFAULT_PROTOTYPE_DOCUMENT } from "../lib/page-builder/default-document";
 import { validateDocument } from "../lib/page-builder/validate";
@@ -48,6 +48,14 @@ const documentWithStyle = (style: unknown) => ({
 test("style schema accepts the structured values that the panel writes", () => {
   const parsed = blockStyleSchema.safeParse(structuredClone(validStyle));
   assert.equal(parsed.success, true, JSON.stringify(parsed.error?.issues));
+});
+
+test("visibility schema accepts the three device flags only", () => {
+  assert.equal(blockStyleSchema.safeParse({ visibility: { desktop: true } }).success, true);
+  assert.equal(blockStyleSchema.safeParse({ visibility: { tablet: true, mobile: true } }).success, true);
+  // Unknown devices and non-boolean flags are refused.
+  assert.equal(blockStyleSchema.safeParse({ visibility: { watch: true } }).success, false);
+  assert.equal(blockStyleSchema.safeParse({ visibility: { mobile: "yes" } }).success, false);
 });
 
 test("style schema refuses CSS injection attempts in every group", () => {
@@ -111,7 +119,7 @@ test("compiler scopes every rule to the block and layers base → tablet → mob
   assert.ok(css.slice(mobileIndex).includes("font-size:34px"));
 });
 
-test("compiler emits grid layout into the base layer only", () => {
+test("compiler emits grid layout into the base layer and overrides into device bands", () => {
   const css = compileDocumentCss({
     root: {},
     content: [
@@ -123,9 +131,103 @@ test("compiler emits grid layout into the base layer only", () => {
   } as never);
   // The scoped rule sits outside any media query — the base layer.
   assert.ok(css.startsWith('[data-pb="g"]{grid-template-columns:minmax(0, 2fr) minmax(0, 1fr);gap:24px}'), css);
-  // Media layers (when present) never carry grid layout in phase 0.
+  // No override props → no device-band grid rules (the stylesheet's own stacking applies).
   const mediaStates = css.match(/@media[^{]+\{[\s\S]*?\}/g) ?? [];
   for (const block of mediaStates) assert.ok(!block.includes("grid-template-columns"), css);
+
+  // With overrides, each band carries its own column layout (plan 5.3).
+  const responsive = compileDocumentCss({
+    root: {},
+    content: [
+      {
+        type: "GridBlock",
+        props: {
+          id: "g",
+          variant: "4",
+          gap: "lg",
+          columnsTablet: "2",
+          columnsMobile: "1/3+2/3",
+          col1: [],
+          col2: [],
+          col3: [],
+          col4: [],
+        },
+      },
+    ],
+  } as never);
+  const tabletBand = responsive.slice(responsive.indexOf(`@media (${BREAKPOINTS.tablet})`), responsive.indexOf(`@media (${BREAKPOINTS.mobile})`));
+  const mobileBand = responsive.slice(responsive.indexOf(`@media (${BREAKPOINTS.mobile})`));
+  assert.ok(tabletBand.includes('[data-pb="g"]{grid-template-columns:repeat(2, minmax(0, 1fr))}'), responsive);
+  assert.ok(mobileBand.includes('[data-pb="g"]{grid-template-columns:minmax(0, 1fr) minmax(0, 2fr)}'), responsive);
+});
+
+test("compiler renders gradient, dim overlay and shadow from validated values only", () => {
+  const css = compileDocumentCss({
+    root: {},
+    content: [
+      headingBlock({
+        background: {
+          base: {
+            color: { source: "token", value: "canvas" },
+            gradient: { from: { source: "token", value: "indigo" }, to: { source: "raw", value: "#101418" }, angle: 160 },
+            image: "https://example.test/hero.jpg",
+            overlayColor: { source: "raw", value: "#000000" },
+            overlayOpacity: 0.4,
+          },
+        },
+        border: { base: { shadow: "lg" } },
+      }),
+    ],
+  } as never);
+
+  // Layer order: dim scrim on top of the photo, photo on top of the gradient.
+  const expectedImage =
+    'background-image:linear-gradient(color-mix(in srgb,#000000 40%,transparent),color-mix(in srgb,#000000 40%,transparent)),' +
+    'url("https://example.test/hero.jpg"),linear-gradient(160deg,var(--indigo),#101418)';
+  assert.ok(css.includes(expectedImage), css);
+  assert.ok(css.includes("background-color:var(--canvas)"), css);
+  assert.ok(css.includes("box-shadow:0 8px 24px rgb(0 0 0 / 0.14)"), css);
+
+  // Unsafe gradient colors drop the whole layer; zero opacity drops the scrim;
+  // unknown shadow presets emit nothing.
+  const refused = compileDocumentCss({
+    root: {},
+    content: [
+      headingBlock({
+        background: {
+          base: {
+            gradient: { from: { source: "raw", value: "url(//evil)" as never }, to: { source: "token", value: "ink" }, angle: 90 },
+            overlayColor: { source: "token", value: "ink" },
+            overlayOpacity: 0,
+          },
+        },
+        border: { base: { shadow: "url(//evil)" as never } },
+      }),
+    ],
+  } as never);
+  assert.ok(!refused.includes("linear-gradient"), refused);
+  assert.ok(!refused.includes("box-shadow"), refused);
+});
+
+test("style schema accepts % spacing and refuses gradient angles out of range", () => {
+  assert.equal(
+    blockStyleSchema.safeParse({ spacing: { base: { paddingTop: { value: 50, unit: "%" } } } }).success,
+    true,
+  );
+  assert.equal(
+    blockStyleSchema.safeParse({
+      background: { base: { gradient: { from: { source: "token", value: "indigo" }, to: { source: "token", value: "ink" }, angle: 400 } } },
+    }).success,
+    false,
+  );
+  assert.equal(
+    blockStyleSchema.safeParse({ background: { base: { overlayOpacity: 1.5 } } }).success,
+    false,
+  );
+  assert.equal(
+    blockStyleSchema.safeParse({ border: { base: { shadow: "glow" } } }).success,
+    false,
+  );
 });
 
 test("compiler drops unsafe raw colors, malformed ids and unknown variants", () => {
@@ -167,6 +269,58 @@ test("compiler binds theme colors to their CSS variables", () => {
     content: [headingBlock({ typography: { base: { textColor: { source: "token", value: "indigo" } } } })],
   } as never);
   assert.ok(css.includes("color:var(--indigo)"), css);
+});
+
+test("compiler emits one disjoint media band per hidden device, last so they win", () => {
+  const css = compileDocumentCss({
+    root: {},
+    content: [headingBlock({ visibility: { desktop: true, tablet: true, mobile: true } })],
+  } as never);
+
+  // Desktop: ≥901px; tablet: 621–900px; mobile: ≤620px — the site's breakpoints.
+  assert.ok(css.includes(`@media (min-width: ${BREAKPOINT_WIDTHS.tablet + 1}px){[data-pb="hero"]{display:none}}`), css);
+  assert.ok(
+    css.includes(
+      `@media (min-width: ${BREAKPOINT_WIDTHS.mobile + 1}px) and (max-width: ${BREAKPOINT_WIDTHS.tablet}px){[data-pb="hero"]{display:none}}`,
+    ),
+    css,
+  );
+  assert.ok(css.includes(`@media (max-width: ${BREAKPOINT_WIDTHS.mobile}px){[data-pb="hero"]{display:none}}`), css);
+
+  // Visibility bands come after the base/tablet/mobile layers so the cascade
+  // cannot resurrect a hidden block.
+  const lastLayer = css.lastIndexOf(`[data-pb="hero"]{display:none}`);
+  assert.ok(lastLayer > css.indexOf(`@media (${BREAKPOINTS.mobile})`), css);
+});
+
+test("compiler emits no visibility rules for visible blocks", () => {
+  const css = compileDocumentCss({
+    root: {},
+    content: [headingBlock({ visibility: { desktop: false } })],
+  } as never);
+  assert.ok(!css.includes("display:none"), css);
+});
+
+test("compiler cannot let a background URL escape the style element (stored XSS)", () => {
+  const attempts = [
+    "https://example.test/</style><script>alert(1)</script>",
+    'https://example.test/x");}body{background:red}//',
+    "https://example.test/a\\0062 ackground",
+    "https://example.test/`$(eval)//",
+  ];
+  for (const image of attempts) {
+    const css = compileDocumentCss({
+      root: {},
+      content: [headingBlock({ background: { base: { image } } })],
+    } as never);
+    // The whole declaration must stay inside one quoted url token: no markup,
+    // quotes, backslashes or template characters may survive encoding.
+    const url = css.match(/url\("([^"]*)"\)/)?.[1] ?? "";
+    assert.ok(url.length > 0, css);
+    assert.ok(!/["<>\\`{}]/.test(url), css);
+    assert.ok(!css.includes("<script"), css);
+    assert.ok(!css.includes("</style"), css);
+  }
 });
 
 // ---------------------------------------------------------------------------

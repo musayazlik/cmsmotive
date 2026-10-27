@@ -12,11 +12,13 @@ import { z } from "zod";
 // Primitives
 // ---------------------------------------------------------------------------
 
-export const LENGTH_UNITS = ["px", "rem"] as const;
+export const LENGTH_UNITS = ["px", "rem", "%"] as const;
 export const SIZE_UNITS = ["px", "rem"] as const;
 export const TRACKING_UNITS = ["px", "em"] as const;
 export const DIMENSION_UNITS = ["px", "rem", "%", "vw", "vh"] as const;
 export const BORDER_STYLES = ["none", "solid", "dashed", "dotted"] as const;
+/** Box-shadow presets (plan 5.3 "gölge ön ayarı") — fixed values, no free-form shadow. */
+export const SHADOW_CHOICES = ["none", "sm", "md", "lg", "xl"] as const;
 export const BG_SIZE_CHOICES = ["cover", "contain", "auto"] as const;
 export const BG_POSITION_CHOICES = ["center", "top", "bottom", "left", "right"] as const;
 export const BG_REPEAT_CHOICES = ["no-repeat", "repeat"] as const;
@@ -26,6 +28,7 @@ export type SizeUnit = (typeof SIZE_UNITS)[number];
 export type TrackingUnit = (typeof TRACKING_UNITS)[number];
 export type DimensionUnit = (typeof DIMENSION_UNITS)[number];
 export type BorderStyleChoice = (typeof BORDER_STYLES)[number];
+export type ShadowChoice = (typeof SHADOW_CHOICES)[number];
 export type BgSizeChoice = (typeof BG_SIZE_CHOICES)[number];
 export type BgPositionChoice = (typeof BG_POSITION_CHOICES)[number];
 export type BgRepeatChoice = (typeof BG_REPEAT_CHOICES)[number];
@@ -58,6 +61,8 @@ export const TRACKING_BOUNDS = { min: -0.12, max: 0.4 } as const;
 export const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 /** Whitelist for image URLs: https:// or relative /api/media/... paths only (no data/javascript) */
 export const SAFE_IMAGE_URL_PATTERN = /^(?:https:\/\/[a-z0-9_.-]+(?::[0-9]+)?(?:\/.*)?|\/(?:assets|api\/media)\/[a-z0-9_./-]+)$/i;
+export const GRADIENT_ANGLE_BOUNDS = { min: 0, max: 360 } as const;
+export const OVERLAY_OPACITY_BOUNDS = { min: 0, max: 1 } as const;
 
 // ---------------------------------------------------------------------------
 // Group records
@@ -84,12 +89,25 @@ export type SpacingValues = {
   paddingLeft?: CssLength;
 };
 
+/** Two-stop linear gradient (plan 5.3 "2 duraklı gradyan"). Colors reuse ColorChoice so theme tokens bind to variables. */
+export type GradientValues = {
+  from: ColorChoice;
+  to: ColorChoice;
+  /** Direction in degrees; 180deg (top → bottom) is the common default. */
+  angle: number;
+};
+
 export type BackgroundValues = {
   color?: ColorChoice;
+  gradient?: GradientValues;
   image?: string;
   size?: BgSizeChoice;
   position?: BgPositionChoice;
   repeat?: BgRepeatChoice;
+  /** Scrim drawn OVER the image/gradient (plan 5.3 "karartma rengi ve opaklık"). */
+  overlayColor?: ColorChoice;
+  /** 0–1; anything at 0 emits no overlay layer at all. */
+  overlayOpacity?: number;
 };
 
 export type BorderValues = {
@@ -97,6 +115,7 @@ export type BorderValues = {
   style?: BorderStyleChoice;
   color?: ColorChoice;
   radius?: CssLength;
+  shadow?: ShadowChoice;
 };
 
 export type SizeValues = {
@@ -106,6 +125,17 @@ export type SizeValues = {
   height?: DimensionLength;
   maxHeight?: DimensionLength;
   minHeight?: DimensionLength;
+};
+
+/**
+ * Hide the block on one or more screen bands (plan 5.3). The bands are the
+ * site's own breakpoints and are disjoint, so the compiler can emit one
+ * `display:none` media query per checked device without a cascade order.
+ */
+export type VisibilityValues = {
+  desktop?: boolean;
+  tablet?: boolean;
+  mobile?: boolean;
 };
 
 /**
@@ -121,6 +151,7 @@ export type BlockStyle = {
   background?: Responsive<BackgroundValues>;
   border?: Responsive<BorderValues>;
   size?: Responsive<SizeValues>;
+  visibility?: VisibilityValues;
 };
 
 // ---------------------------------------------------------------------------
@@ -185,10 +216,19 @@ const spacingSchema = z.strictObject({
 
 const backgroundSchema = z.strictObject({
   color: colorChoiceSchema.optional(),
+  gradient: z
+    .strictObject({
+      from: colorChoiceSchema,
+      to: colorChoiceSchema,
+      angle: z.number().min(GRADIENT_ANGLE_BOUNDS.min).max(GRADIENT_ANGLE_BOUNDS.max),
+    })
+    .optional(),
   image: z.string().regex(SAFE_IMAGE_URL_PATTERN).optional(),
   size: z.enum(BG_SIZE_CHOICES).optional(),
   position: z.enum(BG_POSITION_CHOICES).optional(),
   repeat: z.enum(BG_REPEAT_CHOICES).optional(),
+  overlayColor: colorChoiceSchema.optional(),
+  overlayOpacity: z.number().min(OVERLAY_OPACITY_BOUNDS.min).max(OVERLAY_OPACITY_BOUNDS.max).optional(),
 });
 
 const borderSchema = z.strictObject({
@@ -196,6 +236,7 @@ const borderSchema = z.strictObject({
   style: z.enum(BORDER_STYLES).optional(),
   color: colorChoiceSchema.optional(),
   radius: radiusSchema.optional(),
+  shadow: z.enum(SHADOW_CHOICES).optional(),
 });
 
 const sizeGroupSchema = z.strictObject({
@@ -205,6 +246,12 @@ const sizeGroupSchema = z.strictObject({
   height: dimensionSchema.optional(),
   maxHeight: dimensionSchema.optional(),
   minHeight: dimensionSchema.optional(),
+});
+
+const visibilitySchema = z.strictObject({
+  desktop: z.boolean().optional(),
+  tablet: z.boolean().optional(),
+  mobile: z.boolean().optional(),
 });
 
 export const blockStyleSchema = z.strictObject({
@@ -243,6 +290,7 @@ export const blockStyleSchema = z.strictObject({
       mobile: sizeGroupSchema.partial().optional(),
     })
     .optional(),
+  visibility: visibilitySchema.optional(),
 });
 
 function isFontWeightStep(value: number): boolean {
@@ -271,3 +319,11 @@ export const COLOR_TOKENS: ReadonlyArray<{ token: string; label: string }> = [
   { token: "warn", label: "Warn" },
   { token: "line", label: "Border line" },
 ];
+
+export const SHADOW_LABELS: Record<ShadowChoice, string> = {
+  none: "None",
+  sm: "Small",
+  md: "Medium",
+  lg: "Large",
+  xl: "X-Large",
+};

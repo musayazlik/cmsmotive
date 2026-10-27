@@ -8,19 +8,25 @@ import {
   BG_SIZE_CHOICES,
   DIMENSION_UNITS,
   FONT_FAMILIES,
+  GRADIENT_ANGLE_BOUNDS,
   HEX_COLOR_PATTERN,
   LENGTH_UNITS,
+  OVERLAY_OPACITY_BOUNDS,
   SAFE_IMAGE_URL_PATTERN,
+  SHADOW_CHOICES,
   SIZE_UNITS,
   TRACKING_UNITS,
   type BackgroundValues,
   type BlockStyle,
   type BorderValues,
   type ColorChoice,
+  type GradientValues,
   type Responsive,
+  type ShadowChoice,
   type SizeValues,
   type SpacingValues,
   type TypographyValues,
+  type VisibilityValues,
 } from "./types";
 
 /**
@@ -102,6 +108,19 @@ function cssProperty(key: string): string {
   return key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 }
 
+/**
+ * Percent-encodes everything outside the URL-safe set so a stored value can
+ * never break out of the quoted `url("…")` token or close the `<style>` raw
+ * text element it is printed into (`<`, `>`, quotes, backslashes, controls).
+ * Percent escapes are valid inside CSS url() tokens, so real URLs survive.
+ */
+function encodeCssUrl(url: string): string {
+  return url.replace(/[^A-Za-z0-9\-._~:/?#[\]@!$&*+,;=%]/g, (char) => {
+    const code = char.charCodeAt(0).toString(16).toUpperCase();
+    return `%${code.padStart(2, "0")}`;
+  });
+}
+
 function spacingDeclarations(values: Partial<SpacingValues> | undefined): string[] {
   if (!values) return [];
   const declarations: string[] = [];
@@ -118,9 +137,20 @@ function backgroundDeclarations(values: Partial<BackgroundValues> | undefined): 
   const declarations: string[] = [];
   const color = values.color && colorCss(values.color);
   if (color) declarations.push(`background-color:${color}`);
+
+  // One `background-image` declaration carries every layer; in CSS the FIRST
+  // layer paints on top, so the scrim sits over the photo and both sit over
+  // the gradient.
+  const layers: string[] = [];
+  const overlay = overlayLayer(values.overlayColor, values.overlayOpacity);
+  if (overlay) layers.push(overlay);
   if (values.image && SAFE_IMAGE_URL_PATTERN.test(values.image)) {
-    declarations.push(`background-image:url("${values.image}")`);
+    layers.push(`url("${encodeCssUrl(values.image)}")`);
   }
+  const gradient = gradientLayer(values.gradient);
+  if (gradient) layers.push(gradient);
+  if (layers.length) declarations.push(`background-image:${layers.join(",")}`);
+
   if (values.size && (BG_SIZE_CHOICES as readonly string[]).includes(values.size)) {
     declarations.push(`background-size:${values.size}`);
   }
@@ -132,6 +162,40 @@ function backgroundDeclarations(values: Partial<BackgroundValues> | undefined): 
   }
   return declarations;
 }
+
+/** Two-stop gradient from validated colors only; null when either color is unsafe. */
+function gradientLayer(gradient: GradientValues | undefined): string | null {
+  if (!gradient) return null;
+  const from = colorCss(gradient.from);
+  const to = colorCss(gradient.to);
+  if (!from || !to) return null;
+  const angle = Math.min(GRADIENT_ANGLE_BOUNDS.max, Math.max(GRADIENT_ANGLE_BOUNDS.min, gradient.angle));
+  return `linear-gradient(${formatValue(angle)}deg,${from},${to})`;
+}
+
+/**
+ * The scrim: a flat gradient of the overlay color at the chosen opacity.
+ * `color-mix` carries the opacity because theme colors are `var(…)` tokens,
+ * which no alpha format can express directly.
+ */
+function overlayLayer(color: ColorChoice | undefined, opacity: number | undefined): string | null {
+  const css = color && colorCss(color);
+  if (!css || !opacity || opacity <= OVERLAY_OPACITY_BOUNDS.min) return null;
+  const percent = formatValue(
+    Math.min(OVERLAY_OPACITY_BOUNDS.max, opacity) * 100,
+  );
+  const flat = `color-mix(in srgb,${css} ${percent}%,transparent)`;
+  return `linear-gradient(${flat},${flat})`;
+}
+
+/** Fixed shadow values — presets only, so no free-form shadow string exists (plan 5.3). */
+const SHADOW_CSS: Record<ShadowChoice, string> = {
+  none: "none",
+  sm: "0 1px 2px rgb(0 0 0 / 0.06)",
+  md: "0 2px 8px rgb(0 0 0 / 0.1)",
+  lg: "0 8px 24px rgb(0 0 0 / 0.14)",
+  xl: "0 16px 48px rgb(0 0 0 / 0.2)",
+};
 
 function borderDeclarations(values: Partial<BorderValues> | undefined): string[] {
   if (!values) return [];
@@ -146,6 +210,9 @@ function borderDeclarations(values: Partial<BorderValues> | undefined): string[]
   if (color) declarations.push(`border-color:${color}`);
   if (values.radius && (LENGTH_UNITS as readonly string[]).includes(values.radius.unit)) {
     declarations.push(`border-radius:${formatValue(values.radius.value)}${values.radius.unit}`);
+  }
+  if (values.shadow && values.shadow in SHADOW_CSS) {
+    declarations.push(`box-shadow:${SHADOW_CSS[values.shadow]}`);
   }
   return declarations;
 }
@@ -168,6 +235,23 @@ function sizeDeclarations(values: Partial<SizeValues> | undefined): string[] {
   return declarations;
 }
 
+/**
+ * Visibility (plan 5.3): one disjoint screen band per device — desktop
+ * (≥901px), tablet (621–900px), mobile (≤620px) — so a checked box never
+ * fights another device's rule in the cascade.
+ */
+function visibilityRules(selector: string, visibility: VisibilityValues | undefined): string[] {
+  if (!visibility) return [];
+  const rules: string[] = [];
+  const hide = `${selector}{display:none}`;
+  if (visibility.desktop) rules.push(`@media (min-width: ${BREAKPOINT_WIDTHS.tablet + 1}px){${hide}}`);
+  if (visibility.tablet) {
+    rules.push(`@media (min-width: ${BREAKPOINT_WIDTHS.mobile + 1}px) and (max-width: ${BREAKPOINT_WIDTHS.tablet}px){${hide}}`);
+  }
+  if (visibility.mobile) rules.push(`@media (max-width: ${BREAKPOINT_WIDTHS.mobile}px){${hide}}`);
+  return rules;
+}
+
 const GRID_TEMPLATES: Record<GridVariant, string> = {
   "2": "repeat(2, minmax(0, 1fr))",
   "3": "repeat(3, minmax(0, 1fr))",
@@ -185,12 +269,25 @@ function blockDeclarations(block: BlockData): { base: string[]; tablet: string[]
 
   // Grid layout values are structural, not element styling — they come with
   // the block props and must be emitted even when no style values exist.
+  // Tablet/mobile column overrides go into their own media bands so the
+  // browser cascade resolves base → tablet → mobile like every group.
   if (block.type === "GridBlock") {
-    const props = block.props as { variant?: GridVariant; gap?: GridGap };
+    const props = block.props as {
+      variant?: GridVariant;
+      gap?: GridGap;
+      columnsTablet?: GridVariant;
+      columnsMobile?: GridVariant;
+    };
     if (props.variant && GRID_VARIANTS.includes(props.variant)) {
       base.push(`grid-template-columns:${GRID_TEMPLATES[props.variant]}`);
     }
     if (props.gap && props.gap in GRID_GAP_VALUES) base.push(`gap:${GRID_GAP_VALUES[props.gap]}px`);
+    if (props.columnsTablet && GRID_VARIANTS.includes(props.columnsTablet)) {
+      tablet.push(`grid-template-columns:${GRID_TEMPLATES[props.columnsTablet]}`);
+    }
+    if (props.columnsMobile && GRID_VARIANTS.includes(props.columnsMobile)) {
+      mobile.push(`grid-template-columns:${GRID_TEMPLATES[props.columnsMobile]}`);
+    }
   }
 
   if (!style) return { base, tablet, mobile };
@@ -223,6 +320,7 @@ export function compileDocumentCss(data: PageBuilderData): string {
   const baseRules: string[] = [];
   const tabletRules: string[] = [];
   const mobileRules: string[] = [];
+  const visibilityRuleSet: string[] = [];
 
   walkBlocks(data, (block) => {
     const id = (block.props as { id?: unknown }).id;
@@ -232,12 +330,15 @@ export function compileDocumentCss(data: PageBuilderData): string {
     if (base.length) baseRules.push(`${selector}{${base.join(";")}}`);
     if (tablet.length) tabletRules.push(`${selector}{${tablet.join(";")}}`);
     if (mobile.length) mobileRules.push(`${selector}{${mobile.join(";")}}`);
+    visibilityRuleSet.push(...visibilityRules(selector, (block.props as { style?: BlockStyle }).style?.visibility));
   });
 
   return [
     baseRules.join("\n"),
     tabletRules.length ? `@media (${BREAKPOINTS.tablet}){${tabletRules.join("")}}` : "",
     mobileRules.length ? `@media (${BREAKPOINTS.mobile}){${mobileRules.join("")}}` : "",
+    // Visibility rules are their own top-layer queries; last so they win.
+    ...visibilityRuleSet,
   ]
     .filter(Boolean)
     .join("\n");

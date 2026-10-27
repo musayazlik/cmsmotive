@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 /**
  * Text (plan 5.2): Puck's Tiptap-based richtext output. The document keeps a
@@ -11,7 +12,7 @@ import { blockStyleSchema, type BlockStyle } from "../../style/types";
  * as HTML.
  */
 
-export type TextProps = {
+export type TextProps = AdvancedBlockProps & {
   id?: string;
   content: string | ReactNode;
   style?: BlockStyle;
@@ -24,6 +25,7 @@ export const textDefaultProps = {
 
 export const textPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   // 512 KB is generous for prose; keeps any document well under the 1 MB limit (plan 5.13).
   content: z.string().max(512 * 1024),
   style: blockStyleSchema.optional(),

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 export const ICON_NAMES = [
   "check",
@@ -27,7 +28,7 @@ export const iconDefaultProps = {
   size: "md",
 } as const;
 
-export type IconProps = {
+export type IconProps = AdvancedBlockProps & {
   id?: string;
   name: IconName;
   size: IconSize;
@@ -36,6 +37,7 @@ export type IconProps = {
 
 export const iconPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   name: z.enum(ICON_NAMES),
   size: z.enum(ICON_SIZES),
   style: blockStyleSchema.optional(),

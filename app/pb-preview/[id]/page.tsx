@@ -7,6 +7,10 @@ import { currentStoreId } from "@/lib/current-store";
 import { serverConfig } from "@/lib/page-builder/config.server";
 import { renderableDocument } from "@/lib/page-builder/document";
 import { isValidPagePreview } from "@/lib/page-builder/preview-token";
+import { usedFontFiles } from "@/lib/page-builder/fonts";
+import { resolveLivePageData } from "@/lib/page-builder/live-data";
+import { getThemeSettings } from "@/lib/settings";
+import { themeToCssVariables } from "@/lib/page-builder/theme";
 import { compileDocumentCss } from "@/lib/page-builder/style/css";
 import { isLocale } from "@/lib/i18n/config";
 import { SiteFrame } from "@/app/[locale]/_components/site-chrome";
@@ -46,20 +50,27 @@ export default async function PagePreviewPage({ params, searchParams }: Props) {
     select: { draft: true, page: { select: { slug: true } } },
   });
   if (!row) notFound();
-  const document = renderableDocument(row.draft);
-  if (!document) {
+  const rawDocument = renderableDocument(row.draft);
+  if (!rawDocument) {
     return (
       <main className="container">
         <p>This draft no longer validates; open the editor and save it again.</p>
       </main>
     );
   }
+  const document = await resolveLivePageData(rawDocument, storeId, localeParam);
   const path = row.page.slug ? `/${row.page.slug}` : "/";
   return (
     <SiteFrame locale={localeParam} path={path} current={row.page.slug ? `/${row.page.slug}` : "/"}>
+      {/* Draft fonts, computed live — publish stores the list for the live page (plan 5.5). */}
+      {usedFontFiles(document).map((file) => (
+        <link key={file} rel="preload" href={file} as="font" type="font/woff2" crossOrigin="anonymous" />
+      ))}
       {/* Same static layers as the editor canvas and the published page. */}
       <link rel="stylesheet" href="/assets/css/site.css" precedence="default" />
       <link rel="stylesheet" href="/assets/css/pb-blocks.css" precedence="default" />
+      {/* Theme CSS variables from store settings (plan 5.5). */}
+      <style dangerouslySetInnerHTML={{ __html: themeToCssVariables(await getThemeSettings(storeId)) }} />
       {/* The draft has no stored stylesheet: compile it live (plan 5.4). */}
       <style dangerouslySetInnerHTML={{ __html: compileDocumentCss(document) }} />
       <div className="pb-render">

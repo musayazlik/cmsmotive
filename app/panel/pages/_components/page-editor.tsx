@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { createUsePuck, Puck, type Data } from "@puckeditor/core";
 import Link from "@/app/panel/_components/panel-navigation";
@@ -50,10 +50,19 @@ function ScopedStyles({ iframeDocument }: { iframeDocument?: Document }) {
   return createPortal(<style dangerouslySetInnerHTML={{ __html: css }} />, iframeDocument.head);
 }
 
+const ThemeContext = createContext<string>("");
+
+function ThemeStyles({ iframeDocument }: { iframeDocument?: Document }) {
+  const themeCss = useContext(ThemeContext);
+  if (!iframeDocument || !themeCss) return null;
+  return createPortal(<style id="pb-theme" dangerouslySetInnerHTML={{ __html: themeCss }} />, iframeDocument.head);
+}
+
 function IframeOverride({ children, document }: { children: ReactNode; document?: Document }) {
   return (
     <>
       <IframeStylesheets document={document} />
+      <ThemeStyles iframeDocument={document} />
       <ScopedStyles iframeDocument={document} />
       {children}
     </>
@@ -81,6 +90,7 @@ export default function PageEditor({
   previewPath,
   revisions,
   seo,
+  themeCss,
 }: {
   pageId: string;
   locale: string;
@@ -93,6 +103,7 @@ export default function PageEditor({
   previewPath: string;
   revisions: EditorRevision[];
   seo: EditorSeo;
+  themeCss?: string;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -108,11 +119,13 @@ export default function PageEditor({
   const versionRef = useRef(initialVersion);
   const latestRef = useRef<Data>(initialData);
   const savedJsonRef = useRef<string>(JSON.stringify(initialData));
-  const inflightRef = useRef<Promise<void> | null>(null);
+  const inflightRef = useRef<Promise<unknown> | null>(null);
   const pendingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAttemptRef = useRef(0);
   const seoVersionRef = useRef(initialVersion);
+  /** Ref, not state: publish() must see a conflict raised by its own flush. */
+  const conflictRef = useRef(false);
   const [seoOpen, setSeoOpen] = useState(false);
   const [seoValues, setSeoValues] = useState<EditorSeo>(seo);
   const [seoSaving, setSeoSaving] = useState(false);
@@ -123,8 +136,11 @@ export default function PageEditor({
     setSeoFeedback(null);
     const result = await saveSeoAction(pageId, locale, {
       title: seoValues.title,
-      seoTitle: seoValues.seoTitle || undefined,
-      seoDescription: seoValues.seoDescription || undefined,
+      // Empty strings CLEAR the field: optionalText maps "" → null. Sending
+      // `|| undefined` would mean "leave unchanged", so a cleared value could
+      // never be removed.
+      seoTitle: seoValues.seoTitle,
+      seoDescription: seoValues.seoDescription,
       noindex: seoValues.noindex,
       expectedVersion: seoVersionRef.current,
     });
@@ -140,17 +156,22 @@ export default function PageEditor({
     }
   }
 
-  const saveNow = useCallback(async () => {
+  type SaveOutcome = { ok: true } | { ok: false; conflict: boolean };
+
+  const saveNow = useCallback(async (): Promise<SaveOutcome> => {
     // Single flight with a trailing save: a change landing mid-request loops
-    // once more with the newest state instead of recursing.
+    // once more with the newest state instead of recursing. Callers awaiting
+    // this function always receive the outcome of the LAST write (their own).
     for (;;) {
-      if (inflightRef.current) {
+      const inflight = inflightRef.current;
+      if (inflight) {
         pendingRef.current = true;
-        return;
+        await inflight;
+        continue;
       }
       pendingRef.current = false;
       const data = latestRef.current;
-      const run = (async () => {
+      const run = (async (): Promise<SaveOutcome> => {
         setStatus("saving");
         setSaveError(null);
         try {
@@ -164,30 +185,36 @@ export default function PageEditor({
             | null;
           if (response.ok && payload?.ok && typeof payload.version === "number") {
             versionRef.current = payload.version;
+            seoVersionRef.current = payload.version;
             savedJsonRef.current = JSON.stringify(data);
             setStatus("saved");
-          } else if (response.status === 409) {
+            return { ok: true };
+          }
+          if (response.status === 409) {
+            conflictRef.current = true;
             setConflictVersion(typeof payload?.version === "number" ? payload.version : null);
             setStatus("error");
-          } else {
-            setSaveError(payload?.error ?? "The draft could not be saved.");
-            setStatus("error");
+            return { ok: false, conflict: true };
           }
+          setSaveError(payload?.error ?? "The draft could not be saved.");
+          setStatus("error");
+          return { ok: false, conflict: false };
         } catch {
           setSaveError("Network error while saving.");
           setStatus("error");
+          return { ok: false, conflict: false };
         } finally {
           inflightRef.current = null;
         }
       })();
       inflightRef.current = run;
-      await run;
-      if (!pendingRef.current) return;
+      const outcome = await run;
+      if (!pendingRef.current) return outcome;
     }
   }, [pageId, locale]);
 
   const scheduleSave = useCallback(() => {
-    if (conflictVersion !== null) return;
+    if (conflictRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     const sinceLast = Date.now() - lastAttemptRef.current;
     const delay = Math.max(AUTOSAVE_DEBOUNCE_MS, AUTOSAVE_MIN_INTERVAL_MS - sinceLast);
@@ -195,16 +222,17 @@ export default function PageEditor({
       lastAttemptRef.current = Date.now();
       void saveNow();
     }, delay);
-  }, [conflictVersion, saveNow]);
+  }, [saveNow]);
 
   /** The publish action reads the SAVED draft from the database. */
-  const flushSave = useCallback(async () => {
+  const flushSave = useCallback(async (): Promise<SaveOutcome> => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
     while (inflightRef.current) await inflightRef.current;
-    if (JSON.stringify(latestRef.current) !== savedJsonRef.current) await saveNow();
+    if (JSON.stringify(latestRef.current) !== savedJsonRef.current) return await saveNow();
+    return { ok: true };
   }, [saveNow]);
 
   useEffect(() => {
@@ -223,16 +251,25 @@ export default function PageEditor({
   async function publish() {
     setPublishing(true);
     setPublishOutcome(null);
-    await flushSave();
-    if (conflictVersion !== null) {
+    // The server reads the saved draft: never publish unless this session's
+    // edits are durably saved (a failed save means the DB holds older content).
+    const saved = await flushSave();
+    if (!saved.ok) {
       setPublishing(false);
-      setPublishOutcome({ state: "blocked", error: "Çakışma var: taslak başka bir sekmede güncellendi. Yenileyin.", blockers: [] });
+      setPublishOutcome({
+        state: "blocked",
+        error: saved.conflict
+          ? "Çakışma var: taslak başka bir sekmede güncellendi. Yenileyin."
+          : "Taslak kaydedilemedi — yukarıdaki hatayı giderip tekrar deneyin.",
+        blockers: [],
+      });
       return;
     }
     const result = await publishPageAction(pageId, locale, undefined, versionRef.current);
     setPublishing(false);
     if (result.ok) {
       versionRef.current = result.version;
+      seoVersionRef.current = result.version;
       setPublishOutcome({ state: "ok", warnings: result.warnings });
       router.refresh();
     } else {
@@ -243,7 +280,8 @@ export default function PageEditor({
   const address = kind === "home" ? "/" : `/${pageSlug}`;
 
   return (
-    <div className="pb-editor">
+    <ThemeContext.Provider value={themeCss ?? ""}>
+      <div className="pb-editor">
       <div className="pb-editor-toolbar">
         <Link className="pb-editor-button" href="/panel/pages" onClick={() => void flushSave()}>
           ← Pages
@@ -404,5 +442,6 @@ export default function PageEditor({
         overrides={{ iframe: IframeOverride }}
       />
     </div>
+    </ThemeContext.Provider>
   );
 }

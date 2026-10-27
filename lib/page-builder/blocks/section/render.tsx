@@ -1,4 +1,5 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import type { SectionProps } from "./schema";
 
 export const SectionRender: PuckComponent<SectionProps> = ({
@@ -7,8 +8,10 @@ export const SectionRender: PuckComponent<SectionProps> = ({
   overlayOpacity = 50,
   children: Children,
   id,
+  lang,
+  ariaLabel,
 }) => (
-  <section data-pb={id} className={`pb-section pb-section--${variant}`}>
+  <section data-pb={id} {...blockAttributes({ id, lang, ariaLabel })} className={`pb-section pb-section--${variant}`}>
     {variant === "image" && image ? (
       <div className="pb-section-backdrop" aria-hidden="true">
         <img src={image} alt="" className="pb-section-img" loading="lazy" />

@@ -12,6 +12,22 @@ import { imagePropsSchema, type ImageProps } from "./blocks/image/schema";
 import { videoPropsSchema, type VideoProps } from "./blocks/video/schema";
 import { iconPropsSchema, type IconProps } from "./blocks/icon/schema";
 import { listPropsSchema, type ListProps } from "./blocks/list/schema";
+import { productGridPropsSchema, type ProductGridProps } from "./blocks/product-grid/schema";
+import { productSpotlightPropsSchema, type ProductSpotlightProps } from "./blocks/product-spotlight/schema";
+import { pricingTablePropsSchema, type PricingTableProps } from "./blocks/pricing-table/schema";
+import { reviewListPropsSchema, type ReviewListProps } from "./blocks/review-list/schema";
+import { latestPostsPropsSchema, type LatestPostsProps } from "./blocks/latest-posts/schema";
+import { heroPropsSchema, type HeroProps } from "./blocks/hero/schema";
+import { featureGridPropsSchema, type FeatureGridProps } from "./blocks/feature-grid/schema";
+import { statsPropsSchema, type StatsProps } from "./blocks/stats/schema";
+import { logoCloudPropsSchema, type LogoCloudProps } from "./blocks/logo-cloud/schema";
+import { testimonialsPropsSchema, type TestimonialsProps } from "./blocks/testimonials/schema";
+import { faqPropsSchema, type FAQProps } from "./blocks/faq/schema";
+import { ctaPropsSchema, type CTAProps } from "./blocks/cta/schema";
+import { comparisonTablePropsSchema, type ComparisonTableProps } from "./blocks/comparison-table/schema";
+import { stepsPropsSchema, type StepsProps } from "./blocks/steps/schema";
+import { newsletterPropsSchema, type NewsletterProps } from "./blocks/newsletter/schema";
+import { contactPropsSchema, type ContactProps } from "./blocks/contact/schema";
 import { PAGE_BUILDER_BLOCK_TYPES, isPageBuilderBlockType, slotFieldsOf, type PageBuilderBlockType } from "./slots";
 
 /**
@@ -38,6 +54,22 @@ export type UserBlocks = {
   VideoBlock: VideoProps;
   IconBlock: IconProps;
   ListBlock: ListProps;
+  ProductGridBlock: ProductGridProps;
+  ProductSpotlightBlock: ProductSpotlightProps;
+  PricingTableBlock: PricingTableProps;
+  ReviewListBlock: ReviewListProps;
+  LatestPostsBlock: LatestPostsProps;
+  HeroBlock: HeroProps;
+  FeatureGridBlock: FeatureGridProps;
+  StatsBlock: StatsProps;
+  LogoCloudBlock: LogoCloudProps;
+  TestimonialsBlock: TestimonialsProps;
+  FAQBlock: FAQProps;
+  CTABlock: CTAProps;
+  ComparisonTableBlock: ComparisonTableProps;
+  StepsBlock: StepsProps;
+  NewsletterBlock: NewsletterProps;
+  ContactBlock: ContactProps;
 };
 
 const PROPS_SCHEMAS: Record<PageBuilderBlockType, z.ZodType> = {
@@ -54,6 +86,22 @@ const PROPS_SCHEMAS: Record<PageBuilderBlockType, z.ZodType> = {
   VideoBlock: videoPropsSchema,
   IconBlock: iconPropsSchema,
   ListBlock: listPropsSchema,
+  ProductGridBlock: productGridPropsSchema,
+  ProductSpotlightBlock: productSpotlightPropsSchema,
+  PricingTableBlock: pricingTablePropsSchema,
+  ReviewListBlock: reviewListPropsSchema,
+  LatestPostsBlock: latestPostsPropsSchema,
+  HeroBlock: heroPropsSchema,
+  FeatureGridBlock: featureGridPropsSchema,
+  StatsBlock: statsPropsSchema,
+  LogoCloudBlock: logoCloudPropsSchema,
+  TestimonialsBlock: testimonialsPropsSchema,
+  FAQBlock: faqPropsSchema,
+  CTABlock: ctaPropsSchema,
+  ComparisonTableBlock: comparisonTablePropsSchema,
+  StepsBlock: stepsPropsSchema,
+  NewsletterBlock: newsletterPropsSchema,
+  ContactBlock: contactPropsSchema,
 };
 
 /**

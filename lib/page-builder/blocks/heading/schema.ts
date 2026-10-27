@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 /**
  * Heading (plan 5.2): H1–H4 whose text is editable directly on the canvas
@@ -26,7 +27,7 @@ export const headingDefaultProps = {
   level: "h2",
 } as const;
 
-export type HeadingProps = {
+export type HeadingProps = AdvancedBlockProps & {
   id?: string;
   /** Plain string in documents; a contentEditable node inside the editor canvas. */
   text: string | ReactNode;
@@ -36,6 +37,7 @@ export type HeadingProps = {
 
 export const headingPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   text: z.string().max(20000),
   level: z.enum(HEADING_LEVELS),
   style: blockStyleSchema.optional(),

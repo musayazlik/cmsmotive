@@ -6,9 +6,6 @@ import {
   STACK_DIRECTIONS,
   STACK_GAPS,
   STACK_JUSTIFY,
-  type StackAlign,
-  type StackGap,
-  type StackJustify,
 } from "./blocks/stack/schema";
 import { SPACER_SIZES, SPACER_SIZE_LABELS } from "./blocks/spacer/schema";
 import { DIVIDER_SPACINGS, DIVIDER_VARIANTS } from "./blocks/divider/schema";
@@ -35,7 +32,18 @@ import { LIST_STYLES } from "./blocks/list/schema";
  * rendering.
  */
 
-const option = <T extends string>(value: T, label: string) => ({ label, value });
+const option = <T extends string | number | boolean>(value: T, label: string) => ({ label, value });
+
+/**
+ * Advanced attributes shared by every block (plan 5.3 "Gelişmiş"). The props
+ * exist on every schema (blocks/shared.ts), so Puck's `Fields` mapping needs
+ * them declared here too — spread into every base set below, keeping the
+ * editor and render configs in sync by construction.
+ */
+const advancedFields = {
+  lang: { type: "text", label: "Element language (BCP 47, e.g. en-US)" },
+  ariaLabel: { type: "text", label: "ARIA label" },
+} as const;
 
 export const containerBaseFields = {
   width: {
@@ -44,6 +52,7 @@ export const containerBaseFields = {
     options: CONTAINER_VARIANTS.map((variant) => option(variant, CONTAINER_VARIANT_LABELS[variant])),
   },
   children: { type: "slot" },
+  ...advancedFields,
 } as const;
 
 export const gridBaseFields = {
@@ -51,6 +60,16 @@ export const gridBaseFields = {
     type: "select",
     label: "Columns",
     options: GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant])),
+  },
+  columnsTablet: {
+    type: "select",
+    label: "Columns on tablet (≤900px)",
+    options: [["", "Same as Columns"], ...GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant]))] as Array<[string, string]>,
+  },
+  columnsMobile: {
+    type: "select",
+    label: "Columns on mobile (≤620px)",
+    options: [["", "Same as Columns"], ...GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant]))] as Array<[string, string]>,
   },
   gap: {
     type: "select",
@@ -61,6 +80,7 @@ export const gridBaseFields = {
   col2: { type: "slot" },
   col3: { type: "slot" },
   col4: { type: "slot" },
+  ...advancedFields,
 } as const;
 
 export const headingBaseFields = {
@@ -71,11 +91,13 @@ export const headingBaseFields = {
     label: "Level",
     options: HEADING_LEVELS.map((level) => option(level, HEADING_LEVEL_LABELS[level])),
   },
+  ...advancedFields,
 } as const;
 
 export const textBaseFields = {
   // H1 belongs to the Heading block (one per page); sanitize.ts maps stray H1/H5/H6 the same way.
   content: { type: "richtext", options: { heading: { levels: [2, 3, 4] } } },
+  ...advancedFields,
 } as const;
 
 export const sectionBaseFields = {
@@ -87,6 +109,7 @@ export const sectionBaseFields = {
   image: { type: "text", label: "Background image URL" },
   overlayOpacity: { type: "number", label: "Overlay opacity (0–100)" },
   children: { type: "slot" },
+  ...advancedFields,
 } as const;
 
 export const stackBaseFields = {
@@ -112,6 +135,7 @@ export const stackBaseFields = {
   },
   wrap: { type: "toggle", label: "Wrap items" },
   children: { type: "slot" },
+  ...advancedFields,
 } as const;
 
 export const spacerBaseFields = {
@@ -120,6 +144,7 @@ export const spacerBaseFields = {
     label: "Height",
     options: SPACER_SIZES.map((size) => option(size, SPACER_SIZE_LABELS[size])),
   },
+  ...advancedFields,
 } as const;
 
 export const dividerBaseFields = {
@@ -133,6 +158,7 @@ export const dividerBaseFields = {
     label: "Spacing",
     options: DIVIDER_SPACINGS.map((spacing) => option(spacing, spacing.toUpperCase())),
   },
+  ...advancedFields,
 } as const;
 
 export const buttonBaseFields = {
@@ -157,6 +183,7 @@ export const buttonBaseFields = {
     ],
   },
   fullWidth: { type: "toggle", label: "Full width" },
+  ...advancedFields,
 } as const;
 
 export const imageBaseFields = {
@@ -182,6 +209,7 @@ export const imageBaseFields = {
     label: "Corner rounding",
     options: IMAGE_ROUNDED.map((rounded) => option(rounded, rounded)),
   },
+  ...advancedFields,
 } as const;
 
 export const videoBaseFields = {
@@ -198,6 +226,7 @@ export const videoBaseFields = {
     label: "Aspect ratio",
     options: VIDEO_RATIOS.map((ratio) => option(ratio, ratio)),
   },
+  ...advancedFields,
 } as const;
 
 export const iconBaseFields = {
@@ -211,6 +240,7 @@ export const iconBaseFields = {
     label: "Size",
     options: ICON_SIZES.map((size) => option(size, size.toUpperCase())),
   },
+  ...advancedFields,
 } as const;
 
 export const listBaseFields = {
@@ -220,4 +250,255 @@ export const listBaseFields = {
     options: LIST_STYLES.map((listStyle) => option(listStyle, listStyle)),
   },
   items: { type: "array", label: "Items", itemFields: { text: { type: "text" } } },
+  ...advancedFields,
 } as const;
+
+/* --- Live Data Blocks (Faz 2) --- */
+
+export const productGridBaseFields = {
+  category: { type: "text", label: "Category filter (optional)" },
+  limit: { type: "number", label: "Max items" },
+  columns: {
+    type: "select",
+    label: "Columns",
+    options: [option(2, "2 Columns"), option(3, "3 Columns"), option(4, "4 Columns")],
+  },
+  showFilter: {
+    type: "radio",
+    label: "Show category filter",
+    options: [option(true, "Yes"), option(false, "No")],
+  },
+  showPrice: {
+    type: "radio",
+    label: "Show price",
+    options: [option(true, "Yes"), option(false, "No")],
+  },
+  ...advancedFields,
+} as const;
+
+export const productSpotlightBaseFields = {
+  productSlug: { type: "text", label: "Product slug" },
+  headline: { type: "text", label: "Headline override" },
+  description: { type: "textarea", label: "Description override" },
+  ctaText: { type: "text", label: "Button text" },
+  ...advancedFields,
+} as const;
+
+export const pricingTableBaseFields = {
+  title: { type: "text", label: "Title" },
+  subtitle: { type: "text", label: "Subtitle" },
+  plans: {
+    type: "array",
+    label: "Plans",
+    itemFields: {
+      name: { type: "text", label: "Plan Name" },
+      price: { type: "text", label: "Price" },
+      period: { type: "text", label: "Billing period" },
+      description: { type: "text", label: "Description" },
+      features: { type: "array", label: "Features", itemFields: { text: { type: "text" } } },
+      ctaLabel: { type: "text", label: "Button label" },
+      ctaHref: { type: "text", label: "Button link" },
+      featured: {
+        type: "radio",
+        label: "Highlighted",
+        options: [option(true, "Yes"), option(false, "No")],
+      },
+      productSlug: { type: "text", label: "Product slug (sync live price)" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const reviewListBaseFields = {
+  productSlug: { type: "text", label: "Product slug (empty for all)" },
+  limit: { type: "number", label: "Max reviews" },
+  columns: {
+    type: "select",
+    label: "Columns",
+    options: [option(2, "2 Columns"), option(3, "3 Columns")],
+  },
+  ...advancedFields,
+} as const;
+
+export const latestPostsBaseFields = {
+  limit: { type: "number", label: "Max posts" },
+  columns: {
+    type: "select",
+    label: "Columns",
+    options: [option(2, "2 Columns"), option(3, "3 Columns")],
+  },
+  ...advancedFields,
+} as const;
+
+/* --- Compound Section Blocks (Faz 2) --- */
+
+export const heroBaseFields = {
+  kicker: { type: "text", label: "Kicker / Eyebrow" },
+  title: { type: "text", label: "Title" },
+  subtitle: { type: "textarea", label: "Subtitle" },
+  primaryButtonText: { type: "text", label: "Primary button label" },
+  primaryButtonHref: { type: "text", label: "Primary button link" },
+  secondaryButtonText: { type: "text", label: "Secondary button label" },
+  secondaryButtonHref: { type: "text", label: "Secondary button link" },
+  imageUrl: { type: "text", label: "Image URL" },
+  align: {
+    type: "select",
+    label: "Alignment",
+    options: [option("left", "Left"), option("center", "Center")],
+  },
+  ...advancedFields,
+} as const;
+
+export const featureGridBaseFields = {
+  kicker: { type: "text", label: "Kicker" },
+  title: { type: "text", label: "Title" },
+  subtitle: { type: "text", label: "Subtitle" },
+  columns: {
+    type: "select",
+    label: "Columns",
+    options: [option(2, "2 Columns"), option(3, "3 Columns"), option(4, "4 Columns")],
+  },
+  items: {
+    type: "array",
+    label: "Features",
+    itemFields: {
+      icon: { type: "text", label: "Icon / Emoji" },
+      title: { type: "text", label: "Title" },
+      description: { type: "textarea", label: "Description" },
+      href: { type: "text", label: "Link URL (optional)" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const statsBaseFields = {
+  items: {
+    type: "array",
+    label: "Stats",
+    itemFields: {
+      value: { type: "text", label: "Value (e.g. 99.9)" },
+      suffix: { type: "text", label: "Suffix (e.g. % or +)" },
+      label: { type: "text", label: "Label" },
+      description: { type: "text", label: "Description" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const logoCloudBaseFields = {
+  title: { type: "text", label: "Title" },
+  logos: {
+    type: "array",
+    label: "Logos",
+    itemFields: {
+      name: { type: "text", label: "Brand name" },
+      image: { type: "text", label: "Logo image URL" },
+      href: { type: "text", label: "Brand link (optional)" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const testimonialsBaseFields = {
+  kicker: { type: "text", label: "Kicker" },
+  title: { type: "text", label: "Title" },
+  items: {
+    type: "array",
+    label: "Quotes",
+    itemFields: {
+      quote: { type: "textarea", label: "Quote" },
+      author: { type: "text", label: "Author name" },
+      role: { type: "text", label: "Role" },
+      company: { type: "text", label: "Company" },
+      avatar: { type: "text", label: "Avatar image URL" },
+      rating: { type: "number", label: "Rating (1–5)" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const faqBaseFields = {
+  kicker: { type: "text", label: "Kicker" },
+  title: { type: "text", label: "Title" },
+  subtitle: { type: "text", label: "Subtitle" },
+  items: {
+    type: "array",
+    label: "Questions",
+    itemFields: {
+      question: { type: "text", label: "Question" },
+      answer: { type: "textarea", label: "Answer" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const ctaBaseFields = {
+  title: { type: "text", label: "Title" },
+  description: { type: "textarea", label: "Description" },
+  buttonText: { type: "text", label: "Button label" },
+  buttonHref: { type: "text", label: "Button link" },
+  secondaryText: { type: "text", label: "Secondary button label" },
+  secondaryHref: { type: "text", label: "Secondary button link" },
+  variant: {
+    type: "select",
+    label: "Variant",
+    options: [option("brand", "Brand (Indigo)"), option("plain", "Plain Surface"), option("dark", "Dark")],
+  },
+  ...advancedFields,
+} as const;
+
+export const comparisonTableBaseFields = {
+  title: { type: "text", label: "Title" },
+  columns: {
+    type: "array",
+    label: "Header columns",
+    itemFields: { text: { type: "text" } },
+  },
+  rows: {
+    type: "array",
+    label: "Comparison rows",
+    itemFields: {
+      feature: { type: "text", label: "Feature name" },
+      values: { type: "array", label: "Column values", itemFields: { text: { type: "text" } } },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const stepsBaseFields = {
+  kicker: { type: "text", label: "Kicker" },
+  title: { type: "text", label: "Title" },
+  steps: {
+    type: "array",
+    label: "Steps",
+    itemFields: {
+      stepNumber: { type: "text", label: "Step Number (e.g. 01)" },
+      title: { type: "text", label: "Title" },
+      description: { type: "textarea", label: "Description" },
+    },
+  },
+  ...advancedFields,
+} as const;
+
+export const newsletterBaseFields = {
+  kicker: { type: "text", label: "Kicker" },
+  title: { type: "text", label: "Title" },
+  description: { type: "textarea", label: "Description" },
+  buttonText: { type: "text", label: "Button label" },
+  privacyNote: { type: "text", label: "Privacy consent text" },
+  privacyVersion: { type: "text", label: "Consent version" },
+  ...advancedFields,
+} as const;
+
+export const contactBaseFields = {
+  title: { type: "text", label: "Title" },
+  description: { type: "textarea", label: "Description" },
+  submitText: { type: "text", label: "Submit button text" },
+  showOffice: {
+    type: "radio",
+    label: "Show office/inquiry details",
+    options: [option(true, "Yes"), option(false, "No")],
+  },
+  ...advancedFields,
+} as const;
+

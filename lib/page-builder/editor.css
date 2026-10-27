@@ -402,6 +402,30 @@ body:has(.pb-editor) {
   padding: 3px 6px;
 }
 
+.pbstyle-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: #3d4a52;
+  cursor: pointer;
+}
+
+.pbstyle-check small {
+  color: #8a949b;
+}
+
+.pbstyle-lang-select {
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 1px solid #d6dbd9;
+  border-radius: 6px;
+  background: #fff;
+  font: 600 11px/1.4 inherit;
+  color: #10161a;
+}
+
 /* Rows --------------------------------------------------------------------- */
 
 .pbstyle-row {
@@ -551,6 +575,24 @@ body:has(.pb-editor) {
   align-items: center;
   gap: 4px;
   justify-content: flex-end;
+}
+
+/* Two-stop gradient: swatch → arrow → swatch → angle (plan 5.3). */
+.pbstyle-gradient {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.pbstyle-gradient .pbstyle-color-hex {
+  width: 60px;
+}
+
+.pbstyle-gradient-arrow {
+  color: #7a868e;
+  font-size: 10px;
+  flex: none;
 }
 
 .pbstyle-color-swatch {

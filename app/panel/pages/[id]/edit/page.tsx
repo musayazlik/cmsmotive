@@ -6,6 +6,8 @@ import { panelStore } from "@/lib/panel-store";
 import { prisma } from "@/lib/prisma";
 import { isLocale } from "@/lib/i18n/config";
 import type { Data } from "@puckeditor/core";
+import { getThemeSettings } from "@/lib/settings";
+import { themeToCssVariables } from "@/lib/page-builder/theme";
 import PageEditor from "../../_components/page-editor";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +51,7 @@ export default async function EditPage({ params, searchParams }: Props) {
   const row = loaded.locale;
 
   const revisions = await listRevisions(store.id, id, locale);
+  const theme = await getThemeSettings(store.id);
 
   return (
     <PageEditor
@@ -61,6 +64,7 @@ export default async function EditPage({ params, searchParams }: Props) {
       initialData={row.draft as unknown as Data}
       initialVersion={row.version}
       previewPath={pagePreviewPath(store.id, id, locale)}
+      themeCss={themeToCssVariables(theme)}
       seo={{
         title: row.title,
         seoTitle: row.seoTitle ?? "",

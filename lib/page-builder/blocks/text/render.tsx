@@ -1,4 +1,5 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import type { TextProps } from "./schema";
 
 /**
@@ -9,8 +10,8 @@ import type { TextProps } from "./schema";
  * is validated and cleaned on write and again before render. This render
  * must not reinterpret the prop as a string.
  */
-export const TextRender: PuckComponent<TextProps> = ({ content, id }) => (
-  <div data-pb={id} className="pb-text">
+export const TextRender: PuckComponent<TextProps> = ({ content, id, lang, ariaLabel }) => (
+  <div data-pb={id} {...blockAttributes({ id, lang, ariaLabel })} className="pb-text">
     {content}
   </div>
 );

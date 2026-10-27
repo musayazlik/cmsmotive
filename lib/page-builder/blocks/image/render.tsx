@@ -1,4 +1,5 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import type { ImageProps } from "./schema";
 
 export const ImageRender: PuckComponent<ImageProps> = ({
@@ -12,10 +13,11 @@ export const ImageRender: PuckComponent<ImageProps> = ({
   fit = "cover",
   rounded = "md",
   id,
+  lang,
 }) => {
   if (!src) {
     return (
-      <div data-pb={id} className="pb-image pb-image--empty">
+      <div data-pb={id} {...blockAttributes({ id, lang })} className="pb-image pb-image--empty">
         <span className="pb-image-placeholder">No image selected</span>
       </div>
     );
@@ -24,7 +26,7 @@ export const ImageRender: PuckComponent<ImageProps> = ({
   const imgAlt = decorative ? "" : alt;
 
   return (
-    <figure data-pb={id} className={`pb-image pb-image--rounded-${rounded}`}>
+    <figure data-pb={id} {...blockAttributes({ id, lang })} className={`pb-image pb-image--rounded-${rounded}`}>
       <img
         src={src}
         alt={imgAlt}

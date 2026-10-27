@@ -20,6 +20,13 @@ import {
 import {
   stackPropsSchema,
 } from "../lib/page-builder/blocks/stack/schema";
+import {
+  textPropsSchema,
+} from "../lib/page-builder/blocks/text/schema";
+import {
+  gridPropsSchema,
+} from "../lib/page-builder/blocks/grid/schema";
+import { blockAttributes } from "../lib/page-builder/blocks/shared";
 
 const doc = (content: unknown[]) => ({ root: { props: {} }, content, zones: {} });
 const block = (type: string, props: Record<string, unknown>) => ({ type, props: { id: `${type}-id`, ...props } });
@@ -40,6 +47,56 @@ test("block schemas accept the panel's shapes and refuse hostile values", () => 
   assert.equal(sectionPropsSchema.safeParse({ variant: "image", image: "https://x.com/a.png", children: [] }).success, true);
   assert.equal(sectionPropsSchema.safeParse({ variant: "image", image: "javascript:x", children: [] }).success, false);
   assert.equal(stackPropsSchema.safeParse({ direction: "vertical", gap: "md", align: "stretch", justify: "start", children: [] }).success, true);
+});
+
+test("grid responsive columns accept band overrides only from the variant catalog", () => {
+  const base = { variant: "3", gap: "md", col1: [], col2: [], col3: [], col4: [] };
+  assert.equal(gridPropsSchema.safeParse({ ...base, columnsTablet: "2", columnsMobile: "1/3+2/3" }).success, true);
+  assert.equal(gridPropsSchema.safeParse(base).success, true);
+  assert.equal(gridPropsSchema.safeParse({ ...base, columnsTablet: "5" }).success, false);
+  assert.equal(gridPropsSchema.safeParse({ ...base, columnsMobile: "repeat(2,1fr)" }).success, false);
+});
+
+test("advanced props: lang (BCP 47) and ariaLabel accepted, hostile values refused", () => {
+  // Every block gained the same shared fragment; Text stands in for the rest.
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: "de" }).success, true);
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: "en-US" }).success, true);
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: "zh-Hant" }).success, true);
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", ariaLabel: "Introduction" }).success, true);
+
+  // Injection and garbage tags are refused.
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: 'de"><script>alert(1)</script>' }).success, false);
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: "de-defghijkl" }).success, false); // subtag > 8
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: "d" }).success, false); // primary subtag < 2
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", lang: "x".repeat(33) }).success, false); // > max length
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", ariaLabel: "x".repeat(201) }).success, false);
+
+  // strictObject still refuses unknown extras.
+  assert.equal(textPropsSchema.safeParse({ content: "<p>Hi</p>", ariaHidden: true }).success, false);
+});
+
+test("blockAttributes renders anchor id, lang and aria-label only when set", () => {
+  assert.deepEqual(blockAttributes({}), {});
+  assert.deepEqual(blockAttributes({ id: "hero", lang: "de" }), { id: "hero", lang: "de" });
+  assert.deepEqual(blockAttributes({ id: "hero", ariaLabel: "Services" }), { id: "hero", "aria-label": "Services" });
+});
+
+test("a11y audit warns when a block is hidden on every device", () => {
+  const hidden = doc([
+    block("HeadingBlock", {
+      text: "Title",
+      level: "h1",
+      style: { visibility: { desktop: true, tablet: true, mobile: true } },
+    }),
+  ]);
+  const audit = auditDocumentA11y(hidden as never);
+  assert.ok(audit.warnings.some((message) => message.includes("hidden on every device")));
+
+  const partial = doc([
+    block("HeadingBlock", { text: "Title", level: "h1", style: { visibility: { mobile: true } } }),
+  ]);
+  const audit2 = auditDocumentA11y(partial as never);
+  assert.ok(!audit2.warnings.some((message) => message.includes("hidden on every device")));
 });
 
 test("new blocks validate inside a document and reject unknown props", () => {

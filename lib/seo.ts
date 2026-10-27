@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LOCALES, LOCALE_TAGS, localizePath, type Locale } from "./i18n/config";
+import { DEFAULT_LOCALE, LOCALES, LOCALE_TAGS, localizePath, type Locale } from "./i18n/config";
 import { DEFAULT_TITLE_SUFFIX, type SeoSettings } from "./seo-settings-shared";
 import { getSeoSettings, getSiteSettings } from "./settings";
 import type { SiteSettings } from "./site-settings-shared";
@@ -43,9 +43,16 @@ function ogLocale(locale: Locale) {
   return LOCALE_TAGS[locale].replace("-", "_");
 }
 
-/** hreflang targets for an unprefixed site path; German is the unprefixed default. */
-export function languageAlternates(path: string): Record<string, string> {
-  return { ...Object.fromEntries(LOCALES.map((code) => [code, localizePath(path, code)])), "x-default": path };
+/**
+ * hreflang targets for an unprefixed site path. `defaultLocale` is the store's
+ * unprefixed language (the proxy 301s its prefixed form), so x-default and
+ * that locale's entry must both resolve to the unprefixed URL.
+ */
+export function languageAlternates(path: string, defaultLocale: Locale = DEFAULT_LOCALE): Record<string, string> {
+  return {
+    ...Object.fromEntries(LOCALES.map((code) => [code, localizePath(path, code, defaultLocale)])),
+    "x-default": localizePath(path, defaultLocale),
+  };
 }
 
 /** Prefers the JPEG share copy of a bundled page image; other images are used as they are. */
@@ -82,6 +89,12 @@ type PageMetadataInput = {
   path: string;
   title: string;
   description: string;
+  /**
+   * The store's unprefixed default language. Defaults to the site default
+   * ("de"); the page builder passes its store's own choice so the canonical
+   * URL never points at a 301 (plan 5.8/5.9).
+   */
+  defaultLocale?: Locale;
   image?: ShareImage | null;
   type?: "website" | "article";
   publishedTime?: Date | null;
@@ -90,10 +103,10 @@ type PageMetadataInput = {
 };
 
 /** Indexable page metadata: canonical, hreflang, Open Graph and Twitter card. Relative URLs resolve against `metadataBase`. */
-export async function pageMetadata({ locale, path, title: rawTitle, description, image, type = "website", publishedTime, modifiedTime, authors }: PageMetadataInput): Promise<Metadata> {
+export async function pageMetadata({ locale, path, title: rawTitle, description, defaultLocale = DEFAULT_LOCALE, image, type = "website", publishedTime, modifiedTime, authors }: PageMetadataInput): Promise<Metadata> {
   const storeId = await currentStoreId();
   const [site, seo] = await Promise.all([getSiteSettings(storeId), getSeoSettings(storeId)]);
-  const url = localizePath(path, locale);
+  const url = localizePath(path, locale, defaultLocale);
   const share = shareImage(image, seo.shareImageUrl);
   const title = withTitleSuffix(rawTitle, seo.titleSuffix);
   const verification = {
@@ -106,7 +119,7 @@ export async function pageMetadata({ locale, path, title: rawTitle, description,
     description,
     robots: { index: seo.indexing, follow: seo.indexing },
     ...(Object.keys(verification).length ? { verification } : {}),
-    alternates: { canonical: url, languages: languageAlternates(path) },
+    alternates: { canonical: url, languages: languageAlternates(path, defaultLocale) },
     openGraph: {
       type,
       url,

@@ -21,6 +21,24 @@ export const SLOT_FIELDS = {
   VideoBlock: [],
   IconBlock: [],
   ListBlock: [],
+  // Live data blocks (Faz 2)
+  ProductGridBlock: [],
+  ProductSpotlightBlock: [],
+  PricingTableBlock: [],
+  ReviewListBlock: [],
+  LatestPostsBlock: [],
+  // Compound section blocks (Faz 2)
+  HeroBlock: [],
+  FeatureGridBlock: [],
+  StatsBlock: [],
+  LogoCloudBlock: [],
+  TestimonialsBlock: [],
+  FAQBlock: [],
+  CTABlock: [],
+  ComparisonTableBlock: [],
+  StepsBlock: [],
+  NewsletterBlock: [],
+  ContactBlock: [],
 } as const satisfies Record<string, readonly string[]>;
 
 export type PageBuilderBlockType = keyof typeof SLOT_FIELDS;

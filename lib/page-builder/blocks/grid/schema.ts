@@ -2,6 +2,7 @@ import type { Slot } from "@puckeditor/core";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 /**
  * Grid (plan 5.2): one column layout per slot pair. All four slots stay
@@ -45,10 +46,14 @@ export const gridDefaultProps = {
   col4: [],
 } as const;
 
-export type GridProps = {
+export type GridProps = AdvancedBlockProps & {
   id?: string;
   variant: GridVariant;
   gap: GridGap;
+  /** Column layout inside the tablet band (≤900px); unset inherits `variant`. */
+  columnsTablet?: GridVariant;
+  /** Column layout inside the mobile band (≤620px); unset inherits `variant`. */
+  columnsMobile?: GridVariant;
   col1: Slot;
   col2: Slot;
   col3: Slot;
@@ -58,8 +63,11 @@ export type GridProps = {
 
 export const gridPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   variant: z.enum(GRID_VARIANTS),
   gap: z.enum(Object.keys(GRID_GAP_VALUES) as [GridGap, ...GridGap[]]),
+  columnsTablet: z.enum(GRID_VARIANTS).optional(),
+  columnsMobile: z.enum(GRID_VARIANTS).optional(),
   col1: z.array(z.unknown()),
   col2: z.array(z.unknown()),
   col3: z.array(z.unknown()),

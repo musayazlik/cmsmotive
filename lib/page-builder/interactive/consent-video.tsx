@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type ConsentVideoProps = {
   provider: "youtube" | "vimeo";
@@ -11,7 +11,35 @@ export type ConsentVideoProps = {
 };
 
 const CONSENT_STORAGE_KEY = "cmsmotive_video_consent";
+/** Fired after consent is stored so every open player mounts at once. */
+const CONSENT_EVENT = "cmsmotive:video-consent";
 
+function subscribe(onChange: () => void): () => void {
+  window.addEventListener(CONSENT_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(CONSENT_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function getConsentSnapshot(): boolean {
+  try {
+    return localStorage.getItem(CONSENT_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function getConsentServerSnapshot(): boolean {
+  return false;
+}
+
+/**
+ * Two-click video consent (plan 5.12): the iframe — and with it the provider's
+ * cookies — loads only after the visitor explicitly opts in. The choice is
+ * remembered per browser; the embed renders server-side as the poster card.
+ */
 export function ConsentVideo({
   provider,
   videoId,
@@ -19,26 +47,16 @@ export function ConsentVideo({
   poster,
   aspectRatio = "16/9",
 }: ConsentVideoProps) {
-  const [consented, setConsented] = useState(false);
+  const consented = useSyncExternalStore(subscribe, getConsentSnapshot, getConsentServerSnapshot);
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(CONSENT_STORAGE_KEY) === "true") {
-        setConsented(true);
-      }
-    } catch {
-      // localStorage might be unavailable
-    }
-  }, []);
-
-  function handleConsent() {
-    setConsented(true);
+  const handleConsent = useCallback(() => {
     try {
       localStorage.setItem(CONSENT_STORAGE_KEY, "true");
     } catch {
-      // ignore
+      // Storage may be unavailable (private mode); consent for this view only.
     }
-  }
+    window.dispatchEvent(new Event(CONSENT_EVENT));
+  }, []);
 
   const embedUrl =
     provider === "youtube"
@@ -74,12 +92,7 @@ export function ConsentVideo({
         <p className="pb-video-consent-text">
           {providerName} videosunu izlemek için üçüncü taraf çerezlerini kabul etmeniz gerekir.
         </p>
-        <button
-          type="button"
-          onClick={handleConsent}
-          className="pb-video-play-btn"
-          aria-label={`Play ${title}`}
-        >
+        <button type="button" onClick={handleConsent} className="pb-video-play-btn" aria-label={`Play ${title}`}>
           <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true">
             <polygon points="5 3 19 12 5 21 5 3" />
           </svg>

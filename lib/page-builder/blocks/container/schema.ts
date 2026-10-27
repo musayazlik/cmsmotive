@@ -2,6 +2,7 @@ import type { Slot } from "@puckeditor/core";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 /**
  * Container (plan 5.2): the page's width bearer. Variants replace the
@@ -26,7 +27,7 @@ export const containerDefaultProps = {
   children: [],
 } as const;
 
-export type ContainerProps = {
+export type ContainerProps = AdvancedBlockProps & {
   /** Puck stores the block id inside props; the render maps it onto data-pb. */
   id?: string;
   width: ContainerVariant;
@@ -36,6 +37,7 @@ export type ContainerProps = {
 
 export const containerPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   width: z.enum(CONTAINER_VARIANTS),
   // Slot content is validated block-by-block by validate.ts, recursively.
   children: z.array(z.unknown()),

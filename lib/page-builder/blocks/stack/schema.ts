@@ -2,6 +2,7 @@ import type { Slot } from "@puckeditor/core";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
 import { blockStyleSchema, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 export const STACK_DIRECTIONS = ["vertical", "horizontal"] as const;
 export type StackDirection = (typeof STACK_DIRECTIONS)[number];
@@ -24,7 +25,7 @@ export const stackDefaultProps = {
   children: [],
 } as const;
 
-export type StackProps = {
+export type StackProps = AdvancedBlockProps & {
   id?: string;
   direction: StackDirection;
   gap: StackGap;
@@ -37,6 +38,7 @@ export type StackProps = {
 
 export const stackPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   direction: z.enum(STACK_DIRECTIONS),
   gap: z.enum(STACK_GAPS),
   align: z.enum(STACK_ALIGNMENTS),

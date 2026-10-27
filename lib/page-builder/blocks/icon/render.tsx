@@ -1,4 +1,5 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import type { IconName, IconProps } from "./schema";
 
 const ICON_SVGS: Record<IconName, React.ReactNode> = {
@@ -54,8 +55,8 @@ const ICON_SVGS: Record<IconName, React.ReactNode> = {
   ),
 };
 
-export const IconRender: PuckComponent<IconProps> = ({ name, size, id }) => (
-  <div data-pb={id} className={`pb-icon pb-icon--${size}`}>
+export const IconRender: PuckComponent<IconProps> = ({ name, size, id, lang }) => (
+  <div data-pb={id} {...blockAttributes({ id, lang })} className={`pb-icon pb-icon--${size}`}>
     <svg
       viewBox="0 0 24 24"
       fill="none"

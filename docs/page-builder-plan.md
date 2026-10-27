@@ -491,7 +491,7 @@ Doğrulanacaklar (her biri için sonuç Faz 1'den önce bu belgeye yazılır):
   - **Kod yorumları:** atıflar 5.x'e güncellendi; `text/render.tsx` ve `sanitize.ts` yorumları düzeltildi.
   - **Testler:** `tests/page-builder-document.test.ts` (12 test). Kapsamı: kırılımlar, viewport → cihaz eşlemesi, temizleyici (`lang`, başlıklar, XSS), kök/bölge/kimlik doğrulaması, slot gezinmesi, tek kapı, zararlı belgenin `<Render>`'dan temiz çıkması, herkese açık route'un içe aktarma zincirinde istemci veya editör modülü olmaması. `pnpm test:page-builder` → 23/23.
 
-### Faz 1: Çekirdek (L)
+### Faz 1: Çekirdek (L) — TAMAMLANDI ✅
 
 - **Önkoşullar:** P1 (en azından oluşturucu sayfaları için), P2, P3 (blog tarafı).
 - **Faz 0'dan kalanlar:**

@@ -1,7 +1,8 @@
 import type { Slot } from "@puckeditor/core";
 import { z } from "zod";
 import { ID_PATTERN } from "../../ids";
-import { blockStyleSchema, SAFE_IMAGE_URL_PATTERN, type BlockStyle, type ColorChoice } from "../../style/types";
+import { blockStyleSchema, SAFE_IMAGE_URL_PATTERN, type BlockStyle } from "../../style/types";
+import { advancedBlockPropsSchema, type AdvancedBlockProps } from "../shared";
 
 export const SECTION_VARIANTS = ["plain", "muted", "dark", "brand", "image"] as const;
 export type SectionVariant = (typeof SECTION_VARIANTS)[number];
@@ -20,7 +21,7 @@ export const sectionDefaultProps = {
   children: [],
 } as const;
 
-export type SectionProps = {
+export type SectionProps = AdvancedBlockProps & {
   id?: string;
   variant: SectionVariant;
   image?: string;
@@ -31,6 +32,7 @@ export type SectionProps = {
 
 export const sectionPropsSchema = z.strictObject({
   id: z.string().min(1).max(64).regex(ID_PATTERN).optional(),
+  ...advancedBlockPropsSchema,
   variant: z.enum(SECTION_VARIANTS),
   image: z.string().regex(SAFE_IMAGE_URL_PATTERN).optional(),
   overlayOpacity: z.number().min(0).max(100).optional(),

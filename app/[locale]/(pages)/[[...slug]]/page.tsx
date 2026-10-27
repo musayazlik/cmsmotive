@@ -6,6 +6,9 @@ import { trackPageView } from "@/lib/analytics";
 import { currentStore, currentStoreId } from "@/lib/current-store";
 import { walkBlocks, type PageBuilderData } from "@/lib/page-builder/data";
 import { serverConfig } from "@/lib/page-builder/config.server";
+import { resolveLivePageData } from "@/lib/page-builder/live-data";
+import { getThemeSettings } from "@/lib/settings";
+import { themeToCssVariables } from "@/lib/page-builder/theme";
 import { renderableDocument } from "@/lib/page-builder/document";
 import { findPublishedPageLocale, type PublishedPageView } from "@/lib/page-builder/pages";
 import { isLocale, localizePath, type Locale } from "@/lib/i18n/config";
@@ -64,9 +67,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const path = slug.join("/");
   const [store, view] = await Promise.all([currentStore(), findPage((await currentStoreId()), path, localeParam)]);
   if (!view) return {};
+  const defaultLocale = store.store.defaultLocale;
   const metadata = await pageMetadata({
     locale: localeParam,
     path: `/${path}`,
+    // The store's own unprefixed language: the proxy 301s the prefixed
+    // canonical otherwise (plan 5.8).
+    defaultLocale,
     title: view.locale.seoTitle ?? view.locale.title,
     description: pageDescription(view),
     image: view.ogImage
@@ -74,10 +81,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : null,
   });
   const published = new Set(view.publishedLocales);
-  const defaultLocale = store.store.defaultLocale;
   const languages: Record<string, string> = {};
-  for (const code of published) languages[code] = localizePath(`/${path}`, code as Locale);
-  if (published.has(defaultLocale)) languages["x-default"] = localizePath(`/${path}`, defaultLocale);
+  for (const code of published) languages[code] = localizePath(`/${path}`, code as Locale, defaultLocale);
+  if (published.has(defaultLocale)) languages["x-default"] = localizePath(`/${path}`, defaultLocale, defaultLocale);
   metadata.alternates = { ...metadata.alternates, languages };
   if (view.locale.noindex) metadata.robots = { index: false, follow: true };
   return metadata;
@@ -93,16 +99,23 @@ export default async function BuilderPage({ params }: Props) {
   const storeId = await currentStoreId();
   const view = await findPage(storeId, path, localeParam);
   if (!view) notFound();
-  const document: PageBuilderData | null = renderableDocument(view.locale.published);
-  if (!document) notFound();
+  const rawDocument: PageBuilderData | null = renderableDocument(view.locale.published);
+  if (!rawDocument) notFound();
+  const document = await resolveLivePageData(rawDocument, storeId, localeParam);
 
   trackPageView(storeId, `page-${path}`);
 
   return (
     <SiteFrame locale={localeParam} path={`/${path}`} current={`/${slug[0]}`}>
+      {/* Fonts the page actually uses, preloaded for font-display: optional (plan 5.5). */}
+      {view.locale.usedFonts.map((file) => (
+        <link key={file} rel="preload" href={file} as="font" type="font/woff2" crossOrigin="anonymous" />
+      ))}
       {/* Same static layers as the editor canvas (plan 5.6): fonts come from the root layout. */}
       <link rel="stylesheet" href="/assets/css/site.css" precedence="default" />
       <link rel="stylesheet" href="/assets/css/pb-blocks.css" precedence="default" />
+      {/* Theme CSS variables from store settings (plan 5.5). */}
+      <style dangerouslySetInnerHTML={{ __html: themeToCssVariables(await getThemeSettings(storeId)) }} />
       {/* Scoped styles compiled at publish time stay the top layer of the cascade (plan 5.4). */}
       {view.locale.publishedCss ? <style dangerouslySetInnerHTML={{ __html: view.locale.publishedCss }} /> : null}
       <div className="pb-render">

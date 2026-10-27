@@ -1,11 +1,12 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import type { ListProps } from "./schema";
 
-export const ListRender: PuckComponent<ListProps> = ({ listStyle, items, id }) => {
+export const ListRender: PuckComponent<ListProps> = ({ listStyle, items, id, lang, ariaLabel }) => {
   const Tag = listStyle === "number" ? "ol" : "ul";
 
   return (
-    <div data-pb={id} className={`pb-list pb-list--${listStyle}`}>
+    <div data-pb={id} {...blockAttributes({ id, lang, ariaLabel })} className={`pb-list pb-list--${listStyle}`}>
       <Tag className="pb-list-body">
         {items.map((item, index) => (
           <li key={item.id ?? index} className="pb-list-item">

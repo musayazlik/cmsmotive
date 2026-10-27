@@ -28,12 +28,17 @@ export function auditDocumentA11y(data: PageBuilderData): A11yAudit {
   walkBlocks(data, (block) => {
     const props = (block.props ?? {}) as Record<string, unknown>;
     // Check every block, including headings/buttons/images, before type-specific checks.
-    const typography = (props.style as BlockStyle | undefined)?.typography;
+    const style = props.style as BlockStyle | undefined;
+    const typography = style?.typography;
     for (const [device, values] of Object.entries(typography ?? {})) {
       const fontSize = values?.fontSize;
       if (!fontSize) continue;
       if (fontSize.unit === "px" && fontSize.value < 12) warnings.push(`A text is smaller than 12 px (${device}).`);
       if (fontSize.unit === "rem" && fontSize.value < 0.75) warnings.push(`A text is smaller than 0.75rem (${device}).`);
+    }
+    const visibility = style?.visibility;
+    if (visibility?.desktop && visibility.tablet && visibility.mobile) {
+      warnings.push("A block is hidden on every device; delete it instead of leaving it in the page.");
     }
     if (block.type === "HeadingBlock") {
       heading(HEADING_INDEX[(props.level as HeadingLevel) ?? "h2"] ?? 2, props.text);

@@ -1,4 +1,5 @@
 import type { PuckComponent } from "@puckeditor/core";
+import { blockAttributes } from "../shared";
 import { type GridProps, type GridVariant } from "./schema";
 
 /**
@@ -7,13 +8,13 @@ import { type GridProps, type GridVariant } from "./schema";
  * the wrapper stable class names so public/assets/css/pb-blocks.css can add
  * fallback stacking (tablet collapses 4 columns, mobile stacks everything).
  */
-export const GridRender: PuckComponent<GridProps> = ({ variant, col1, col2, col3, col4, id }) => {
+export const GridRender: PuckComponent<GridProps> = ({ variant, col1, col2, col3, col4, id, lang, ariaLabel }) => {
   const Col1 = col1;
   const Col2 = col2;
   const Col3 = col3;
   const Col4 = col4;
   return (
-    <div data-pb={id} className={`pb-grid ${gridVariantClass(variant)}`}>
+    <div data-pb={id} {...blockAttributes({ id, lang, ariaLabel })} className={`pb-grid ${gridVariantClass(variant)}`}>
       <Col1 />
       <Col2 />
       <Col3 />

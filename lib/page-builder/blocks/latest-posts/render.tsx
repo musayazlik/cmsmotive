@@ -38,8 +38,10 @@ export const LatestPostsRender: PuckComponent<LatestPostsProps> = ({
   lang,
   ariaLabel,
   _resolvedPosts,
+  puck,
 }) => {
-  const posts = _resolvedPosts && _resolvedPosts.length > 0 ? _resolvedPosts : SAMPLE_POSTS;
+  // Sample articles only preview the block in the editor.
+  const posts = _resolvedPosts && _resolvedPosts.length > 0 ? _resolvedPosts : puck.isEditing ? SAMPLE_POSTS : [];
 
   return (
     <section data-pb={id} {...blockAttributes({ id, lang, ariaLabel })} className="container" style={{ margin: "50px auto" }}>

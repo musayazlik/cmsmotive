@@ -8,6 +8,7 @@ import { isLocale } from "@/lib/i18n/config";
 import type { Data } from "@puckeditor/core";
 import { getThemeSettings } from "@/lib/settings";
 import { themeToCssVariables } from "@/lib/page-builder/theme";
+import { prepareDocument } from "@/lib/page-builder/document";
 import PageEditor from "../../_components/page-editor";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,8 @@ export default async function EditPage({ params, searchParams }: Props) {
     }
   }
   const row = loaded.locale;
+  const document = prepareDocument(row.draft);
+  if (!document.ok) throw new Error(`This page could not be opened: ${document.error}`);
 
   const revisions = await listRevisions(store.id, id, locale);
   const theme = await getThemeSettings(store.id);
@@ -61,10 +64,13 @@ export default async function EditPage({ params, searchParams }: Props) {
       pageSlug={loaded.page.slug}
       kind={loaded.page.kind}
       title={row.title}
-      initialData={row.draft as unknown as Data}
+      key={`${id}:${locale}`}
+      initialData={document.data as Data}
       initialVersion={row.version}
       previewPath={pagePreviewPath(store.id, id, locale)}
       themeCss={themeToCssVariables(theme)}
+      status={row.status}
+      publishAt={row.publishAt ? row.publishAt.toISOString() : null}
       seo={{
         title: row.title,
         seoTitle: row.seoTitle ?? "",

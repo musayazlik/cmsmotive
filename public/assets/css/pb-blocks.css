@@ -41,16 +41,17 @@
 /*
  * Fallback stacking at the site's own breakpoints (site.css: 900px / 620px).
  * Tablet folds 4 columns to 2; mobile stacks every variant to one column.
- * Scoped element styles (media queries) may override.
+ * Generated scoped rules ([data-pb="id"][data-pb], later in the cascade) beat
+ * these, so editor column overrides win on every breakpoint.
  */
 @media (max-width: 900px) {
-  [data-pb][data-pb].pb-grid--4 {
+  [data-pb].pb-grid--4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 620px) {
-  [data-pb][data-pb].pb-grid {
+  [data-pb].pb-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

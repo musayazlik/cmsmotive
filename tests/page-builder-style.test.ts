@@ -113,7 +113,7 @@ test("compiler scopes every rule to the block and layers base → tablet → mob
 
   const mobileIndex = css.indexOf(`@media (${BREAKPOINTS.mobile})`);
   const tabletIndex = css.indexOf(`@media (${BREAKPOINTS.tablet})`);
-  assert.ok(css.includes('[data-pb="hero"]{font-size:56px}'), css);
+  assert.ok(css.includes('[data-pb="hero"][data-pb]{font-size:56px}'), css);
   assert.ok(tabletIndex > -1 && mobileIndex > tabletIndex, css);
   assert.ok(css.slice(tabletIndex).includes("font-size:44px"));
   assert.ok(css.slice(mobileIndex).includes("font-size:34px"));
@@ -130,7 +130,7 @@ test("compiler emits grid layout into the base layer and overrides into device b
     ],
   } as never);
   // The scoped rule sits outside any media query — the base layer.
-  assert.ok(css.startsWith('[data-pb="g"]{grid-template-columns:minmax(0, 2fr) minmax(0, 1fr);gap:24px}'), css);
+  assert.ok(css.startsWith('[data-pb="g"][data-pb]{grid-template-columns:minmax(0, 2fr) minmax(0, 1fr);gap:24px}'), css);
   // No override props → no device-band grid rules (the stylesheet's own stacking applies).
   const mediaStates = css.match(/@media[^{]+\{[\s\S]*?\}/g) ?? [];
   for (const block of mediaStates) assert.ok(!block.includes("grid-template-columns"), css);
@@ -157,8 +157,8 @@ test("compiler emits grid layout into the base layer and overrides into device b
   } as never);
   const tabletBand = responsive.slice(responsive.indexOf(`@media (${BREAKPOINTS.tablet})`), responsive.indexOf(`@media (${BREAKPOINTS.mobile})`));
   const mobileBand = responsive.slice(responsive.indexOf(`@media (${BREAKPOINTS.mobile})`));
-  assert.ok(tabletBand.includes('[data-pb="g"]{grid-template-columns:repeat(2, minmax(0, 1fr))}'), responsive);
-  assert.ok(mobileBand.includes('[data-pb="g"]{grid-template-columns:minmax(0, 1fr) minmax(0, 2fr)}'), responsive);
+  assert.ok(tabletBand.includes('[data-pb="g"][data-pb]{grid-template-columns:repeat(2, minmax(0, 1fr))}'), responsive);
+  assert.ok(mobileBand.includes('[data-pb="g"][data-pb]{grid-template-columns:minmax(0, 1fr) minmax(0, 2fr)}'), responsive);
 });
 
 test("compiler renders gradient, dim overlay and shadow from validated values only", () => {
@@ -278,18 +278,18 @@ test("compiler emits one disjoint media band per hidden device, last so they win
   } as never);
 
   // Desktop: ≥901px; tablet: 621–900px; mobile: ≤620px — the site's breakpoints.
-  assert.ok(css.includes(`@media (min-width: ${BREAKPOINT_WIDTHS.tablet + 1}px){[data-pb="hero"]{display:none}}`), css);
+  assert.ok(css.includes(`@media (min-width: ${BREAKPOINT_WIDTHS.tablet + 1}px){[data-pb="hero"][data-pb]{display:none}}`), css);
   assert.ok(
     css.includes(
-      `@media (min-width: ${BREAKPOINT_WIDTHS.mobile + 1}px) and (max-width: ${BREAKPOINT_WIDTHS.tablet}px){[data-pb="hero"]{display:none}}`,
+      `@media (min-width: ${BREAKPOINT_WIDTHS.mobile + 1}px) and (max-width: ${BREAKPOINT_WIDTHS.tablet}px){[data-pb="hero"][data-pb]{display:none}}`,
     ),
     css,
   );
-  assert.ok(css.includes(`@media (max-width: ${BREAKPOINT_WIDTHS.mobile}px){[data-pb="hero"]{display:none}}`), css);
+  assert.ok(css.includes(`@media (max-width: ${BREAKPOINT_WIDTHS.mobile}px){[data-pb="hero"][data-pb]{display:none}}`), css);
 
   // Visibility bands come after the base/tablet/mobile layers so the cascade
   // cannot resurrect a hidden block.
-  const lastLayer = css.lastIndexOf(`[data-pb="hero"]{display:none}`);
+  const lastLayer = css.lastIndexOf(`[data-pb="hero"][data-pb]{display:none}`);
   assert.ok(lastLayer > css.indexOf(`@media (${BREAKPOINTS.mobile})`), css);
 });
 

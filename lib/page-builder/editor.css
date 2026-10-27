@@ -153,6 +153,93 @@
   color: #39444a;
 }
 
+/* Faz 4 rows (revisions + saved sections): note / date / actions. */
+.pb-editor-revisions-list p {
+  margin: 4px 8px;
+  font: 500 12px/1.4 "Manrope", sans-serif;
+  color: #758085;
+}
+
+.pb-editor-snippet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.pb-editor-snippet-row .pb-editor-button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.pb-editor-snippet-row:first-child .pb-editor-button:first-child {
+  flex: 1;
+}
+
+.pb-editor-compare {
+  padding: 6px 8px;
+  border-top: 1px solid #e2e6e4;
+}
+
+.pb-editor-compare p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+  font: 600 11px/1.4 "Manrope", sans-serif;
+  color: #39444a;
+}
+
+.pb-editor-compare-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.pb-editor-compare-panes pre {
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  background: #f7f8f5;
+  border: 1px solid #e2e6e4;
+  border-radius: 6px;
+  font: 400 10px/1.5 "DM Mono", monospace;
+  color: #39444a;
+}
+
+.pb-editor-select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #e2e6e4;
+  border-radius: 8px;
+  background: #fff;
+  font: 500 12px/1.4 "Manrope", sans-serif;
+  color: #39444a;
+}
+
+.pb-editor-schedule-state {
+  font: 500 11px/1.4 "DM Mono", monospace;
+  color: #b45309;
+  white-space: nowrap;
+}
+
+/* Puck header tools live in Puck's own toolbar; match our buttons loosely. */
+.pb-editor-snippets {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pb-editor-translate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .pb-editor-revisions-list li:hover {
   background: #f7f8f5;
 }

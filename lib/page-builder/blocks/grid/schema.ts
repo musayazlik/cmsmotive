@@ -66,8 +66,9 @@ export const gridPropsSchema = z.strictObject({
   ...advancedBlockPropsSchema,
   variant: z.enum(GRID_VARIANTS),
   gap: z.enum(Object.keys(GRID_GAP_VALUES) as [GridGap, ...GridGap[]]),
-  columnsTablet: z.enum(GRID_VARIANTS).optional(),
-  columnsMobile: z.enum(GRID_VARIANTS).optional(),
+  // The select offers "" for "inherit"; both map to undefined.
+  columnsTablet: z.preprocess((value) => (value === "" ? undefined : value), z.enum(GRID_VARIANTS).optional()),
+  columnsMobile: z.preprocess((value) => (value === "" ? undefined : value), z.enum(GRID_VARIANTS).optional()),
   col1: z.array(z.unknown()),
   col2: z.array(z.unknown()),
   col3: z.array(z.unknown()),

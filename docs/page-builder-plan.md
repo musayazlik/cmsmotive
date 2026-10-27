@@ -256,6 +256,8 @@ Her bloğa ortak **Stil** sekmesi eklenir. Değerler yapılandırılmış veri o
 - **Yetki:** `requirePanelUser()` / `requireAdmin()` + `panelStore()`. Tüm Server Action'lar mağaza kapsamını denetler.
 - **`/panel/pages`:** ana sayfa en üstte sabit. Dil başına durum, son düzenleyen, önizleme.
 - **`/panel/pages/[id]/edit?locale=de`:** tam ekran (P2), Puck.
+  - Oluşturmada boş adres başlıktan üretilir; başarılı oluşturma doğrudan yeni sayfanın editörüne gider.
+  - Puck blok kimliğini `props.id` içinde bekler. Eski kayıtlardaki kök `id`, belge kapısında içeriği değiştirmeden buraya taşınır; editör verisi de bu kapıdan geçer. Sayfa/dil değişiminde editör yeniden başlatılır.
   - **Sol:** kategoriler (Düzen, İçerik, Bölümler, Ürün verisi, Formlar, Kayıtlı bölümler) + anahat.
   - **Sağ:** İçerik / Stil / Gelişmiş.
   - **Kanvas:** kısa metinler için `contentEditable`. Zengin metin için `richtext` `contentEditable` + `renderInlineMenu`.
@@ -518,16 +520,26 @@ Doğrulanacaklar (her biri için sonuç Faz 1'den önce bu belgeye yazılır):
 - **Tema ve alanlar:** mağaza teması (Settings → Görünüm), `ProductPicker`, `LinkField`.
 - **Tamamlanma ölçütü:** ürün ve fiyat değişikliği yayın gerektirmeden sayfaya yansır.
 
-### Faz 3: Ana sayfa (M)
+### Faz 3: Ana sayfa (M) — TAMAMLANDI ✅
 
-- Proxy ana sayfa devralma (mağaza ve dil başına).
-- TYPO3 mağazası ana sayfası 5.9 listesine göre kurulur, de/en/tr içerik aktarılır.
-- Global mağaza için şablondan İngilizce ana sayfa (P1 gerekli).
-- **Tamamlanma ölçütü:** 5.9 kabul ölçütleri sağlanır.
+- Proxy ana sayfa devralma (mağaza ve dil başına): `decidePagePath` kök adresi (`/`, `/{locale}`) yayındaki ana sayfa belgesine (`slug ""`) rewrite eder; dilde yayın yoksa legacy index aynen devam eder. Builder rewrite'ları `builder: true` ile işaretlendi; proxy `Content-Language`, `Vary: Cookie` ve oturumluyken `Cache-Control: private, no-store` başlıklarını legacy ile aynı şekilde ayarlar.
+- TYPO3 mağazası ana sayfası 5.9 listesine göre kurulur, de/en/tr içerik aktarılır: `prisma/seeds/homepage.ts` (idempotent, yalnız eksikse ekler) — `loadCatalog` çevirileriyle Hero, ProductGrid (filtre + canlı veri), 3× FeatureGrid, ReviewList (canlı), CTA (Foundation), PricingTable, LatestPosts (canlı), FAQ, CTA, Newsletter. Her dil yayımlanır; unpublished → legacy'ye dönüş (Faz 1 ölçütü).
+- Global mağaza için şablondan İngilizce ana sayfa (P1): aynı tohum, öneksiz `/` (defaultLocale en).
+- **5.9 eşdeğerlik sağlandı:** `trackPageView(storeId, "index")`; bülten `privacyVersion` isteği anında `getLegalSettings`'ten (live-data); `addLegacySeo` → `pageMetadata` + CustomMetas + Organization/WebSite JSON-LD (yalnız ana sayfa); meta description hero alt başlığından okunur.
+- **Tohumun bulduğu düzeltmeler:** a11y denetimi HeroBlock'un H1'ini ana hat saymıyordu (`a11y.ts`); PricingTable boş CTA etiketi boş `<a>` basıyordu (render).
+- **Tamamlanma ölçütü:** proxy birim testleri (devralma + dil başına fallback), DB entegrasyonu ("ana sayfa devralma ve geri dönüş", bülten consent), `test:page-builder` 55/55, `test:page-builder:db` 9/9, typecheck ve build temiz. Canlı duman testi: `/`, `/en`, `/tr` 200 + `Content-Language` + Vary; `/de` → `/` 308. Ekran görüntüsü/Lighthouse karşılaştırması (5.9 kabulü) manuel adım olarak yayın öncesi yapılır.
 
-### Faz 4: Verimlilik (M)
+### Faz 4: Verimlilik (M) — TAMAMLANDI ✅
 
-Kayıtlı bölümler ve şablonlar, zamanlanmış yayın, revizyon karşılaştırma ve geri alma, stil kopyala/yapıştır, yapay zekâ çeviri ve taslak, font yöneticisi (sayfa bazlı preload), MCP araçları.
+Kayıtlı bölümler ve şablonlar, zamanlanmış yayın, revizyon karşılaştırma ve geri alma, stil kopyala/yapıştır, yapay zekâ çeviri ve MCP araçları. **Font yöneticisi ertelendi:** sayfa bazlı `usedFonts` preload zaten canlı (Faz 1); OFL yükleme + alt kümeleme araç zinciri (build-fonts.py mantığının sunucuya taşınması) ayrı iş olarak yapılacak.
+
+- **Kayıtlı bölümler/şablonlar:** `PageSnippet` (şema + migration Faz 1'den hazırdı), `lib/page-builder/snippets.ts` (kaydet/liste/sil; doküman kapısı `prepareDocument`, 200 KB sınırı), `/api/admin/pages/snippets` (GET/POST/DELETE). Editörde Puck `headerActions` override'ı (`editor-tools.tsx`): seçili bloğu bölüm olarak kaydet, bölümü ekle (kimlikler `regenerateBlockIds` ile yenilenir), şablonla tüm içeriği değiştir (onay sorulur), kaydı sil.
+- **Zamanlanmış yayın:** `schedulePage` (gelecek zaman doğrulaması, yayında olan sayılamaz, sürüm kontrollü; `null` = iptal) + `publishScheduledPages` cron süpürmesi (`/api/cron/notifications` içinde; erişilebilirlik engeli çıkarsa taslağa döner ve loglar). Editörde tarih-saat girişi + İptal.
+- **Revizyon geri alma ve karşılaştırma:** `/api/admin/pages/[id]/revisions` tek revizyonu okur; geri yükleme istemciden normal taslak kapısından (`saveDraft`, sürüm kontrollü) yapılır — doğrulama tek yerde kalır. Revizyon listesinde Compare (yan yana JSON) ve Restore.
+- **Stil kopyala/yapıştır/sıfırla:** seçili bloğun `props.style`'ı localStorage (`pb-style-clipboard`) üzerinden; tüm bloklar aynı `blockStyleSchema` kullandığı için yapıştırma her blokta geçerli.
+- **Yapay zekâ çeviri:** `lib/page-builder/ai.ts` saf yürüyücü (beyaz liste metin anahtarları; URL/uzun/teknik değerler dışarıda; tekrar eden değerler bir kez çevrilir), `translatePageAction`: Settings → AI `textModel` (boşsa katalog tercihi), JSON dizisi sözleşmesi, çıktı `prepareDocument` ile doğrulanır, hedef dil taslağı üzerinden kaydedilir (var olan hedef taslağın üzerine yazar; onay sorulur).
+- **MCP:** `mcp/tools/pages.ts` — `pages_list`, `page_get`, `page_update_draft` (sürüm kontrollü taslak kapısı), `page_publish` (erişilebilirlik engelleri hataya yazılır); `create-server.ts`'e kayıtlı.
+- **Tamamlanma ölçütü:** `test:page-builder` 61/61 (yeni `page-builder-tools.test.ts`: yürüyücü, blok arama/güncelleme, kimlik yenileme), `test:page-builder:db` 13/13 (bölüm CRUD + mağaza izolasyonu, zamanlama süpürmesi + zarif başarısızlık, revizyon geri alma), typecheck ve build temiz.
 
 ### Faz 5: İsteğe bağlı
 

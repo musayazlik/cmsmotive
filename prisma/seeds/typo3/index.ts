@@ -1,5 +1,6 @@
 import type { StoreSeed } from "../types";
 import { seedCatalog } from "./catalog";
+import { seedHomepage } from "../homepage";
 
 /** cmsmotive.de: TYPO3 themes and extensions for German-speaking markets. */
 const LEGAL_ENTITY = {
@@ -28,5 +29,8 @@ export const typo3Store: StoreSeed = {
     // The TYPO3 Association's trademark policy: product names never contain "TYPO3".
     legal: { ...LEGAL_ENTITY, contactEmail: "info@cmsmotive.de", privacyEmail: "info@cmsmotive.de", reservedNameTerms: "TYPO3", gplCodeRequired: true },
   },
-  content: seedCatalog,
+  content: async (storeId) => {
+    await seedCatalog(storeId);
+    await seedHomepage(storeId);
+  },
 };

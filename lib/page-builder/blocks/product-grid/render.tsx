@@ -45,8 +45,11 @@ export const ProductGridRender: PuckComponent<ProductGridProps> = ({
   lang,
   ariaLabel,
   _resolvedProducts,
+  puck,
 }) => {
-  const products = _resolvedProducts && _resolvedProducts.length > 0 ? _resolvedProducts : SAMPLE_PRODUCTS;
+  // Sample cards only exist to preview the block in the editor; the public
+  // page shows an empty grid when the store has no matching products.
+  const products = _resolvedProducts && _resolvedProducts.length > 0 ? _resolvedProducts : puck.isEditing ? SAMPLE_PRODUCTS : [];
   const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))) as string[];
   const gridElementId = `pg-${id || "grid"}`;
 

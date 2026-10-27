@@ -255,7 +255,7 @@ export async function createPage(storeId: string, input: CreatePageInput): Promi
   if (!store) return fail("Unknown store.", 404);
   if (!store.locales.includes(input.locale)) return fail(`The store has no "${input.locale}" language.`);
 
-  const slugCheck = validatePageSlug(input.slug ?? "", kind, await reservedPanelSegments());
+  const slugCheck = validatePageSlug(input.slug?.trim() || (kind === "home" ? "" : title), kind, await reservedPanelSegments());
   if (!slugCheck.ok) return fail(slugCheck.error);
   if (kind === "home" && (await prisma.page.findFirst({ where: { storeId, kind: "home" }, select: { id: true } }))) {
     return fail("The store already has a home page.");
@@ -678,6 +678,76 @@ export async function unpublishPage(
   });
   invalidatePageRegistry(storeId);
   return { data: { status: "unpublished" } };
+}
+
+/* ------------------------------------------------------------------ scheduling (plan 5.7, Faz 4) */
+
+/**
+ * Schedules (or cancels with `publishAt = null`) a future publish of the
+ * saved draft. Only a not-currently-published version can be scheduled; the
+ * sweep lives in publishScheduledPages and runs on the cron job.
+ */
+export async function schedulePage(
+  storeId: string,
+  pageId: string,
+  locale: string,
+  publishAt: string | null,
+  expectedVersion: number,
+  userId?: string,
+): Promise<AdminResult<{ status: string; publishAt: Date | null }>> {
+  const row = await prisma.pageLocale.findFirst({
+    where: { locale, page: { id: pageId, storeId } },
+    select: { id: true, status: true, version: true },
+  });
+  if (!row) return fail("Language version not found.", 404);
+  if (row.status === "published") return fail("The page is already live. Unpublish it before scheduling.");
+  if (expectedVersion !== row.version) return fail("The page changed elsewhere. Reload and try again.", 409);
+
+  let when: Date | null = null;
+  if (publishAt !== null) {
+    when = new Date(publishAt);
+    if (Number.isNaN(when.getTime())) return fail("Enter a valid date and time.");
+    if (when.getTime() <= Date.now()) return fail("Choose a time in the future.");
+  }
+  const status = when ? "scheduled" : "draft";
+  const result = await prisma.pageLocale.updateMany({
+    where: { id: row.id, version: row.version },
+    data: { status, publishAt: when, updatedById: userId },
+  });
+  if (result.count === 0) return fail("The page changed elsewhere. Reload and try again.", 409);
+  invalidatePageRegistry(storeId);
+  return { data: { status, publishAt: when } };
+}
+
+export type ScheduledSweepResult = { published: Array<{ pageId: string; locale: string }>; failed: number };
+
+/**
+ * The cron sweep: publishes every language version whose time has come. A
+ * failed publish (a11y blockers, stale version) drops back to draft and is
+ * logged — the page must not retry forever.
+ */
+export async function publishScheduledPages(now = new Date()): Promise<ScheduledSweepResult> {
+  const due = await prisma.pageLocale.findMany({
+    where: { status: "scheduled", publishAt: { lte: now } },
+    select: { pageId: true, locale: true, page: { select: { storeId: true } } },
+    take: 50,
+  });
+  const published: ScheduledSweepResult["published"] = [];
+  let failed = 0;
+  for (const entry of due) {
+    const result = await publishPage(entry.page.storeId, entry.pageId, entry.locale, { note: "Scheduled publish" });
+    if (result.ok) published.push({ pageId: entry.pageId, locale: entry.locale });
+    else {
+      failed += 1;
+      console.error(`scheduled publish failed (${entry.pageId}/${entry.locale})`, result.error, result.blockers ?? "");
+      await prisma.pageLocale.updateMany({
+        where: { pageId: entry.pageId, locale: entry.locale, status: "scheduled" },
+        data: { status: "draft", publishAt: null },
+      });
+      invalidatePageRegistry(entry.page.storeId);
+    }
+  }
+  return { published, failed };
 }
 
 /* ------------------------------------------------------------------ revisions */

@@ -43,6 +43,10 @@ export function auditDocumentA11y(data: PageBuilderData): A11yAudit {
     if (block.type === "HeadingBlock") {
       heading(HEADING_INDEX[(props.level as HeadingLevel) ?? "h2"] ?? 2, props.text);
     }
+    // The hero renders its title as the page H1; it counts in the outline too.
+    if (block.type === "HeroBlock" && plainText(props.title)) {
+      heading(1, props.title);
+    }
     if (block.type === "ImageBlock" && props.decorative !== true && !plainText(props.alt)) {
       blockers.push("An image has no alternative text. Set alt text or mark it decorative.");
     }

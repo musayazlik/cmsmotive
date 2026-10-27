@@ -7,7 +7,8 @@ import Link from "@/app/panel/_components/panel-navigation";
 import { useRouter } from "@/app/panel/_components/panel-navigation";
 import { clientConfig } from "@/lib/page-builder/config.client";
 import { EDITOR_VIEWPORTS, compileDocumentCss } from "@/lib/page-builder/style/css";
-import { publishPageAction, saveSeoAction } from "../_actions";
+import { publishPageAction, saveSeoAction, schedulePageAction } from "../_actions";
+import { EditorHeaderTools, EditorToolsProvider } from "./editor-tools";
 import "../../../../lib/page-builder/editor.css";
 
 /**
@@ -26,8 +27,14 @@ const AUTOSAVE_DEBOUNCE_MS = 1500;
 /** Minimum distance between two autosave requests, whatever the typing pace. */
 const AUTOSAVE_MIN_INTERVAL_MS = 5000;
 
-function IframeStylesheets({ document: iframeDocument }: { document?: Document }) {
-  useEffect(() => {
+/** datetime-local wants the wall-clock time, not UTC. */
+function toLocalInputValue(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function IframeStylesheets({ document: iframeDocument }: { document?: Document }) {  useEffect(() => {
     if (!iframeDocument) return;
     for (const href of STATIC_STYLESHEETS) {
       if (iframeDocument.head.querySelector(`link[href="${href}"]`)) continue;
@@ -70,7 +77,6 @@ function IframeOverride({ children, document }: { children: ReactNode; document?
 }
 
 export type EditorRevision = { id: string; note: string | null; createdAt: string };
-
 export type EditorSeo = {
   title: string;
   seoTitle: string;
@@ -91,6 +97,8 @@ export default function PageEditor({
   revisions,
   seo,
   themeCss,
+  status: initialStatus,
+  publishAt: initialPublishAt,
 }: {
   pageId: string;
   locale: string;
@@ -104,6 +112,8 @@ export default function PageEditor({
   revisions: EditorRevision[];
   seo: EditorSeo;
   themeCss?: string;
+  status: string;
+  publishAt: string | null;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -130,6 +140,14 @@ export default function PageEditor({
   const [seoValues, setSeoValues] = useState<EditorSeo>(seo);
   const [seoSaving, setSeoSaving] = useState(false);
   const [seoFeedback, setSeoFeedback] = useState<string | null>(null);
+  const [scheduleState, setScheduleState] = useState<{ status: string; publishAt: string | null }>({
+    status: initialStatus,
+    publishAt: initialPublishAt,
+  });
+  const [scheduleValue, setScheduleValue] = useState(initialPublishAt ? toLocalInputValue(initialPublishAt) : "");
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleNote, setScheduleNote] = useState<string | null>(null);
+  const [comparing, setComparing] = useState<{ revision: EditorRevision; data: Data } | null>(null);
 
   async function saveSeo() {
     setSeoSaving(true);
@@ -235,6 +253,64 @@ export default function PageEditor({
     return { ok: true };
   }, [saveNow]);
 
+  /** The tools override (inside Puck) registers its data applier here. */
+  const applyDataRef = useRef<(data: Data) => void>(() => {});
+  const toolsValue = useMemo(
+    () => ({
+      pageId,
+      locale,
+      storeLocales,
+      setPuckData: (data: Data) => {
+        latestRef.current = data;
+        scheduleSave();
+      },
+      applyDataRef,
+      goLocale: (candidate: string) => {
+        void (async () => {
+          await flushSave();
+          router.push(`/panel/pages/${pageId}/edit?locale=${candidate}`);
+        })();
+      },
+    }),
+    // scheduleSave/flushSave are stable (useCallback over stable deps).
+    [pageId, locale, storeLocales, scheduleSave, flushSave, router],
+  );
+
+  async function loadRevision(revisionId: string): Promise<Data | null> {
+    const response = await fetch(
+      `/api/admin/pages/${pageId}/revisions?locale=${encodeURIComponent(locale)}&revision=${encodeURIComponent(revisionId)}`,
+    );
+    const payload = (await response.json().catch(() => null)) as { data?: unknown } | null;
+    return response.ok && payload?.data ? (payload.data as Data) : null;
+  }
+
+  /** Rollback (Faz 4): the revision becomes the draft through the normal door. */
+  async function restoreRevision(revision: EditorRevision) {
+    if (!window.confirm("Restore this revision? The current draft is replaced (it stays in the revisions list).")) return;
+    const data = await loadRevision(revision.id);
+    if (!data) return setScheduleNote("The revision could not be loaded.");
+    applyDataRef.current(data);
+    await saveNow();
+    setScheduleNote("Revision restored into the draft.");
+  }
+
+  async function compareRevision(revision: EditorRevision) {
+    const data = await loadRevision(revision.id);
+    if (!data) return setScheduleNote("The revision could not be loaded.");
+    setComparing({ revision, data });
+  }
+
+  async function schedule(cancel = false) {
+    const when = cancel ? null : new Date(scheduleValue);
+    if (!cancel && (!scheduleValue || Number.isNaN(when?.getTime()))) return setScheduleNote("Pick a date and time first.");
+    setScheduling(true);
+    const result = await schedulePageAction(pageId, locale, cancel ? null : when!.toISOString(), versionRef.current);
+    setScheduling(false);
+    if (!result.ok) return setScheduleNote(result.error);
+    setScheduleState({ status: result.status ?? (cancel ? "draft" : "scheduled"), publishAt: result.publishAt ?? null });
+    setScheduleNote(cancel ? "Schedule cancelled." : `Scheduled — the publishing job runs it at ${when!.toLocaleString()}.`);
+  }
+
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (JSON.stringify(latestRef.current) !== savedJsonRef.current) {
@@ -281,6 +357,7 @@ export default function PageEditor({
 
   return (
     <ThemeContext.Provider value={themeCss ?? ""}>
+      <EditorToolsProvider value={toolsValue}>
       <div className="pb-editor">
       <div className="pb-editor-toolbar">
         <Link className="pb-editor-button" href="/panel/pages" onClick={() => void flushSave()}>
@@ -359,18 +436,64 @@ export default function PageEditor({
         ) : null}
         <details className="pb-editor-revisions">
           <summary className="pb-editor-button">Revisions ({revisions.length})</summary>
-          <ul className="pb-editor-revisions-list">
-            {revisions.length === 0 ? <li>No revisions yet — they are written on every publish.</li> : null}
+          <div className="pb-editor-revisions-list">
+            {revisions.length === 0 ? <p>No revisions yet — they are written on every publish.</p> : null}
             {revisions.map((revision) => (
-              <li key={revision.id}>
+              <div key={revision.id} className="pb-editor-snippet-row">
                 <span className="pb-editor-revision-note">{revision.note ?? "Published"}</span>
                 <span className="pb-editor-revision-date">
                   {new Date(revision.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </span>
-              </li>
+                <button type="button" className="pb-editor-button" onClick={() => void compareRevision(revision)}>
+                  Compare
+                </button>
+                <button type="button" className="pb-editor-button" onClick={() => void restoreRevision(revision)}>
+                  Restore
+                </button>
+              </div>
             ))}
-          </ul>
+            {comparing ? (
+              <div className="pb-editor-compare">
+                <p>
+                  {comparing.revision.note ?? "Published"} ·{" "}
+                  {new Date(comparing.revision.createdAt).toLocaleString()} vs current draft
+                  <button type="button" className="pb-editor-button" onClick={() => setComparing(null)}>
+                    Close
+                  </button>
+                </p>
+                <div className="pb-editor-compare-panes">
+                  <pre>{JSON.stringify(comparing.data, null, 2)}</pre>
+                  <pre>{JSON.stringify(latestRef.current, null, 2)}</pre>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </details>
+        {scheduleState.status === "scheduled" && scheduleState.publishAt ? (
+          <span className="pb-editor-schedule-state" title="Publishes automatically">
+            ⏰ {new Date(scheduleState.publishAt).toLocaleString()}
+          </span>
+        ) : null}
+        <input
+          type="datetime-local"
+          className="pb-editor-select"
+          aria-label="Publish at"
+          value={scheduleValue}
+          onChange={(event) => setScheduleValue(event.currentTarget.value)}
+        />
+        <button
+          type="button"
+          className="pb-editor-button"
+          disabled={scheduling || !scheduleValue}
+          onClick={() => void schedule(false)}
+        >
+          Schedule
+        </button>
+        {scheduleState.status === "scheduled" ? (
+          <button type="button" className="pb-editor-button" disabled={scheduling} onClick={() => void schedule(true)}>
+            Cancel schedule
+          </button>
+        ) : null}
         <button type="button" className="pb-editor-button" disabled={status === "saving" || conflictVersion !== null} onClick={() => void saveNow()}>
           Save draft
         </button>
@@ -439,9 +562,10 @@ export default function PageEditor({
           icon: viewport.icon,
         }))}
         iframe={{ enabled: true, waitForStyles: true, syncHostStyles: false }}
-        overrides={{ iframe: IframeOverride }}
+        overrides={{ iframe: IframeOverride, headerActions: EditorHeaderTools }}
       />
     </div>
+    </EditorToolsProvider>
     </ThemeContext.Provider>
   );
 }

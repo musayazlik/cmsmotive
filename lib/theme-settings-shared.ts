@@ -26,6 +26,10 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
 
 const HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const RADIUS_REGEX = /^\d{1,3}(?:px|rem)$/;
+// Font names land inside a <style> block and a quoted CSS string; anything
+// that could leave either (tags, quotes, backslash, declaration breaks,
+// url parentheses) is refused here AND stripped again in themeToCssVariables.
+const FONT_NAME_REGEX = /^[^<>"'\\{}();]*$/;
 
 export const themeSettingsSchema = z.object({
   primaryColor: z.string().regex(HEX_COLOR_REGEX, "Primary color must be a valid HEX color code (e.g. #4353e8)."),
@@ -33,8 +37,8 @@ export const themeSettingsSchema = z.object({
   surfaceColor: z.string().regex(HEX_COLOR_REGEX, "Surface color must be a valid HEX color code (e.g. #ffffff)."),
   inkColor: z.string().regex(HEX_COLOR_REGEX, "Text color must be a valid HEX color code (e.g. #101418)."),
   radius: z.string().regex(RADIUS_REGEX, "Corner radius must be specified in px or rem (e.g. 14px or 1rem)."),
-  fontSans: z.string().min(1).max(50),
-  fontMono: z.string().min(1).max(50),
+  fontSans: z.string().min(1).max(50).regex(FONT_NAME_REGEX, "Font name contains invalid characters."),
+  fontMono: z.string().min(1).max(50).regex(FONT_NAME_REGEX, "Font name contains invalid characters."),
 });
 
 export function validateThemeSettings(input: unknown): { error?: string; data?: ThemeSettings } {

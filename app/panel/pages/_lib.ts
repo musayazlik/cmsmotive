@@ -21,6 +21,14 @@ export type PageRow = {
   locales: PageLocaleRow[];
 };
 
+export function filterPages(rows: PageRow[], query: string, status: string): PageRow[] {
+  const needle = query.trim().toLocaleLowerCase();
+  return rows.filter((row) =>
+    (status === "all" || row.locales.some((locale) => locale.status === status)) &&
+    (!needle || `/${row.slug} ${row.locales.map((locale) => locale.title).join(" ")}`.toLocaleLowerCase().includes(needle)),
+  ).sort((a, b) => Number(b.kind === "home") - Number(a.kind === "home"));
+}
+
 export const STATUS_LABELS: Record<LocaleStatus, string> = {
   draft: "Draft",
   published: "Published",

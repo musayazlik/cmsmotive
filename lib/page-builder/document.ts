@@ -1,4 +1,5 @@
-import type { PageBuilderData } from "./data";
+import { walkBlocks, type PageBuilderData } from "./data";
+import { createBlockId } from "./ids";
 import { sanitizeDocumentContent } from "./sanitize";
 import { validateDocument } from "./validate";
 
@@ -32,7 +33,18 @@ export function prepareDocument(input: unknown): PreparedDocument {
   if (Buffer.byteLength(json, "utf8") > MAX_DOCUMENT_BYTES) {
     return { ok: false, error: "Document exceeds the 1 MB limit." };
   }
-  const validation = validateDocument(JSON.parse(json));
+  const document = JSON.parse(json);
+  if (document && Array.isArray(document.content)) {
+    walkBlocks(document, (block) => {
+      if (!block.props) return;
+      // Older seeds put ids on the envelope; Puck's outline requires props.id.
+      if (block.props.id === undefined) {
+        const legacyId = (block as unknown as { id?: unknown }).id;
+        block.props.id = typeof legacyId === "string" ? legacyId : createBlockId();
+      }
+    });
+  }
+  const validation = validateDocument(document);
   if (!validation.ok) return validation;
   const data = validation.data as PageBuilderData;
   sanitizeDocumentContent(data);

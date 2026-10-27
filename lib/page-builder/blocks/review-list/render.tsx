@@ -35,8 +35,11 @@ export const ReviewListRender: PuckComponent<ReviewListProps> = ({
   lang,
   ariaLabel,
   _resolvedReviews,
+  puck,
 }) => {
-  const reviews = _resolvedReviews && _resolvedReviews.length > 0 ? _resolvedReviews : SAMPLE_REVIEWS;
+  // Sample voices only preview the block in the editor; the public page stays
+  // empty when the store has no approved reviews.
+  const reviews = _resolvedReviews && _resolvedReviews.length > 0 ? _resolvedReviews : puck.isEditing ? SAMPLE_REVIEWS : [];
 
   return (
     <section data-pb={id} {...blockAttributes({ id, lang, ariaLabel })} className="container" style={{ margin: "50px auto" }}>

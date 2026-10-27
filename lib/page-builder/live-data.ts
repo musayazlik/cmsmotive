@@ -1,6 +1,7 @@
+import { getLegalSettings } from "@/lib/legal";
 import { prisma } from "@/lib/prisma";
 import { formatAmount } from "@/lib/prices";
-import type { PageBuilderData } from "./data";
+import { walkBlocks, type PageBuilderData } from "./data";
 import type { ResolvedProduct } from "./blocks/product-grid/schema";
 import type { ResolvedReview } from "./blocks/review-list/schema";
 import type { ResolvedPost } from "./blocks/latest-posts/schema";
@@ -19,12 +20,27 @@ export async function resolveLivePageData(
 ): Promise<PageBuilderData> {
   const cloned: PageBuilderData = JSON.parse(JSON.stringify(document));
 
-  const allItems: any[] = [...(cloned.content || [])];
+  // Every block in the document, including blocks nested in Container/Grid/
+  // Section/Stack slots — a hero inside a section must resolve too (plan 5.2).
+  const allItems: any[] = [];
+  walkBlocks(cloned, (block) => allItems.push(block));
   if (cloned.zones) {
     for (const zoneItems of Object.values(cloned.zones)) {
-      if (Array.isArray(zoneItems)) {
-        allItems.push(...zoneItems);
-      }
+      if (Array.isArray(zoneItems)) allItems.push(...zoneItems.filter((item) => item && typeof item === "object"));
+    }
+  }
+
+  // The newsletter consent version follows the store's current legal settings
+  // at request time, like the legacy home page's data-consent-version (plan 5.9).
+  const newsletterBlocks = allItems.filter((item) => item?.type === "NewsletterBlock");
+  if (newsletterBlocks.length > 0) {
+    try {
+      const { privacyVersion } = await getLegalSettings(storeId);
+      // Same character filter as the legacy route's consent-version injection.
+      const version = privacyVersion.replace(/[^a-zA-Z0-9.-]/g, "").slice(0, 50);
+      for (const item of newsletterBlocks) item.props.privacyVersion = version;
+    } catch (err) {
+      console.error("Error resolving the legal privacy version:", err);
     }
   }
 

@@ -37,24 +37,27 @@ export const PricingTableRender: PuckComponent<PricingTableProps> = ({
                   <li key={fi}>{feat}</li>
                 ))}
               </ul>
-              <a
-                href={plan.ctaHref || "#"}
-                className={`btn pb-button ${plan.featured ? "pb-button--primary" : "pb-button--outline"} pb-button--md`}
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  padding: "10px 18px",
-                  borderRadius: "var(--radius, 14px)",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  marginTop: "auto",
-                  background: plan.featured ? "var(--indigo, #4353e8)" : "transparent",
-                  color: plan.featured ? "#fff" : "var(--indigo, #4353e8)",
-                  border: `1px solid var(--indigo, #4353e8)`,
-                }}
-              >
-                {plan.ctaLabel}
-              </a>
+              {/* An empty label renders no anchor: a blank link is an accessibility blocker (plan 5.11). */}
+              {plan.ctaLabel ? (
+                <a
+                  href={plan.ctaHref || "#"}
+                  className={`btn pb-button ${plan.featured ? "pb-button--primary" : "pb-button--outline"} pb-button--md`}
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    padding: "10px 18px",
+                    borderRadius: "var(--radius, 14px)",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    marginTop: "auto",
+                    background: plan.featured ? "var(--indigo, #4353e8)" : "transparent",
+                    color: plan.featured ? "#fff" : "var(--indigo, #4353e8)",
+                    border: `1px solid var(--indigo, #4353e8)`,
+                  }}
+                >
+                  {plan.ctaLabel}
+                </a>
+              ) : null}
             </div>
           );
         })}

@@ -7,6 +7,8 @@ import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../theme-settings-sh
  */
 export function themeToCssVariables(theme: Partial<ThemeSettings>): string {
   const merged: ThemeSettings = { ...DEFAULT_THEME_SETTINGS, ...theme };
+  // Second line of defense for rows stored before FONT_NAME_REGEX existed.
+  const safeFont = (name: string) => name.replace(/[^A-Za-z0-9 _.-]/g, "").trim() || "sans-serif";
   const vars = [
     `--indigo:${merged.primaryColor}`,
     `--indigo-solid:${merged.primaryColor}`,
@@ -15,8 +17,8 @@ export function themeToCssVariables(theme: Partial<ThemeSettings>): string {
     `--raised:${merged.surfaceColor}`,
     `--ink:${merged.inkColor}`,
     `--radius:${merged.radius}`,
-    `--font-sans:'${merged.fontSans}',sans-serif`,
-    `--font-mono:'${merged.fontMono}',monospace`,
+    `--font-sans:'${safeFont(merged.fontSans)}',sans-serif`,
+    `--font-mono:'${safeFont(merged.fontMono)}',monospace`,
   ];
   return `:root{${vars.join(";")}}`;
 }

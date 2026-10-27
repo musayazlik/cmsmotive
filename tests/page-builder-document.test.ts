@@ -143,6 +143,40 @@ test("prepareDocument validates and cleans a copy and refuses oversize input", (
   assert.equal(renderableDocument({ content: "nope" }), null);
 });
 
+test("legacy block ids are promoted into Puck props across slots without changing the input", () => {
+  const input = doc([{
+    id: "legacy-container",
+    type: "ContainerBlock",
+    props: { width: "default", children: [{ id: "legacy-heading", type: "HeadingBlock", props: { text: "Home", level: "h1" } }] },
+  }]);
+  const original = structuredClone(input);
+  const prepared = prepareDocument(input);
+  assert.ok(prepared.ok, prepared.ok ? "" : prepared.error);
+  if (!prepared.ok) return;
+  const ids: string[] = [];
+  walkBlocks(prepared.data, (block) => ids.push(block.props.id));
+  assert.deepEqual(ids, ["legacy-container", "legacy-heading"]);
+  assert.deepEqual(input, original);
+  assert.deepEqual(prepareDocument(prepared.data), prepared, "opening an adapted document keeps its ids stable");
+});
+
+test("missing ids are assigned, explicit ids win, and invalid or duplicate ids still fail", () => {
+  const prepared = prepareDocument(doc([
+    { type: "HeadingBlock", props: { text: "Home", level: "h1" } },
+    { id: "old-id", type: "TextBlock", props: { id: "current-id", content: "Text" } },
+  ]));
+  assert.ok(prepared.ok);
+  if (!prepared.ok) return;
+  assert.match(prepared.data.content[0].props.id, /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/);
+  assert.equal(prepared.data.content[1].props.id, "current-id");
+  assert.equal(prepareDocument(doc([{ id: "bad id", type: "TextBlock", props: { content: "Text" } }])).ok, false);
+  assert.equal(prepareDocument(doc([
+    { id: "same", type: "TextBlock", props: { content: "One" } },
+    { id: "same", type: "TextBlock", props: { content: "Two" } },
+  ])).ok, false);
+  assert.equal(prepareDocument(doc([{ type: "TextBlock", props: null }])).ok, false);
+});
+
 test("a hostile stored document never reaches the page through <Render>", () => {
   // Puck prints rich text exactly as stored, so cleaning before render is the defence.
   const hostile = doc([

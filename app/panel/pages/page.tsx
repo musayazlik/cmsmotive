@@ -47,13 +47,10 @@ export default async function PagesPage() {
       </div>
       <div className="workspace-intro">
         <div>
-          <h1>
-            Pages built with the <em>visual editor.</em>
-          </h1>
+          <h1>Pages</h1>
           <p>
-            Drag-and-drop pages rendered with the site&apos;s own blocks. Draft freely per language, preview the
-            result in the real site frame and publish when the accessibility checks pass — unpublishing
-            returns the address to the previous site instantly.
+            Manage your site&apos;s pages and language versions. Open a page to edit its content,
+            preview changes and publish when it&apos;s ready.
           </p>
         </div>
         <span className="workspace-index">PAGES</span>

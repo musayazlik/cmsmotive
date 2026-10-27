@@ -325,7 +325,7 @@ export function compileDocumentCss(data: PageBuilderData): string {
   walkBlocks(data, (block) => {
     const id = (block.props as { id?: unknown }).id;
     if (typeof id !== "string" || !ID_PATTERN.test(id)) return;
-    const selector = `[data-pb="${id}"]`;
+    const selector = `[data-pb="${id}"][data-pb]`;
     const { base, tablet, mobile } = blockDeclarations(block);
     if (base.length) baseRules.push(`${selector}{${base.join(";")}}`);
     if (tablet.length) tabletRules.push(`${selector}{${tablet.join(";")}}`);

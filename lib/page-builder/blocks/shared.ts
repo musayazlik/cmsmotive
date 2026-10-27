@@ -15,6 +15,22 @@ import { z } from "zod";
  */
 export const BCP47_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i;
 
+/**
+ * Puck's plain array field has no string mode: the editor writes `[{text}]`
+ * rows while the schemas (and renderers) speak `string[]`. This preprocess
+ * normalizes the editor shape on the document door, so the stored document
+ * stays plain strings everywhere.
+ */
+export function textList<T extends z.ZodType>(inner: T) {
+  return z.preprocess(
+    (value) =>
+      Array.isArray(value)
+        ? value.map((item) => (item && typeof item === "object" && "text" in item ? String((item as { text?: unknown }).text ?? "") : item))
+        : value,
+    inner,
+  );
+}
+
 export type AdvancedBlockProps = {
   /** Element language; rendered as the `lang` attribute on the block root. */
   lang?: string;

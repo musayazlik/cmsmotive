@@ -189,3 +189,69 @@ test("a11y audit reads rich text headings and image alts through the same rules"
   assert.ok(audit.blockers.some((message) => message.includes("skips a level")));
   assert.ok(audit.blockers.some((message) => message.includes("alternative text")));
 });
+
+test("Faz 2 theme settings: validation and css custom properties output", () => {
+  const { validateThemeSettings, DEFAULT_THEME_SETTINGS } = require("../lib/theme-settings-shared");
+  const { themeToCssVariables } = require("../lib/page-builder/theme");
+
+  const valid = validateThemeSettings(DEFAULT_THEME_SETTINGS);
+  assert.equal(!("error" in valid) || !valid.error, true);
+
+  const invalidColor = validateThemeSettings({ ...DEFAULT_THEME_SETTINGS, primaryColor: "red" });
+  assert.equal(Boolean(invalidColor.error), true);
+
+  const invalidRadius = validateThemeSettings({ ...DEFAULT_THEME_SETTINGS, radius: "14" });
+  assert.equal(Boolean(invalidRadius.error), true);
+
+  const css = themeToCssVariables({ primaryColor: "#123456", radius: "8px" });
+  assert.ok(css.includes("--indigo:#123456"));
+  assert.ok(css.includes("--radius:8px"));
+  assert.ok(css.startsWith(":root{"));
+});
+
+test("Faz 2 live data and compound section schemas validate correctly", () => {
+  const { productGridPropsSchema } = require("../lib/page-builder/blocks/product-grid/schema");
+  const { heroPropsSchema } = require("../lib/page-builder/blocks/hero/schema");
+  const { ctaPropsSchema } = require("../lib/page-builder/blocks/cta/schema");
+  const { faqPropsSchema } = require("../lib/page-builder/blocks/faq/schema");
+  const { newsletterPropsSchema } = require("../lib/page-builder/blocks/newsletter/schema");
+  const { contactPropsSchema } = require("../lib/page-builder/blocks/contact/schema");
+
+  assert.equal(productGridPropsSchema.safeParse({ category: "Themes", limit: 6, columns: 3 }).success, true);
+  assert.equal(productGridPropsSchema.safeParse({ limit: 99 }).success, false); // limit max 24
+
+  assert.equal(heroPropsSchema.safeParse({ title: "Hero Title", primaryButtonHref: "/buy", align: "center" }).success, true);
+  assert.equal(heroPropsSchema.safeParse({ title: "", primaryButtonHref: "/buy" }).success, false);
+
+  assert.equal(ctaPropsSchema.safeParse({ title: "CTA Title", buttonText: "Click", buttonHref: "/products", variant: "brand" }).success, true);
+  assert.equal(ctaPropsSchema.safeParse({ title: "CTA Title", buttonText: "Click", buttonHref: "javascript:void(0)" }).success, false);
+
+  assert.equal(faqPropsSchema.safeParse({ items: [{ question: "Q1", answer: "A1" }] }).success, true);
+  assert.equal(newsletterPropsSchema.safeParse({ title: "Newsletter" }).success, true);
+  assert.equal(contactPropsSchema.safeParse({ title: "Contact Us" }).success, true);
+});
+
+test("Faz 2 blocks validate inside a document and reject invalid data", () => {
+  const faz2Doc = doc([
+    block("HeadingBlock", { text: "Main Title", level: "h1" }),
+    block("HeroBlock", { title: "Welcome Hero", primaryButtonHref: "/products", primaryButtonText: "Explore" }),
+    block("ProductGridBlock", { limit: 6, columns: 3 }),
+    block("ProductSpotlightBlock", { productSlug: "sample-theme", headline: "Spotlight" }),
+    block("PricingTableBlock", { title: "Pricing", plans: [] }),
+    block("ReviewListBlock", { limit: 3, columns: 3 }),
+    block("LatestPostsBlock", { limit: 3, columns: 3 }),
+    block("FeatureGridBlock", { title: "Features", columns: 3, items: [] }),
+    block("StatsBlock", { items: [{ value: "100%", label: "Satisfaction" }] }),
+    block("LogoCloudBlock", { title: "Clients", logos: [] }),
+    block("TestimonialsBlock", { title: "Reviews", items: [] }),
+    block("FAQBlock", { title: "FAQ", items: [] }),
+    block("CTABlock", { title: "Call to Action", buttonText: "Start", buttonHref: "/signup" }),
+    block("ComparisonTableBlock", { title: "Compare", columns: ["Feature", "Standard"], rows: [] }),
+    block("StepsBlock", { title: "Workflow", steps: [] }),
+    block("NewsletterBlock", { title: "Newsletter" }),
+    block("ContactBlock", { title: "Contact" }),
+  ]);
+
+  const validation = validateDocument(faz2Doc);
+  assert.equal(validation.ok, true);
+});

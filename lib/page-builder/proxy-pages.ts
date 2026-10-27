@@ -24,7 +24,7 @@ export const REACT_PAGE_SLUGS = ["blog", "products", "imprint", "privacy", "term
 const REACT_SUBPATH_SLUGS = new Set(["blog", "products"]);
 
 export type PagePathDecision =
-  | { action: "rewrite"; destination: string; locale: string }
+  | { action: "rewrite"; destination: string; locale: string; /** Set for builder page rewrites: the proxy adds the legacy page headers (plan 5.9). */ builder?: boolean }
   | { action: "redirect"; destination: string; permanent: boolean }
   | { action: "untouched" };
 
@@ -51,16 +51,30 @@ export function decidePagePath(args: {
     locale,
   });
 
-  // Home page: builder-home inheritance is Faz 3; until then `/` keeps the
-  // legacy index of the store's default language.
-  if (segments.length === 0) return prefersLegacyIndex(store.defaultLocale);
+  const isPublished = (slug: string, locale: string) =>
+    args.registry.pages.some((page) => page.slug === slug && page.locales.includes(locale));
+  /** The home page (slug "") published in this locale takes over the locale root (Faz 3). */
+  const homePublishedIn = (locale: string) => isPublished("", locale);
+  const builderHome = (locale: string): PagePathDecision => ({
+    action: "rewrite",
+    destination: `/${locale}`,
+    locale,
+    builder: true,
+  });
+
+  // Home page: when the store's home page is published in the request's
+  // language, the builder inherits the root address (plan 5.9); otherwise the
+  // legacy index keeps serving. The default locale is unprefixed; another
+  // store locale rewrites onto its prefixed catch-all address.
+  if (segments.length === 0) {
+    if (homePublishedIn(store.defaultLocale)) return builderHome(store.defaultLocale);
+    return prefersLegacyIndex(store.defaultLocale);
+  }
 
   const [first, ...rest] = segments;
   const remainder = rest.join("/");
   const restFirst = rest[0] ?? "";
   const prefixedLocales = new Set(store.locales);
-  const isPublished = (slug: string, locale: string) =>
-    args.registry.pages.some((page) => page.slug === slug && page.locales.includes(locale));
   /**
    * 301 table from page renamings (plan 5.8); their targets land on live
    * content. `prefix` keeps the locale the request arrived on (null → the
@@ -82,7 +96,7 @@ export function decidePagePath(args: {
     const slug = segments.join("/");
     const unprefixedBuilder = isPublished(slug, store.defaultLocale);
     if (unprefixedBuilder) {
-      return { action: "rewrite", destination: `/${store.defaultLocale}/${slug}`, locale: store.defaultLocale };
+      return { action: "rewrite", destination: `/${store.defaultLocale}/${slug}`, locale: store.defaultLocale, builder: true };
     }
     const renamed = redirectOf(slug, null);
     if (renamed) return renamed;
@@ -118,7 +132,7 @@ export function decidePagePath(args: {
 
   // Another store locale: the catch-all answers published pages directly
   // (plan 5.8); the proxy fills in the legacy index and legacy HTML slugs.
-  if (remainder === "") return prefersLegacyIndex(first);
+  if (remainder === "") return homePublishedIn(first) ? builderHome(first) : prefersLegacyIndex(first);
   if (remainder === "index" || REACT_PAGE_SLUGS.includes(restFirst as (typeof REACT_PAGE_SLUGS)[number])) return UNTOUCHED;
   const renamed = redirectOf(remainder, first);
   if (renamed) return renamed;

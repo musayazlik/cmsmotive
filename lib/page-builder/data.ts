@@ -65,3 +65,35 @@ export function regenerateBlockIds(data: PageBuilderData): PageBuilderData {
   });
   return cloned;
 }
+
+/** The block with `id`, wherever it sits in the slot tree (null when gone). */
+export function findBlockById(data: Pick<Data, "content">, id: string): BlockData | null {
+  let found: BlockData | null = null;
+  walkBlocks(data, (block) => {
+    if (!found && (block.props as { id?: unknown }).id === id) found = block;
+  });
+  return found;
+}
+
+/** Depth-first rebuild of every content array, applying `fn` to each block. */
+function mapBlockList(blocks: unknown[], fn: (block: BlockData) => BlockData): unknown[] {
+  return blocks.map((block) => {
+    if (!isBlockData(block)) return block;
+    const next = fn(block);
+    const props = { ...(next.props as Record<string, unknown>) };
+    for (const slot of slotFieldsOf(next.type)) {
+      const value = props[slot];
+      if (Array.isArray(value)) props[slot] = mapBlockList(value, fn);
+    }
+    return { ...next, props };
+  });
+}
+
+/** New document with `update` applied to the block whose props.id matches. */
+export function updateBlockById(
+  data: PageBuilderData,
+  id: string,
+  update: (block: BlockData) => BlockData,
+): PageBuilderData {
+  return { ...data, content: mapBlockList(data.content ?? [], (block) => ((block.props as { id?: unknown }).id === id ? update(block) : block)) as Data["content"] };
+}

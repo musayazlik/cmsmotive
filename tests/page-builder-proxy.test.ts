@@ -61,10 +61,10 @@ test("unknown paths stay untouched so the catch-all 404s", () => {
 /* ------------------------------------------------------------------ builder pages */
 
 test("published builder slugs rewrite into the default locale for the catch-all", () => {
-  assert.deepEqual(decide("/black-friday"), { action: "rewrite", destination: "/de/black-friday", locale: "de" });
-  assert.deepEqual(decide("/campus/widget"), { action: "rewrite", destination: "/de/campus/widget", locale: "de" });
+  assert.deepEqual(decide("/black-friday"), { action: "rewrite", destination: "/de/black-friday", locale: "de", builder: true });
+  assert.deepEqual(decide("/campus/widget"), { action: "rewrite", destination: "/de/campus/widget", locale: "de", builder: true });
   // The trailing slash is normalized before matching.
-  assert.deepEqual(decide("/black-friday/"), { action: "rewrite", destination: "/de/black-friday", locale: "de" });
+  assert.deepEqual(decide("/black-friday/"), { action: "rewrite", destination: "/de/black-friday", locale: "de", builder: true });
 });
 
 test("a slug published only in a prefixed locale stays untouched for that prefix", () => {
@@ -108,6 +108,7 @@ test("document loads only: other methods pass through", () => {
     action: "rewrite",
     destination: "/de/black-friday",
     locale: "de",
+    builder: true,
   });
 });
 
@@ -121,6 +122,35 @@ test("an empty registry (database hiccup) still rewrites the legacy flow", () =>
   });
   assert.deepEqual(decide("/blog", "GET", { registry: empty }), { action: "rewrite", destination: "/de/blog", locale: "de" });
   assert.deepEqual(decide("/", "GET", { registry: empty }), { action: "rewrite", destination: "/legacy/de/index", locale: "de" });
+});
+
+/* ------------------------------------------------------------------ home page inheritance (Faz 3) */
+
+const withHome: StorePageRegistry = {
+  pages: [{ slug: "", kind: "home", locales: ["de", "en", "tr"] }, ...registry.pages],
+  redirects: registry.redirects,
+};
+const decideWithHome = (pathname: string, method = "GET") =>
+  decidePagePath({ pathname, method, store, registry: withHome, legacySlugs });
+
+test("a published home page inherits the root address in every store language", () => {
+  // The default locale stays unprefixed; other languages keep their prefix.
+  assert.deepEqual(decideWithHome("/"), { action: "rewrite", destination: "/de", locale: "de", builder: true });
+  assert.deepEqual(decideWithHome("/en"), { action: "rewrite", destination: "/en", locale: "en", builder: true });
+  assert.deepEqual(decideWithHome("/tr"), { action: "rewrite", destination: "/tr", locale: "tr", builder: true });
+  assert.deepEqual(decideWithHome("/", "HEAD"), { action: "rewrite", destination: "/de", locale: "de", builder: true });
+});
+
+test("the home page inherits only the locales it is published in", () => {
+  const enOnlyHome: StorePageRegistry = { pages: [{ slug: "", kind: "home", locales: ["en"] }], redirects: [] };
+  const decideEnHome = (pathname: string) => decidePagePath({ pathname, method: "GET", store, registry: enOnlyHome, legacySlugs });
+  assert.deepEqual(decideEnHome("/"), { action: "rewrite", destination: "/legacy/de/index", locale: "de" });
+  assert.deepEqual(decideEnHome("/en"), { action: "rewrite", destination: "/en", locale: "en", builder: true });
+  assert.deepEqual(decideEnHome("/tr"), { action: "rewrite", destination: "/legacy/tr/index", locale: "tr" });
+});
+
+test("the default-locale prefix still shortens to / with a published home page", () => {
+  assert.deepEqual(decideWithHome("/de"), { action: "redirect", destination: "/", permanent: true });
 });
 
 /* ------------------------------------------------------------------ legacy slug list */

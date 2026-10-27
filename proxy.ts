@@ -102,7 +102,16 @@ export async function proxy(request: NextRequest) {
       const destination = request.nextUrl.clone();
       destination.pathname = decision.destination;
       headers.set(LOCALE_HEADER, decision.locale);
-      return NextResponse.rewrite(destination, { request: { headers } });
+      const response = NextResponse.rewrite(destination, { request: { headers } });
+      // Builder pages answer with the same headers the legacy route sets
+      // (plan 5.9): the response language, cache splitting on cookies and —
+      // for signed-in visitors — a shared-cache ban.
+      if (decision.builder) {
+        response.headers.set("Content-Language", decision.locale);
+        response.headers.set("Vary", "Cookie");
+        if (await hasPanelSessionFor(request.headers)) response.headers.set("Cache-Control", "private, no-store");
+      }
+      return response;
     }
     if (decision.action === "redirect") {
       const destination = request.nextUrl.clone();

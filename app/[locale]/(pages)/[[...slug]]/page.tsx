@@ -9,10 +9,13 @@ import { serverConfig } from "@/lib/page-builder/config.server";
 import { resolveLivePageData } from "@/lib/page-builder/live-data";
 import { getThemeSettings } from "@/lib/settings";
 import { themeToCssVariables } from "@/lib/page-builder/theme";
+import { compileDocumentCss } from "@/lib/page-builder/style/css";
 import { renderableDocument } from "@/lib/page-builder/document";
 import { findPublishedPageLocale, type PublishedPageView } from "@/lib/page-builder/pages";
 import { isLocale, localizePath, type Locale } from "@/lib/i18n/config";
-import { pageMetadata } from "@/lib/seo";
+import { absoluteUrl, organizationSchema, pageMetadata, serializeJsonLd, siteOrigin } from "@/lib/seo";
+import { getSiteSettings } from "@/lib/settings";
+import CustomMetaTags from "../../_components/custom-metas";
 import { SiteFrame } from "../../_components/site-chrome";
 
 export const dynamic = "force-dynamic";
@@ -42,8 +45,8 @@ function pageDescription(view: PublishedPageView): string {
   let summary = "";
   walkBlocks(view.locale.published, (block) => {
     if (summary) return;
-    const props = (block.props ?? {}) as { text?: unknown; content?: unknown };
-    for (const value of [props.text, props.content]) {
+    const props = (block.props ?? {}) as { text?: unknown; content?: unknown; subtitle?: unknown };
+    for (const value of [props.subtitle, props.text, props.content]) {
       if (typeof value !== "string") continue;
       const plain = value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
       if (plain) {
@@ -61,10 +64,13 @@ function pageDescription(view: PublishedPageView): string {
  * published in (the legacy pages answer the rest), and the per-locale noindex
  * switch wins over the global SEO setting.
  */
+/** The builder home page keeps the root address: its catch-all slug is "" (plan 5.9). */
+const homePath = "";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale: localeParam, slug } = await params;
-  if (!isLocale(localeParam) || !slug?.length) return {};
-  const path = slug.join("/");
+  if (!isLocale(localeParam)) return {};
+  const path = slug?.join("/") ?? homePath;
   const [store, view] = await Promise.all([currentStore(), findPage((await currentStoreId()), path, localeParam)]);
   if (!view) return {};
   const defaultLocale = store.store.defaultLocale;
@@ -82,8 +88,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
   const published = new Set(view.publishedLocales);
   const languages: Record<string, string> = {};
-  for (const code of published) languages[code] = localizePath(`/${path}`, code as Locale, defaultLocale);
-  if (published.has(defaultLocale)) languages["x-default"] = localizePath(`/${path}`, defaultLocale, defaultLocale);
+  // Every store locale answers the root address (builder home where
+  // published, the legacy index elsewhere), so the home page lists them all;
+  // other slugs only list where the builder is actually live (plan 5.8/5.9).
+  const hreflangLocales = view.page.kind === "home" ? new Set([...published, ...store.store.locales]) : published;
+  for (const code of hreflangLocales) languages[code] = localizePath(`/${path}`, code as Locale, defaultLocale);
+  if (hreflangLocales.has(defaultLocale)) languages["x-default"] = localizePath(`/${path}`, defaultLocale, defaultLocale);
   metadata.alternates = { ...metadata.alternates, languages };
   if (view.locale.noindex) metadata.robots = { index: false, follow: true };
   return metadata;
@@ -92,10 +102,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BuilderPage({ params }: Props) {
   const { locale: localeParam, slug } = await params;
   if (!isLocale(localeParam)) notFound();
-  // The builder home page (slug "") inherits the root address in Faz 3; until
-  // then every root URL keeps its legacy flow, so an empty slug 404s here.
-  if (!slug?.length) notFound();
-  const path = slug.join("/");
+  const path = slug?.join("/") ?? homePath;
+  const isHome = path === homePath;
   const storeId = await currentStoreId();
   const view = await findPage(storeId, path, localeParam);
   if (!view) notFound();
@@ -103,10 +111,33 @@ export default async function BuilderPage({ params }: Props) {
   if (!rawDocument) notFound();
   const document = await resolveLivePageData(rawDocument, storeId, localeParam);
 
-  trackPageView(storeId, `page-${path}`);
+  // Stats continuity with the legacy flow: the home page counts as "index",
+  // every other page as `page-<slug>` (plan 5.9).
+  trackPageView(storeId, isHome ? "index" : `page-${path}`);
+
+  // The legacy home page ships Organization + WebSite JSON-LD (addLegacySeo);
+  // the builder home inherits it (plan 5.9). Other pages add none yet.
+  let homeJsonLd: string | null = null;
+  if (isHome) {
+    const origin = await siteOrigin();
+    const site = await getSiteSettings(storeId);
+    homeJsonLd = serializeJsonLd([
+      organizationSchema(origin, site),
+      {
+        "@type": "WebSite",
+        "@id": `${origin}/#website`,
+        name: site.siteName,
+        url: absoluteUrl(origin, localizePath("/", localeParam as Locale)),
+        inLanguage: localeParam,
+      },
+    ]);
+  }
 
   return (
-    <SiteFrame locale={localeParam} path={`/${path}`} current={`/${slug[0]}`}>
+    <SiteFrame locale={localeParam} path={`/${path}`} current={slug?.[0] ? `/${slug[0]}` : "/"}>
+      {/* Custom meta tags from Settings → SEO, as on the legacy pages (plan 5.9). */}
+      {isHome ? <CustomMetaTags /> : null}
+      {homeJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: homeJsonLd }} /> : null}
       {/* Fonts the page actually uses, preloaded for font-display: optional (plan 5.5). */}
       {view.locale.usedFonts.map((file) => (
         <link key={file} rel="preload" href={file} as="font" type="font/woff2" crossOrigin="anonymous" />
@@ -116,8 +147,10 @@ export default async function BuilderPage({ params }: Props) {
       <link rel="stylesheet" href="/assets/css/pb-blocks.css" precedence="default" />
       {/* Theme CSS variables from store settings (plan 5.5). */}
       <style dangerouslySetInnerHTML={{ __html: themeToCssVariables(await getThemeSettings(storeId)) }} />
-      {/* Scoped styles compiled at publish time stay the top layer of the cascade (plan 5.4). */}
-      {view.locale.publishedCss ? <style dangerouslySetInnerHTML={{ __html: view.locale.publishedCss }} /> : null}
+      {/* Scoped styles are recompiled from the published document at render
+          time: printing the stored column raw would make any write that
+          bypasses the publish door (backup restore) an HTML injection. */}
+      <style dangerouslySetInnerHTML={{ __html: compileDocumentCss(document) }} />
       <div className="pb-render">
         <Render config={serverConfig} data={document} />
       </div>

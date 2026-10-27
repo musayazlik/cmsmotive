@@ -64,12 +64,12 @@ export const gridBaseFields = {
   columnsTablet: {
     type: "select",
     label: "Columns on tablet (≤900px)",
-    options: [["", "Same as Columns"], ...GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant]))] as Array<[string, string]>,
+    options: [{ label: "Same as Columns", value: "" }, ...GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant]))],
   },
   columnsMobile: {
     type: "select",
     label: "Columns on mobile (≤620px)",
-    options: [["", "Same as Columns"], ...GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant]))] as Array<[string, string]>,
+    options: [{ label: "Same as Columns", value: "" }, ...GRID_VARIANTS.map((variant) => option(variant, GRID_VARIANT_LABELS[variant]))],
   },
   gap: {
     type: "select",

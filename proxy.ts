@@ -84,7 +84,7 @@ export async function proxy(request: NextRequest) {
 async function maintenanceResponse(request: NextRequest): Promise<Response | null> {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   // Legal information stays reachable while collecting reopening notifications.
-  if (/^\/(imprint|privacy|terms|cookies)$/.test(splitLocale(request.nextUrl.pathname).path)) return null;
+  if (/^\/(imprint|privacy|terms|cookies)$|^\/legal\/[a-z0-9-]+$/.test(splitLocale(request.nextUrl.pathname).path)) return null;
 
   let settings: MaintenanceSettings;
   let storeId: string;

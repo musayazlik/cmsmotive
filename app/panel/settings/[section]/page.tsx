@@ -1,5 +1,6 @@
 import { storeAdminWhere } from "@/lib/store-access";
 import { getLegalSettings } from "@/lib/legal";
+import { getLegalDocumentSettings } from "@/lib/legal-documents";
 import LegalSettingsForm from "../_components/legal-settings-form";
 import { requirePanelUser } from "@/lib/panel-auth";
 import { getAdminAccessSettings } from "@/lib/admin-access";
@@ -70,7 +71,7 @@ async function SettingsPanel({ tab }: { tab: SettingsTabId }) {
   const storeId = (await panelStore()).id;
   switch (tab) {
     case "legal":
-      return <LegalSettingsForm settings={await getLegalSettings(storeId)} />;
+      return <LegalSettingsForm settings={await getLegalSettings(storeId)} documents={await getLegalDocumentSettings(storeId)} />;
     case "security":
       return <SecuritySettingsForm settings={await getAdminAccessSettings()} origin={await siteOrigin()} />;
     case "general":

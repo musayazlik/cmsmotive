@@ -217,11 +217,10 @@ export default function PanelHeader({
       <div className="workspace-topbar-tools">
         <AssistantActivityMenu key={storeId} storeId={storeId} open={open === "activity"}
           onToggle={() => setOpen(open === "activity" ? null : "activity")} onClose={close} />
-        <a className="workspace-backlink" href={siteOrigin}>
+        <a className="workspace-backlink workspace-tool" href={siteOrigin} aria-label="View store" title="View store">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
           </svg>
-          <span>View store</span>
         </a>
 
         <div
@@ -231,8 +230,9 @@ export default function PanelHeader({
           }}
         >
           <button
-            className="wtopbar-icon"
+            className="wtopbar-icon workspace-tool"
             type="button"
+            title="Notifications"
             aria-haspopup="dialog"
             aria-expanded={open === "notifications"}
             aria-controls={
@@ -323,35 +323,18 @@ export default function PanelHeader({
           }}
         >
           <button
-            className="waccount"
+            className="waccount workspace-tool"
             type="button"
+            title="Account"
             aria-haspopup="dialog"
             aria-expanded={open === "account"}
             aria-controls={open === "account" ? accountMenuId : undefined}
             aria-label={`Account menu for ${user.name}`}
             onClick={() => setOpen(open === "account" ? null : "account")}
           >
-            <span className="waccount-avatar" aria-hidden="true">
-              {(firstName[0] ?? "?").toUpperCase()}
-            </span>
-            <span className="waccount-copy">
-              <span className="waccount-name">{firstName}</span>
-              <span className="waccount-role">{roleLabel}</span>
-            </span>
-            <svg
-              className="waccount-chevron"
-              viewBox="0 0 12 8"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M1 1.5 6 6.5 11 1.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
             </svg>
           </button>
 

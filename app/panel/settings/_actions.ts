@@ -1,5 +1,7 @@
 "use server";
 
+import { sanitizeLegalContent } from "@/lib/legal-content";
+
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -41,6 +43,8 @@ import { validateUploadSettings } from "@/lib/upload-settings-shared";
 import type { ActionResult } from "@/app/panel/media/_lib";
 import { saveLegalSettings } from "@/lib/legal";
 import { validateLegalSettings } from "@/lib/legal-settings-shared";
+import { saveLegalDocuments } from "@/lib/legal-documents";
+import { validateLegalDocuments } from "@/lib/legal-documents-shared";
 import { panelStore, panelStoreOrigin } from "@/lib/panel-store";
 
 const FORBIDDEN = "You are not allowed to perform this action.";
@@ -99,6 +103,18 @@ export async function saveSiteSettingsAction(input: Record<string, unknown>): Pr
 
 export async function saveLegalSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
   const result = await saveGroup("legal", input, validateLegalSettings, saveLegalSettings);
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
+}
+
+export async function saveLegalDocumentsAction(input: Record<string, unknown>): Promise<ActionResult> {
+  const result = await saveGroup("legal pages", input, (values) => {
+    const parsed = validateLegalDocuments(values);
+    if ("error" in parsed) return parsed;
+    return validateLegalDocuments({ documents: parsed.data.documents.map((document) => ({
+      ...document, content: sanitizeLegalContent(document.content),
+    })) });
+  }, saveLegalDocuments);
   if (result.ok) revalidatePath("/", "layout");
   return result;
 }

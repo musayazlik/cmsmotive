@@ -1,4 +1,6 @@
 "use client";
+import LegalPagesTable from "./legal-pages-table";
+import type { LegalDocumentSettings } from "@/lib/legal-documents-shared";
 import TextField from "@/app/panel/_components/ui/text-field";
 import TextArea from "@/app/panel/_components/ui/text-area";
 import Switch from "@/app/panel/_components/ui/switch";
@@ -11,20 +13,25 @@ import { SettingsFoot, useSettingsForm } from "./settings-kit";
 
 export default function LegalSettingsForm({
   settings,
+  documents,
 }: {
   settings: LegalSettings;
+  documents: LegalDocumentSettings;
 }) {
   const form = useSettingsForm(settings, saveLegalSettingsAction);
   const { values, set } = form;
   const missing = legalReadiness(values);
   return (
-    <div className="wtable-card wsettings-card">
-      <div className="wsettings-section">
-        <p className="wsection-label">Publication checklist</p>
+    <div className="wsettings-stack">
+      <LegalPagesTable settings={settings} saved={documents} />
+      <div className="wtable-card wsettings-card wlegal-business">
+      <details className="wlegal-details">
+        <summary><span><strong>Readiness & required information</strong><small>What still needs attention before registrations and sales can open.</small></span><span className={missing.length ? "wbadge wbadge-pending" : "wbadge wbadge-verified"}>{missing.length ? `${missing.length} to complete` : "Complete"}</span></summary>
+        <div className="wsettings-section">
         <p className="wfield-hint-block">
-          These details appear on the legal pages. Do not enter API keys or
-          private credentials. Complete and review them before accepting
-          registrations, subscriptions or publishing products for sale.
+          Business details populate the default legal pages. These checks also
+          control registrations, newsletters and sales. Editing a page does not
+          automatically mark it reviewed.
         </p>
         {missing.length ? (
           <ul>
@@ -36,8 +43,10 @@ export default function LegalSettingsForm({
           <p role="status">Account and privacy information is complete.</p>
         )}
       </div>
-      <div className="wsettings-section">
-        <p className="wsection-label">Seller identity</p>
+      </details>
+      <details className="wlegal-details">
+        <summary><span><strong>Business details</strong><small>Who operates the site. Used by the generated legal pages and account checks.</small></span></summary>
+        <div className="wsettings-section">
         {(
           [
             ["legalName", "Registered legal name"],
@@ -58,6 +67,7 @@ export default function LegalSettingsForm({
             value={values[key]}
             onChange={(v) => set(key, v)}
             maxLength={3000}
+            type={key === "contactEmail" || key === "privacyEmail" ? "email" : "text"}
           />
         ))}
         <TextArea
@@ -66,14 +76,7 @@ export default function LegalSettingsForm({
           onChange={(v) => set("address", v)}
           rows={3}
         />
-        <TextField
-          label="Trademarks product names may not contain"
-          hint="comma separated"
-          value={values.reservedNameTerms}
-          onChange={(v) => set("reservedNameTerms", v)}
-          maxLength={3000}
-          note="Checked before a product is published, e.g. a platform name products may only claim compatibility with."
-        />
+
         <label className="wfield">
           <span>Customer audience</span>
           <select
@@ -85,10 +88,14 @@ export default function LegalSettingsForm({
             <option value="b2c">Consumers</option>
             <option value="both">Businesses and consumers</option>
           </select>
+          <span className="wfield-hint-block">Used in the sales terms review: businesses, consumers or both.</span>
         </label>
       </div>
-      <div className="wsettings-section">
-        <p className="wsection-label">Data processing</p>
+      </details>
+      <details className="wlegal-details">
+        <summary><span><strong>Privacy & data handling</strong><small>Describe your actual providers and retention periods for the privacy policy.</small></span></summary>
+        <div className="wsettings-section">
+        <p className="wfield-hint-block">These facts populate the generated privacy policy. They remain part of the operational checks when you use custom page content.</p>
         {(
           [
             [
@@ -107,10 +114,7 @@ export default function LegalSettingsForm({
               "supervisoryAuthority",
               "Competent supervisory authority and contact",
             ],
-            [
-              "membershipDetails",
-              "Trademark or membership permission reference (internal)",
-            ],
+
           ] as const
         ).map(([key, label]) => (
           <TextArea
@@ -122,19 +126,23 @@ export default function LegalSettingsForm({
           />
         ))}
       </div>
-      <div className="wsettings-section">
-        <p className="wsection-label">Document versions and review</p>
+      </details>
+      <details className="wlegal-details">
+        <summary><span><strong>Review & consent versions</strong><small>Confirm document reviews and track the versions accepted by account holders.</small></span></summary>
+        <div className="wsettings-section">
         <TextField
           label="Account terms version"
           value={values.termsVersion}
           onChange={(v) => set("termsVersion", v)}
           maxLength={40}
+          note="Saved with user consent. Update after material document changes, for example 2026-10-27."
         />
         <TextField
           label="Privacy version"
           value={values.privacyVersion}
           onChange={(v) => set("privacyVersion", v)}
           maxLength={40}
+          note="Saved with user consent. Update after material document changes, for example 2026-10-27."
         />
         <Switch
           checked={values.accountTermsReviewed}
@@ -146,37 +154,39 @@ export default function LegalSettingsForm({
           onChange={(v) => set("privacyReviewed", v)}
           label="Privacy information reviewed against our actual providers and retention"
         />
-        <Switch
-          checked={values.gplCodeRequired}
-          onChange={(v) => set("gplCodeRequired", v)}
-          label="Products in this store are GPL code (TYPO3 extensions and themes)"
-          note="Code licences must then be GPL, and every uploaded package is checked for the GPL text, readable (not encoded) source and third-party notices."
-        />
+
         <Switch
           checked={values.salesTermsReviewed}
           onChange={(v) => set("salesTermsReviewed", v)}
           label="Sales terms reviewed for the selected customer audience"
           note="This does not enable a checkout. Every product must also pass its release checklist."
         />
-        <p>
-          <a href="/imprint" target="_blank" rel="noreferrer">
-            Imprint
-          </a>{" "}
-          ·{" "}
-          <a href="/privacy" target="_blank" rel="noreferrer">
-            Privacy
-          </a>{" "}
-          ·{" "}
-          <a href="/terms" target="_blank" rel="noreferrer">
-            Terms
-          </a>{" "}
-          ·{" "}
-          <a href="/cookies" target="_blank" rel="noreferrer">
-            Cookies
-          </a>
-        </p>
       </div>
+      </details>
+      <details className="wlegal-details">
+        <summary><span><strong>Product licensing & trademarks</strong><small>Optional publishing rules. Configure only when they apply to your catalogue.</small></span></summary>
+        <div className="wsettings-section">
+
+        <TextField
+          label="Trademarks product names may not contain"
+          hint="comma separated"
+          value={values.reservedNameTerms}
+          onChange={(v) => set("reservedNameTerms", v)}
+          maxLength={3000}
+          note="Checked before a product is published, e.g. a platform name products may only claim compatibility with."
+        />
+        <Switch
+          checked={values.gplCodeRequired}
+          onChange={(v) => set("gplCodeRequired", v)}
+          label="Products in this store are GPL code (TYPO3 extensions and themes)"
+          note="Code licences must then be GPL, and every uploaded package is checked for the GPL text, readable (not encoded) source and third-party notices."
+        />
+          <TextArea label="Trademark or membership permission reference" value={values.membershipDetails} onChange={(v) => set("membershipDetails", v)} rows={3} />
+          <p className="wfield-hint-block">Internal reference only; this note is not displayed on legal pages.</p>
+        </div>
+      </details>
       <SettingsFoot form={form} />
+      </div>
     </div>
   );
 }

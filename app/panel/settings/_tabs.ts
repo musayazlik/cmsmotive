@@ -5,7 +5,7 @@
  * in [section]/page.tsx.
  */
 export const SETTINGS_TABS = [
-  { id: "legal", label: "Legal", intro: "Seller identity, privacy information, document versions and the release checklist." },
+  { id: "legal", label: "Legal", intro: "Manage legal pages, footer links and the business details behind them." },
   {
     id: "general",
     label: "General",

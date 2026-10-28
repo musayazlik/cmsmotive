@@ -1,4 +1,6 @@
 import { getLegalSettings } from "@/lib/legal";
+import { getLegalDocumentSettings } from "@/lib/legal-documents";
+import { injectLegalFooter } from "@/lib/legal-documents-shared";
 import { notFound } from "next/navigation";
 import { htmlResponse, injectMaintenanceNotice, readLegacyPage } from "@/lib/legacy";
 import { trackPageView } from "@/lib/analytics";
@@ -38,6 +40,7 @@ export async function GET(_request: Request, context: { params: Promise<{ locale
     localized = localized.replace(/href="\/account"/g, `href="/account?lang=${locale}"`);
     localized = localized.replace(/href="\/auth\/sign-in"/g, `href="/auth/sign-in?lang=${locale}"`);
     const legal = await getLegalSettings(storeId);
+    localized = injectLegalFooter(localized, await getLegalDocumentSettings(storeId), locale);
     localized = localized.replace(/data-consent-version="[^"]*"/g, `data-consent-version="${legal.privacyVersion.replace(/[^a-zA-Z0-9.-]/g, "")}"`);
     // Inject after URL localization: private admin paths never get a public language prefix.
     const account=await getPublicAccount();

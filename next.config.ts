@@ -70,6 +70,7 @@ const nextConfig: NextConfig = {
       beforeFiles: [{ source: "/legacy/:path*", destination: "/__not-found" }],
       afterFiles: [
         ...["imprint", "privacy", "terms", "cookies"].map((slug) => ({ source: `/${slug}`, destination: `/de/${slug}` })),
+        { source: "/legal/:slug", destination: "/de/legal/:slug" },
         // `/en/blog` matches app/[locale]/blog directly; the German journal needs its locale filled in.
         { source: "/blog", destination: "/de/blog" },
         { source: "/blog/:slug", destination: "/de/blog/:slug" },

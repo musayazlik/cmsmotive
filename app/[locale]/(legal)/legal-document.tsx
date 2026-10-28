@@ -1,90 +1,65 @@
+import { sanitizeLegalContent } from "@/lib/legal-content";
 import { getLegalSettings } from "@/lib/legal";
+import { getLegalDocumentSettings } from "@/lib/legal-documents";
+import { isBuiltinLegalSlug, legalDocuments, legalDocumentPath } from "@/lib/legal-documents-shared";
 import { currentStoreId } from "@/lib/current-store";
 import { legalReadiness } from "@/lib/legal-settings-shared";
-import {
-  copy,
-  legalSections,
-  legalTitle,
-  type LegalSlug,
-} from "@/lib/legal-copy";
+import { copy, type LegalSlug } from "@/lib/legal-copy";
 import { isLocale, localizePath } from "@/lib/i18n/config";
 import { pageMetadata } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { SiteFrame } from "../_components/site-chrome";
-type Props = { params: Promise<{ locale: string }> };
-export function legalPage(slug: LegalSlug) {
-  async function generateMetadata({ params }: Props) {
-    const { locale } = await params;
+
+type Props = { params: Promise<{ locale: string; slug?: string }> };
+export function legalPage(builtin?: LegalSlug) {
+  async function resolve(params: Props["params"]) {
+    const { locale, slug: custom } = await params;
     if (!isLocale(locale)) notFound();
-    const title = legalTitle(slug, locale);
-    return pageMetadata({
-      locale,
-      path: `/${slug}`,
-      title: `${title} — CMSMotive`,
-      description: title,
-    });
+    const slug = builtin ?? custom;
+    if (!slug || (!builtin && isBuiltinLegalSlug(slug))) notFound();
+    const storeId = await currentStoreId();
+    const [settings, saved] = await Promise.all([getLegalSettings(storeId), getLegalDocumentSettings(storeId)]);
+    const documents = legalDocuments(settings, saved, locale);
+    const document = documents.find((d) => d.slug === slug && d.published);
+    if (!document) notFound();
+    return { locale, settings, documents, document, path: legalDocumentPath(slug) };
+  }
+  async function generateMetadata({ params }: Props) {
+    const { locale, document, path } = await resolve(params);
+    return pageMetadata({ locale, path, title: document.title + " — CMSMotive", description: document.title });
   }
   async function Page({ params }: Props) {
-    const { locale: l } = await params;
-    if (!isLocale(l)) notFound();
-    const s = await getLegalSettings(await currentStoreId());
-    const title = legalTitle(slug, l);
-    const incomplete = legalReadiness(s).length > 0;
+    const { locale: l, settings: s, documents, document, path } = await resolve(params);
     return (
-      <SiteFrame locale={l} path={`/${slug}`}>
+      <SiteFrame locale={l} path={path}>
         <section className="page-hero">
           <div className="container">
             <span className="eyebrow">CMSMotive / Legal</span>
-            <h1>{title}</h1>
+            <h1>{document.title}</h1>
           </div>
         </section>
         <section className="section">
           <div className="container legal-content">
-            {incomplete && (
+            {legalReadiness(s).length > 0 && (
               <p className="notice" role="status">
-                {copy(
-                  l,
+                {copy(l,
                   "Provider information is being completed. Product checkout is not available. For questions, contact the address below.",
                   "Die Anbieterangaben werden vervollständigt. Ein Produkt-Checkout ist nicht verfügbar. Fragen richten Sie an die unten genannte Adresse.",
                   "Sağlayıcı bilgileri tamamlanıyor. Ürün ödeme akışı açık değildir. Sorularınız için aşağıdaki iletişim adresini kullanın.",
                 )}
               </p>
             )}
-            <nav
-              className="legal-nav"
-              aria-label={copy(
-                l,
-                "Legal pages",
-                "Rechtliche Seiten",
-                "Hukuk sayfaları",
-              )}
-            >
-              {(["imprint", "privacy", "terms", "cookies"] as const).map(
-                (key) => (
-                  <a
-                    key={key}
-                    href={localizePath(`/${key}`, l)}
-                    aria-current={key === slug ? "page" : undefined}
-                  >
-                    {legalTitle(key, l)}
-                  </a>
-                ),
-              )}
+            <nav className="legal-nav" aria-label={copy(l, "Legal pages", "Rechtliche Seiten", "Hukuk sayfaları")}>
+              {documents.filter((d) => d.published && (d.showInFooter || d.slug === document.slug)).map((d) => (
+                <a key={d.slug} href={localizePath(legalDocumentPath(d.slug), l)} aria-current={d.slug === document.slug ? "page" : undefined}>
+                  {d.title}
+                </a>
+              ))}
             </nav>
-            <p className="micro">
-              {copy(l, "Document version", "Dokumentversion", "Belge sürümü")}:{" "}
-              {slug === "terms" ? s.termsVersion : s.privacyVersion}
-            </p>
-            {legalSections(slug, l, s).map((section, i) => (
-              <section className="legal-section" key={i}>
-                <h2>{section.title}</h2>
-                {section.paragraphs.filter(Boolean).map((text, j) => (
-                  <p className="legal-paragraph" key={j}>
-                    {text}
-                  </p>
-                ))}
-              </section>
-            ))}
+            {builtin && <p className="micro">
+              {copy(l, "Document version", "Dokumentversion", "Belge sürümü")}: {builtin === "terms" ? s.termsVersion : s.privacyVersion}
+            </p>}
+            <article className="legal-richtext" dangerouslySetInnerHTML={{ __html: sanitizeLegalContent(document.content) }} />
           </div>
         </section>
       </SiteFrame>

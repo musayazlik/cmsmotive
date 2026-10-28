@@ -9,6 +9,8 @@ import {accountMenuHtml,type PublicAccount} from "@/lib/site-account-menu";
 import { getAdminAccessSettings } from "@/lib/admin-access";
 import { getMaintenanceSettings } from "@/lib/settings";
 import { currentStoreId } from "@/lib/current-store";
+import { getLegalDocumentSettings } from "@/lib/legal-documents";
+import { legalFooterLinks } from "@/lib/legal-documents-shared";
 
 /**
  * Public-site chrome for the Next.js pages (journal, theme and extension detail pages), mirroring the markup the
@@ -141,7 +143,8 @@ export function SiteHeader({ locale, t, current, account, adminHref }: Omit<Chro
   );
 }
 
-export function SiteFooter({ locale, t }: Omit<ChromeProps, "path">) {
+export async function SiteFooter({ locale, t }: Omit<ChromeProps, "path">) {
+  const legalLinks = legalFooterLinks(await getLegalDocumentSettings(await currentStoreId()), locale);
   const href = (path: string) => localizePath(path, locale);
   const column = (label: string, links: [string, string][]) => (
     <div className="footer-col">
@@ -178,12 +181,10 @@ export function SiteFooter({ locale, t }: Omit<ChromeProps, "path">) {
             ["/about", "About"],
             ["/contact", "Contact"],
           ])}
-          {column("Legal", [
-            ["/imprint", "Imprint"],
-            ["/privacy", "Privacy"],
-            ["/terms", "Terms"],
-            ["/cookies", "Cookies"],
-          ])}
+          <div className="footer-col">
+            <div className="footer-label">{t("Legal")}</div>
+            {legalLinks.map((link) => <a key={link.href} href={link.href}>{link.title}</a>)}
+          </div>
         </div>
         <div className="footer-bottom">
           <p>

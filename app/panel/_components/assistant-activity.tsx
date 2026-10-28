@@ -80,16 +80,12 @@ export default function AssistantActivityMenu({ storeId, open, onToggle, onClose
   const running = activities.filter((activity) => activity.status === "running");
   const waiting = activities.filter((activity) => activity.status === "waiting");
   const active = activities.filter((activity) => isActiveActivity(activity.status));
-  const recent = activities.filter((activity) => !isActiveActivity(activity.status));
   const runningCount = running.length;
   useEffect(() => {
     if (!open || runningCount === 0) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [open, runningCount]);
-  const label = connection !== "live" ? "Activity offline"
-    : running.length ? `${running.length} running`
-    : waiting.length ? `${waiting.length} waiting` : "Activity";
   const summary = connection !== "live" ? "Activity connection is reconnecting. Last known results are shown."
     : `${running.length} operations in progress, ${waiting.length} waiting for your response.`;
 
@@ -97,28 +93,36 @@ export default function AssistantActivityMenu({ storeId, open, onToggle, onClose
     <div className="wmenu-anchor assistant-activity-anchor" onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget)) onClose();
     }}>
-      <button type="button" className="assistant-activity-trigger" aria-haspopup="dialog"
+      <button type="button" className="workspace-tool assistant-activity-trigger" aria-haspopup="dialog"
+        data-active={active.length > 0 && connection === "live"}
         aria-expanded={open} aria-controls={open ? id : undefined}
         aria-label={`Assistant activity. ${summary}`} title={`Assistant activity. ${summary}`} onClick={onToggle}>
-        <span className={`assistant-activity-indicator${running.length && connection === "live" ? " is-running" : ""}`} data-connected={connection === "live"} aria-hidden="true" />
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 10-12h-7z" /></svg>
-        <span className="assistant-activity-label">{label}</span>
-        {active.length > 0 ? <span className="assistant-activity-count">{active.length}</span> : null}
+        {active.length > 0 ? <span className="assistant-activity-count" aria-hidden="true">{active.length > 9 ? "9+" : active.length}</span> : null}
       </button>
       <span className="assistant-activity-sr" role="status" aria-atomic="true">{summary}</span>
       {open ? (
         <div className="wmenu assistant-activity-menu" id={id} role="dialog" aria-label="Assistant activity">
-          <div className="wmenu-head"><span>Assistant activity</span><span className="assistant-activity-connection" data-connected={connection === "live"}>
-            {connection === "live" ? "Live" : connection === "connecting" ? "Connecting…" : "Reconnecting…"}
-          </span></div>
-          <p className="assistant-activity-intro">Chat, MCP and Telegram operations for this store.</p>
+          <div className="assistant-activity-head">
+            <div className="assistant-activity-heading">
+              <span className="assistant-activity-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-12h-7z" /></svg></span>
+              <div><h2>Assistant activity</h2><p>Live operations for this store</p></div>
+            </div>
+            <span className="assistant-activity-connection" data-connected={connection === "live"}>
+              {connection === "live" ? "Live" : connection === "connecting" ? "Connecting…" : "Reconnecting…"}
+            </span>
+          </div>
           {connection !== "live" ? <div className="assistant-activity-offline">
-            <span>{activities.length ? "Showing the last received activity." : "Waiting for the activity connection."}</span>
+            <span>{active.length ? "Showing the last received activity." : "Waiting for the activity connection."}</span>
             <button type="button" className="wbtn wbtn-ghost wbtn-sm" onClick={() => setAttempt((value) => value + 1)}>Reconnect</button>
           </div> : null}
-          {activities.length === 0 && connection === "live" ? <p className="wmenu-empty">No assistant activity yet.</p> : null}
+          {active.length === 0 && connection === "live" ? <div className="assistant-activity-empty">
+            <span className="assistant-activity-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h4l3-8 4 16 3-8h2" /></svg></span>
+            <strong>All quiet for now</strong>
+            <p>Active operations will appear here<br />as your assistant gets to work.</p>
+          </div> : null}
           {active.length ? <ActivityList title="Active" activities={active} now={now} /> : null}
-          {recent.length ? <ActivityList title="Recent" activities={recent} now={now} /> : null}
+          <div className="assistant-activity-footer">Chat, MCP &amp; Telegram<span>Active operations only</span></div>
         </div>
       ) : null}
     </div>
@@ -127,8 +131,8 @@ export default function AssistantActivityMenu({ storeId, open, onToggle, onClose
 
 function ActivityList({ title, activities, now }: { title: string; activities: AssistantActivity[]; now: number }) {
   return <section className="assistant-activity-section" aria-label={title}>
-    <h3>{title}</h3>
-    <ul>{activities.map((activity) => <li key={activity.id} className="assistant-activity-item">
+    <h3>{title} operations <span>{activities.length}</span></h3>
+    <ul>{activities.map((activity) => <li key={activity.id} className="assistant-activity-item" data-status={activity.status}>
       <div className="assistant-activity-meta"><span>{SOURCE[activity.source]}</span>
         <span className="assistant-activity-status" data-status={activity.status}>{STATUS[activity.status]}</span></div>
       <strong>{activity.title}</strong>

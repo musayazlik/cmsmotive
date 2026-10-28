@@ -1,6 +1,19 @@
 .legal-content {
   max-width: 860px;
 }
+.legal-richtext{line-height:1.8;overflow-wrap:anywhere;overflow-x:auto}
+.legal-richtext h2{margin:36px 0 16px;font-size:1.5rem;line-height:1.3}
+.legal-richtext h3,.legal-richtext h4{margin:24px 0 12px;line-height:1.4}
+.legal-richtext p,.legal-richtext ul,.legal-richtext ol,.legal-richtext blockquote{margin-bottom:16px}
+.legal-richtext ul,.legal-richtext ol{padding-left:24px}
+.legal-richtext a{text-decoration:underline;text-underline-offset:3px}
+.legal-richtext table{width:100%;border-collapse:collapse;margin:24px 0}
+.legal-richtext td,.legal-richtext th{min-width:100px;border:1px solid var(--border,#dfe3e5);padding:12px;text-align:left;vertical-align:top}
+.legal-richtext th{background:var(--surface,#f5f6f5);font-weight:700}
+.legal-richtext td p:last-child,.legal-richtext th p:last-child{margin-bottom:0}
+.legal-richtext img{max-width:100%;height:auto}
+.legal-richtext blockquote{padding-left:20px;border-left:3px solid currentColor}
+.legal-richtext pre{overflow-x:auto;padding:16px;background:#f5f6f5}
 .legal-section {
   margin-block: 36px;
 }
